@@ -9,6 +9,7 @@ import * as ReferencePicker from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch } from './md.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
+import * as SM from './similar.js';
 import * as PI from './pindex.js';
 import { dialog, popMenu, toast, renderMd } from './shared.js';
 import { installMermaidObserver } from './mermaid.js';
@@ -728,7 +729,7 @@ function show(i) {
   active = Math.max(-1, Math.min(i, tabs.length - 1));
   const t = tabs[active];
   if (!t || t.k === 'empty') { cur = t || null; $('#pane').innerHTML = '<div class="none">左から選ぶか、「＋ 新規」で書き始めます。<br>Ctrl+クリックで新しいタブに開きます。</div>'; renderTabs(); return renderList(); }
-  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'export') openExport(t, true); else openTopic(t.name, t.mode, true);
+  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'export') openExport(t, true); else if (t.k === 'similar') openSimilar(t.base, true); else openTopic(t.name, t.mode, true);
 }
 function closeTab(i) {
   if (i < 0 || i >= tabs.length) return;
@@ -738,7 +739,7 @@ function closeTab(i) {
   show(active < 0 && tabs.length ? 0 : active);
 }
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
-  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'cards' ? '🗒 カード' : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
+  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'similar' ? '🔍 類似' : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
 function renderTabs() {
   drawIdBar();
   $('#tabbar').innerHTML = tabs.map((t, i) => `<div class="tab${i === active ? ' on' : ''}" data-ti="${i}"><span>${tabLabel(t)}</span><b class="x" data-close="${i}" title="閉じる (Ctrl+W)">×</b></div>`).join('')
@@ -834,6 +835,45 @@ async function changeId(note, v) {
   }
   await refreshDiaries(); openNote(note.s, v, null, true); return true;
 }
+// ===== 類似検索（右クリック → 類似検索 ／ 複数選択 → 🔍）=====
+// 選んだノート（1つ以上）に似たノートを、本文の言葉・キーワード・リンク・索引から探して、度数の高い順に並べる
+let simP = null, simSig = '';
+function simRows(st, base) {
+  const sig = notes.length + ':' + notes.reduce((m, n) => n.updated > m ? n.updated : m, '') + ':' + topics.length;
+  if (!simP || simSig !== sig) { simP = SM.prepare(notes, topics, L.mergeTopic); simSig = sig; }
+  const rows = SM.rank(simP, notes.filter(n => isVisS(n.s) || n.noid && !paperOnly), base, { bases: st.bases, multi: st.multi });
+  return rows.sort((a, b) => b.total - a.total);
+}
+function openSimilar(baseKeys, keep) {
+  cur = place({ k: 'similar', base: baseKeys }, keep); mode = 'notes';
+  cur.st = cur.st || { bases: { text: true, kw: true, link: true, topic: true }, multi: 'avg' };
+  drawSimilar();
+}
+const SIM_ICON = { text: '📝', kw: '🏷', link: '🔗', topic: '🗂️' };
+const SIM_MULTI = { avg: ['平均', '選んだノートの全体に似ている'], any: ['どれか', 'どれか1つにでも似ている'], all: ['全部', '全部に似ている'] };
+function drawSimilar() {
+  const st = cur.st, base = cur.base.map(b => get(b.s, b.id)).filter(Boolean);
+  if (!base.length) { $('#pane').innerHTML = '<div class="none">基準のノートが見つかりません</div>'; renderTabs(); return; }
+  const rows = simRows(st, base);
+  const chip = n => `<span class="chip ${n.s}" data-s="${n.s}" data-id="${esc(n.id)}">${esc(n.noid ? 'IDなし' : (n.s === 'p' ? '紙' : '') + n.id)} ${esc(limit(titleOf(n), 14))}</span>`;
+  const list = rows.slice(0, 200).map(r => { const n = r.note;
+    return `<div class="sm-row item note" data-s="${n.s}" data-id="${esc(n.id)}"><div class="sm-top"><b>${n.noid ? '📥' : (n.s === 'p' ? '📜 ' : '') + esc(n.id)}</b><span class="sm-t">${esc(titleOf(n))}</span><span class="sm-p">${Math.round(r.total * 100)}%</span></div>`
+      + `<div class="sm-meter"><i style="width:${Math.round(r.total * 100)}%"></i></div>`
+      + `<div class="sm-re">${r.reasons.slice(0, 3).map(x => `<span>${SIM_ICON[x.b] || ''} ${esc(x.t)}</span>`).join('')}</div></div>`; }).join('');
+  $('#pane').innerHTML = `<div class="similar"><div class="sm-head"><h2>🔍 類似ノート <small class="sub">${rows.length}件</small></h2>`
+    + `<span class="grow"></span>${Object.keys(SM.BASES).map(k => `<button class="sm-b${st.bases[k] ? ' on' : ''}" data-smb="${k}" title="${SM.BASES[k]}で比べる（${st.bases[k] ? 'オン' : 'オフ'}）">${SIM_ICON[k]}</button>`).join('')}`
+    + (base.length > 1 ? `<button class="sm-b wide" data-smmulti title="${SIM_MULTI[st.multi][1]}（押すと切り替え）">${SIM_MULTI[st.multi][0]}</button>` : '')
+    + `</div><div class="sm-base">基準　${base.map(chip).join('')}</div><div class="sm-list">${list || '<div class="none">似たノートは見つかりません</div>'}</div></div>`;
+  renderTabs(); renderList();
+}
+$('#pane').addEventListener('click', e => {
+  if (!cur || cur.k !== 'similar') return;
+  const b = e.target.closest('[data-smb]'), m = e.target.closest('[data-smmulti]');
+  if (b) { cur.st.bases[b.dataset.smb] = !cur.st.bases[b.dataset.smb]; e.stopPropagation(); drawSimilar(); }
+  else if (m) { const o = ['avg', 'any', 'all']; cur.st.multi = o[(o.indexOf(cur.st.multi) + 1) % 3]; e.stopPropagation(); drawSimilar(); }
+  else if (e.target.closest('.sm-row')) newTab = true;   // 結果を押したら、新しいタブで開く（結果は残す）
+}, true);
+
 // ===== IDをつける =====
 // 特別な画面は使わず、ふつうの画面でノートを探して、「このノートの子／次」と決める。
 // 上に帯が出る: 🆕 新しい番号 ／ 基準にするノートを開くと 🌱 子 ・ ↔️ 次（押したら決定）／ ✖️ やめる
@@ -1761,7 +1801,7 @@ function renderSelbar() {
   bar.classList.toggle('selecting', selMode);
   bar.innerHTML = selMode
     ? `<button id="sel-end" title="複数選択をやめる（Esc）">✖️</button><b class="sel-n" title="選んだ件数">${picked.size}</b><span class="sel-sp"></span>
-      <button id="sel-all" title="見えているノートを全部選ぶ">☑️</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">📋</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'} title="選んだノートを削除">🗑️</button>`
+      <button id="sel-all" title="見えているノートを全部選ぶ">☑️</button><button id="sel-sim" ${picked.size ? '' : 'disabled'} title="選んだノートから類似検索">🔍</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">📋</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'} title="選んだノートを削除">🗑️</button>`
     : '';   // 複数選択は、ノートを右クリックして始める
   bar.style.display = selMode ? 'flex' : 'none';
 }
@@ -1784,6 +1824,7 @@ $('#selbar').addEventListener('click', e => {
   const id = button.id;
   if (id === 'sel-end') endSelection();
   if (id === 'sel-all') { visibleRows().forEach(r => picked.add(r.dataset.s + ':' + r.dataset.id)); renderList(); }
+  if (id === 'sel-sim') { const base = [...picked].map(k => ({ s: k[0], id: k.slice(2) })); endSelection(); openSimilar(base); }
   if (id === 'sel-copy') copySelection();
   if (id === 'sel-exp') exportDialog([...picked]);
   if (id === 'sel-del') deleteNotes([...picked].map(k => ({ s: k[0], id: k.slice(2) })));
@@ -1798,6 +1839,7 @@ document.addEventListener('contextmenu', e => {
     const sel = [...picked].map(k => get(k[0], k.slice(2))).filter(Boolean), c = sel.length;
     return popMenu(e, [
       [`🗑 ${c}件を削除`, () => deleteNotes(sel.map(x => ({ s: x.s, id: x.id }))), true],
+      [`🔍 ${c}件から類似検索`, () => openSimilar(sel.map(x => ({ s: x.s, id: x.id })))],
       [`📋 ${c}件をコピー`, () => copyNotes(sel)],
       [`📤 ${c}件をエクスポート`, () => exportDialog([...picked])],
       ['✖ 複数選択をやめる', () => endSelection()]
@@ -1805,6 +1847,7 @@ document.addEventListener('contextmenu', e => {
   }
   popMenu(e, [
     ['📂 開く', () => openNote(n.s, n.id)],
+    ['🔍 類似検索', () => openSimilar([{ s: n.s, id: n.id }])],
     ['☑ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
     ['📋 コピー', () => copyNotes([n])],
     ['🗑 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
