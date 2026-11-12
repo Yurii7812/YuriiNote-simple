@@ -1498,11 +1498,11 @@ function diaryList() {
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
   const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙️</span>';
-  return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
+  return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">📅 今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
+$('#list').addEventListener('change', e => { if (e.target.id === 'd-pick' && L.isDate(e.target.value)) openDiary(e.target.value); });
 $('#list').addEventListener('click', e => {
   if (e.target.id === 'd-today') openDiary(L.todayStr());
-  if (e.target.id === 'd-make') { const v = $('#d-pick').value; if (L.isDate(v)) openDiary(v); }
   const kp = e.target.closest('[data-kindpick]'); if (kp) { setKind(kp.dataset.kindpick); renderList(); }
   if (e.target.closest('[data-kindmanage]')) recordsDialog();
 });
@@ -1547,13 +1547,13 @@ async function openDiary(date, keep, kind) {
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
   $('#pane').innerHTML = `
     <div class="row">
-      <span class="sp d">${esc(kind)}</span>
+      ${kind !== '日記' ? `<span class="sp d">${esc(kind)}</span>` : ''}
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
-      <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル（任意）　例: 旅の話">
-      <button data-act="dprev" title="前の${esc(kind)}">←</button><button data-act="dnext" title="次の${esc(kind)}">→</button>
-      <button data-act="table" title="表を入れる">▦ 表</button>
-      <button data-act="attach" title="ファイルを添付（ドラッグや貼り付けでも）">📎 添付</button>
-      <button data-act="ddel" class="danger">削除</button>
+      <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
+      <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
+      <button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
+      <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
+      <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
     ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}<span class="sub">この日だけの上位（いくつでも）。なしなら日記の下。これから作る日の初期値は、記録の種類（＋ ⚙️）で決めます</span></div>` : ''}
     ${lower ? `<div class="row"><span class="sub">DailyNotes</span>${lower}</div>` : ''}
