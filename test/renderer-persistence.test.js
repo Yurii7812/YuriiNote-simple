@@ -163,28 +163,6 @@ test('renderer: bulk selection buttons copy, cancel, wrap and exclude topic rows
   } finally { c.close(); f.cleanup(); }
 });
 
-test('renderer: multi-target link creates an ordinary editable note with live prose expansion and persistent display settings', async () => {
-  const f=fixture();let c=await client(f.store);const menu=label=>{c.click('[data-act="nmenu"]');[...c.w.document.querySelectorAll('.popmenu>div')].find(x=>x.textContent.includes(label)).click();};
-  try{
-    c.open('1');menu('リンクを作成');
-    c.w.document.querySelector('#ln-title').value='集めた知識';
-    c.w.document.querySelector('#ln-query').value='別のノート';c.w.document.querySelector('#ln-query').dispatchEvent(new c.w.Event('input',{bubbles:true}));
-    c.click('[data-ln-add="0"]');assert.match(c.w.document.querySelector('#ln-count').textContent,/2件/);
-    assert.ok(!f.store.state().docs.K_links);
-    c.click('#ln-save');await tick();
-    const bundle=f.store.state().docs.K_links.items[0];assert.equal(bundle.title,'集めた知識');assert.equal(bundle.targets.length,2);assert.equal(bundle.manual,undefined);
-    c.click('#ln-note');await tick();const created=f.store.state().notes.find(n=>n.title==='集めた知識');assert.equal(created.kind,'text');assert.match(created.body,/!\[集めた知識\]\(link:/);
-    assert.match(c.w.document.querySelector('#pane .linked-prose').textContent,/最初の文章/);assert.match(c.w.document.querySelector('#pane .linked-prose').textContent,/別のノート/);
-    assert.equal(c.w.document.querySelector('#pane .linked-expansion .bub'),null);
-    c.click('#pane .linked-fold');await c.callbacks.onFlush();assert.equal(c.w.document.querySelector('#pane .linked-prose').hidden,true,JSON.stringify({display:f.store.state().docs.K_display,errors:c.errors,html:c.w.document.querySelector('#pane .linked-expansion').outerHTML.slice(0,1000)}));
-    const saved=c.storage();c.close();c=await client(openVault(f.dir),saved);
-    assert.equal(c.w.document.querySelector('#pane .linked-prose').hidden,true);c.click('#pane .linked-fold');await c.callbacks.onFlush();
-    c.click('#tabs [data-tab="d"]');c.open('1');c.edit('原文を編集した最新の内容');await c.callbacks.onFlush();
-    c.click('#tabs [data-tab="u"]');c.open(created.id);
-    assert.match(c.w.document.querySelector('#pane .linked-prose').textContent,/最新の内容/);assert.deepEqual(c.errors,[]);
-  }finally{c.close();f.cleanup();}
-});
-
 test('renderer: circular expansion stops',async()=>{
   const f=fixture();f.store.saveNote({s:'d',id:'1',body:'![循環](link:loop)'});const one=f.store.state().notes.find(n=>n.id==='1');
   f.store.saveDoc('K_links',{items:[{id:'loop',title:'循環',targets:[{kind:'note',s:'d',stem:one.stem,id:'1'},{kind:'memo',id:'m1'}],order:'newest'}]});

@@ -984,7 +984,6 @@ function noteMenu(btn, note) {
   const r = btn.getBoundingClientRect(), { s, id } = note, text = (note.kind || 'text') === 'text';
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
     ...(text ? [['▦ 表を入れる', () => insertTable()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
-    ['🔗 リンクを作成（選択範囲／全体）', () => LC.edit([currentLinkTarget(note)])],
     ['🔢 IDを変更・解除…', () => idSettingsDialog(note)],
     ['🗑 削除', () => deleteNotes([{ s, id }]), true]
   ]);
@@ -1004,10 +1003,6 @@ function highlightMemoRange(id, range) {
   while ((node = walker.nextNode())) { nodes.push({node,from:offset,to:offset+node.textContent.length}); offset += node.textContent.length; }
   const a = nodes.find(n => from >= n.from && from < n.to), end = from + range.quote.length, b = nodes.find(n => end > n.from && end <= n.to);
   if (a && b) { const selected = document.createRange(); selected.setStart(a.node, from - a.from); selected.setEnd(b.node, end - b.from); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(selected); }
-}
-function currentLinkTarget(note) {
-  const selection = cur?.k === 'note' && cur.id === note.id && lastView?.dom.isConnected ? lastView.state.selection.main : null;
-  return LC.targetNote(note, selection && !selection.empty ? selection : undefined);
 }
 function idSettingsDialog(note) {
   dialog(`<h3>IDを変更・解除</h3>
@@ -1102,8 +1097,6 @@ $('#new').onclick = e => {
   const r = $('#new').getBoundingClientRect();
   popMenu({ clientX: r.left, clientY: r.bottom + 4 }, [
     ['📝 ノート', () => createNoid('text')],
-    ['🔗 リンクを作成', () => LC.edit()],
-    ['🔗 リンク一覧', () => LC.browse()],
     ['📷 スキャンを取り込む（紙）', () => $('#imp').click()]
   ]);
 };
@@ -1735,7 +1728,7 @@ function renderSelbar() {
   bar.classList.toggle('selecting', selMode);
   bar.innerHTML = selMode
     ? `<button id="sel-end" title="複数選択をやめる（Esc）">✖️</button><b class="sel-n" title="選んだ件数">${picked.size}</b><span class="sel-sp"></span>
-      <button id="sel-all" title="見えているノートを全部選ぶ">☑️</button><button id="sel-link" ${picked.size ? '' : 'disabled'} title="リンクを作成">🔗</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">📋</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'} title="選んだノートを削除">🗑️</button>`
+      <button id="sel-all" title="見えているノートを全部選ぶ">☑️</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">📋</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'} title="選んだノートを削除">🗑️</button>`
     : '';   // 複数選択は、ノートを右クリックして始める
   bar.style.display = selMode ? 'flex' : 'none';
 }
@@ -1759,7 +1752,6 @@ $('#selbar').addEventListener('click', e => {
   if (id === 'sel-end') endSelection();
   if (id === 'sel-all') { visibleRows().forEach(r => picked.add(r.dataset.s + ':' + r.dataset.id)); renderList(); }
   if (id === 'sel-copy') copySelection();
-  if (id === 'sel-link') LC.edit([...picked].map(k => get(k[0], k.slice(2))).filter(Boolean).map(n => LC.targetNote(n)));
   if (id === 'sel-exp') exportDialog([...picked]);
   if (id === 'sel-del') deleteNotes([...picked].map(k => ({ s: k[0], id: k.slice(2) })));
 });
@@ -1774,7 +1766,6 @@ document.addEventListener('contextmenu', e => {
     return popMenu(e, [
       [`🗑 ${c}件を削除`, () => deleteNotes(sel.map(x => ({ s: x.s, id: x.id }))), true],
       [`📋 ${c}件をコピー`, () => copyNotes(sel)],
-      [`🔗 ${c}件でリンクを作成`, () => LC.edit(sel.map(x => LC.targetNote(x)))],
       [`📤 ${c}件をエクスポート`, () => exportDialog([...picked])],
       ['✖ 複数選択をやめる', () => endSelection()]
     ]);
@@ -1880,7 +1871,7 @@ Object.assign(ctx, {
   highlightMemo: (id, range) => { setTimeout(() => highlightMemoRange(id, range), 30); },
   enhanceRendered: LC.enhance, searchReferences: LC.search, memos: () => [], diaries: () => diaries, gotoMemo: () => {},
   selectRange: (from, to) => { if (lastView?.dom.isConnected) { lastView.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) }); lastView.focus(); } },
-  createLink: (targets) => LC.edit(targets), targetMemo: LC.targetMemo, addNote: n => notes.push(n),
+  targetMemo: LC.targetMemo, addNote: n => notes.push(n),
   renderChanged: () => LC.refresh(), renderTabs, openLink, applyState, readings: () => readings, lastNote: () => lastNote,
  renderList, pick, get, free, refreshDiaries, records: () => records, openNote, openDiary, getDiary,
   exploreId: callback => openIdExplorer({ onChoose: id => { callback(id); return true; } }),
