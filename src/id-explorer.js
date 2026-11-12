@@ -1,0 +1,270 @@
+// Folgezettel IDを決めるための探索画面。本文、Global Index、Topic Indexを往復しながら選ぶ。
+import X from '../id-explorer-core.js';
+import L from '../lib.js';
+
+const esc = value => String(value == null ? '' : value).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const titleOf = n => n.title || (n.body || '').split('\n').find(x => x.trim()) || (n.noid ? 'IDなし' : '（無題）');
+const idLabel = n => (n.s === 'p' ? '紙 ' : '') + (n.noid ? 'IDなし' : n.id);
+const limit = (text, max) => String(text || '').length > max ? String(text).slice(0, max) + '…' : String(text || '');
+const nkey = n => X.key(n);
+const route = (kind, key, title, desc) => '<button type="button" class="idex-link" data-ix-kind="' + esc(kind) + '" data-ix-key="' + esc(key) + '">' +
+  '<strong>' + esc(title) + '</strong>' + (desc ? '<small>' + esc(desc) + '</small>' : '') + '</button>';
+const caption = (head, content) => content ? '<div class="idex-section"><h4>' + esc(head) + '</h4>' + content + '</div>' : '';
+const noteLink = (n, label) => route('note', nkey(n), label || (idLabel(n) + ' — ' + titleOf(n)), limit(n.body, 90));
+const kwLink = name => route('keyword', name, name, 'グローバルインデックス');
+const topicLink = t => route('topic', t.name, t.name, '索引');
+
+export function open({ notes, topics, readings = {}, paperEntries = [], subject = null, onChoose }) {
+  document.querySelector('.idex-cover')?.remove();
+  const root = document.createElement('div');
+  root.className = 'idex-cover';
+  root.innerHTML = '<section class="idex-dialog" role="dialog" aria-modal="true" aria-label="IDを探して付ける">' +
+    '<header class="idex-head"><div><h2>IDを探して付ける</h2><small>索引をたどって本文を確認し、関連・発展させる位置を決めます</small></div>' +
+    '<button type="button" data-ix-close aria-label="閉じる">×</button></header>' +
+    '<div class="idex-main"><aside class="idex-sidebar">' +
+    '<input id="idex-query" type="search" placeholder="本文・ID・Index・索引を検索" aria-label="知識を検索">' +
+    '<div class="idex-scopes"><button data-ix-scope="all" class="on">全部</button><button data-ix-scope="keywords">Index</button><button data-ix-scope="topics">Topic</button><button data-ix-scope="notes">ノート</button></div>' +
+    '<div class="idex-results"></div></aside>' +
+    '<div class="idex-detail"><div class="idex-trail"><button type="button" data-ix-back disabled>← 戻る</button><span class="idex-path">検索結果から選択</span></div>' +
+    '<div class="idex-preview"></div></div></div>' +
+    '<footer class="idex-footer"><div class="idex-method"><button type="button" data-ix-method="child">分岐（子）</button><button type="button" data-ix-method="sibling">並列</button><button type="button" data-ix-method="direct" class="on">直接指定</button></div>' +
+    '<div class="idex-decision"><label>付けるID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
+    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary">このIDに決定</button><button type="button" data-ix-close>やめる</button></div></footer></section>';
+  document.body.append(root);
+  const $ = sel => root.querySelector(sel);
+  const byNote = new Map(notes.map(n => [nkey(n), n]));
+  const byTopic = new Map(topics.map(t => [t.name, t]));
+  const byKeyword = new Map(X.keywords(notes, readings, paperEntries).map(x => [x.name, x]));
+  const stored = (() => { try { return JSON.parse(localStorage.getItem('pkm-id-explorer-prefs') || '{}'); } catch { return {}; } })();
+  const order = X.normalizeOrder(stored.order);
+  const initialSort = { keywords: 'reading', topics: 'name', notes: 'updated' };
+  const sort = Object.fromEntries(X.SECTIONS.map(k => [k, (X.SORT_MODES[k] || []).includes(stored.sort?.[k]) ? stored.sort[k] : initialSort[k]]));
+  const st = { view: null, history: [], query: '', scope: 'all', order, sort, mode: 'direct', typed: X.nextRoot(notes), busy: false };
+  const saveOrder = () => { try { localStorage.setItem('pkm-id-explorer-prefs', JSON.stringify({ order: st.order, sort: st.sort })); } catch { } };
+  const close = () => { root.remove(); window.removeEventListener('keydown', guardKeys, true); };
+  // windowのキャプチャ段階で、探索中のCtrl+Nなどが背後のエディタに届くことを防ぐ。
+  const guardKeys = e => {
+    if (!root.isConnected) return;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
+    const writing = e.target && e.target.closest && e.target.closest('.idex-dialog input, .idex-dialog textarea, .idex-dialog select');
+    if (!writing || e.ctrlKey || e.metaKey || e.altKey) e.stopPropagation();
+  };
+  window.addEventListener('keydown', guardKeys, true);
+
+  // 通常画面と同じ .ix / .chip / .item / .ti を使う。
+  // IndexのIDチップは、親索引があれば先にそのIndexを開く。
+  function indexChip(s, raw, fromTopic = '', dot = null) {
+    const ref = L.splitAnchor(raw), id = ref.id;
+    const exists = byNote.has(s + ':' + id), hasDot = dot && dot.s === s && dot.id === id;
+    return '<span class="chip ' + s + (exists ? '' : ' miss') + (hasDot ? ' dotted' : '') +
+      '" data-ix-ref-s="' + esc(s) + '" data-ix-ref-id="' + esc(id) + '"' +
+      (fromTopic ? ' data-ix-from-topic="' + esc(fromTopic) + '"' : '') +
+      ' title="' + esc(exists ? '開く（索引があれば先に表示）' : 'まだ取り込まれていません') + '">' +
+      (hasDot ? '<i class="dotabove">●</i>' : '') + (s === 'p' ? '紙' : '') + esc(raw) + '</span>';
+  }
+  function indexRow(k) {
+    const t = topics.find(t => t.keyword === k.name), m = t && L.mergeTopic(t);
+    const r = m && m.rows.find(r => r.kw === k.name && r.dot);
+    const dot = r ? r.dot : t && t.entry;
+    const all = [...k.notes.map(n => ({ s: n.s, raw: n.id })), ...k.pending.map(raw => ({ s: 'p', raw }))];
+    return '<div class="ix idex-index-entry"><b class="idex-keyword" data-ix-kind="keyword" data-ix-key="' + esc(k.name) +
+      '" tabindex="0">' + esc(k.name) + '</b>' +
+      (k.reading && k.reading !== k.name ? '<small class="yomi">' + esc(k.reading) + '</small>' : '') +
+      ' ' + all.map(x => indexChip(x.s, x.raw, '', dot)).join('') + '</div>';
+  }
+  const topicRow = t => '<div class="item topicrow" data-ix-kind="topic" data-ix-key="' + esc(t.name) + '">' +
+    '<div class="nrow"><div class="nt">' + esc(t.name.replace(/^[0-9][0-9a-z]*-/, '')) +
+    '</div><div class="ns">索引</div></div></div>';
+  const noteRow = n => '<div class="item note" data-ix-kind="note" data-ix-key="' + esc(nkey(n)) + '">' +
+    '<div class="nrow"><div class="nt">' + esc(titleOf(n)) + '</div><div class="ns">' + esc(idLabel(n)) +
+    ((n.keywords || []).length ? ' · ' + n.keywords.map(esc).join('・') : '') +
+    '</div>' + (n.body ? '<div class="sn">' + esc(limit(n.body.replace(/\\s*\\n\\s*/g, ' '), 110)) + '</div>' : '') +
+    '</div></div>';
+  function drawResults() {
+    const hits = X.search(notes, topics, readings, st.query, paperEntries), scope = st.scope;
+    const labels = {
+      keywords: { reading: 'よみ順', name: 'キーワード順', count: '登録数順' },
+      topics: { name: '名前順', entry: '親ID順', count: '行数順' },
+      notes: { updated: '更新順', title: 'タイトル順', id: 'ID順' }
+    };
+    const configs = {
+      keywords: ['Index', hits.keywords, indexRow],
+      topics: ['索引', hits.topics, topicRow],
+      notes: ['ノート', hits.notes, noteRow]
+    };
+    const section = (kind, position) => {
+      if (scope !== 'all' && scope !== kind) return '';
+      const [heading, values, draw] = configs[kind];
+      const list = X.sortResults(values, kind, st.sort[kind], readings);
+      const count = list.length > 100 ? '（先頭100件／全' + list.length + '件）' : '（' + list.length + '）';
+      const options = X.SORT_MODES[kind].map(v => '<option value="' + v + '"' + (v === st.sort[kind] ? ' selected' : '') + '>' + labels[kind][v] + '</option>').join('');
+      return '<section class="idex-result-section"><h3>' + heading + count +
+        '<span class="idex-section-actions"><select data-ix-sort="' + kind + '" aria-label="' + heading + 'の並べ替え">' + options + '</select>' +
+        (scope === 'all' ? '<button type="button" data-ix-move="' + kind + '" data-ix-delta="-1" ' + (position === 0 ? 'disabled' : '') + ' title="表示順を上へ">↑</button>' +
+          '<button type="button" data-ix-move="' + kind + '" data-ix-delta="1" ' + (position === st.order.length - 1 ? 'disabled' : '') + ' title="表示順を下へ">↓</button>' : '') +
+        '</span></h3>' +
+        (list.length ? list.slice(0, 100).map(draw).join('') : '<p class="idex-empty">該当なし</p>') + '</section>';
+    };
+    $('.idex-results').innerHTML = st.order.map(section).join('');
+    root.querySelectorAll('[data-ix-scope]').forEach(b => b.classList.toggle('on', b.dataset.ixScope === scope));
+  }
+  function Labeled(t) {
+    return t.entry ? '親 ' + (t.entry.s === 'p' ? '紙 ' : '') + t.entry.id : '索引';
+  }
+  function displayView(view) {
+    if (!view) return '<div class="idex-welcome"><h3>知識を探索してIDを決定する</h3>' +
+      '<p>左でキーワード、索引、ノート本文を検索します。Index → 索引 → ノートと進み、本文や関連ノートを見ながら位置を決められます。</p>' +
+      '<p>関連するノートが決まったら「分岐（子）」または「並列」を選びます。新しい系統なら「直接指定」を使います。</p>' +
+      '<p>探索中は元のノートを移動・編集しません。</p></div>';
+    if (view.kind === 'keyword') {
+      const k = byKeyword.get(view.key);
+      if (!k) return '<p>このキーワードは見つかりません</p>';
+      const related = topics.filter(t => t.keyword === k.name || LTopicRows(t).includes(k.name));
+      return '<h2>Index</h2>' +
+        '<div class="idex-view-index">' + indexRow(k) + '</div>' +
+        caption('関連する索引', related.map(topicRow).join(''));
+    }
+    if (view.kind === 'topic') {
+      const t = byTopic.get(view.key);
+      if (!t) return '<p>この索引は見つかりません</p>';
+      const entries = X.topicEntries(t, notes);
+      const rows = entries.rows.map(r => '<tr><td>' + esc(r.keyword) + '</td><td>' +
+        r.notes.map(x => indexChip(x.s, x.id + (x.anchor ? '(' + x.anchor + ')' : ''), t.name)).join('') +
+        '</td></tr>').join('');
+      const parentIndexes = topics.filter(o => {
+        if (o.name === t.name) return false;
+        const other = L.mergeTopic(o);
+        return other.stars.includes(t.name) ||
+          !!(t.entry && other.rows.some(r => r[t.entry.s].some(raw => L.splitAnchor(raw).id === t.entry.id)));
+      });
+      return (parentIndexes.length ? '<div class="backidx">↑ ' + parentIndexes.map(topicLink).join('') + '</div>' : '') +
+        '<div class="row idex-topic-head"><h2>' + esc(t.name.replace(/^[0-9][0-9a-z]*-/, '')) + '</h2>' +
+        '<span class="sub">親</span>' + (t.entry ? indexChip(t.entry.s, t.entry.id, t.name) : '<span class="sub">なし</span>') + '</div>' +
+        '<table class="ti">' + (rows || '<tr><td class="none">まだ空です</td></tr>') + '</table>' +
+        entries.stars.filter(name => byTopic.has(name)).map(name => '<div class="star">★ ' + topicLink(byTopic.get(name)) + '</div>').join('') +
+        entries.refs.map(x => '<div class="star">★ ' + esc(x.label) + ' ' + indexChip(x.s, x.id, t.name) + '</div>').join('');
+    }
+    if (view.kind === 'note') {
+      const n = byNote.get(view.key);
+      if (!n) return '<p>このノートは見つかりません</p>';
+      const rel = X.noteRelations(n, notes, topics);
+      const body = limit(n.body || '', 16000);
+      return '<h2>' + esc(idLabel(n)) + ' — ' + esc(titleOf(n)) + '</h2>' +
+        '<p class="idex-note-meta">' + esc(n.kind === 'memo-group' ? 'ノート化されたチャットメモ' : n.kind === 'rp' ? '会話ノート' : n.s === 'p' ? '紙のノート' : 'ノート') +
+        (n.created ? ' · ' + esc(n.created) : '') + '</p>' +
+        caption('本文プレビュー', '<div class="idex-note-body">' + esc(body || '（本文なし）') + '</div>') +
+        caption('キーワード・Global Index', (n.keywords || []).map(kwLink).join('')) +
+        caption('自索引', rel.owned.map(topicLink).join('')) +
+        caption('索引されている索引', rel.indexed.map(topicLink).join('')) +
+        caption('親ノート', rel.parent ? noteLink(rel.parent) : '') +
+        caption('子ノート', rel.children.map(noteLink).join('')) +
+        caption('バックリンク（ノート）', rel.backlinks.map(noteLink).join(''));
+    }
+    return '';
+  }
+  function LTopicRows(t) { return X.topicEntries(t, notes).rows.map(r => r.keyword); }
+  function drawPreview() {
+    $('.idex-preview').innerHTML = displayView(st.view);
+    $('.idex-path').textContent = !st.view ? '検索結果から選択' :
+      st.view.kind === 'keyword' ? 'グローバルIndex › ' + st.view.key :
+      st.view.kind === 'topic' ? '索引 › ' + st.view.key :
+      'ノート › ' + st.view.key;
+    $('[data-ix-back]').disabled = !st.history.length;
+  }
+  function navigate(kind, key) {
+    if (!['keyword','topic','note'].includes(kind)) return;
+    if (kind === 'note' && !byNote.has(key) || kind === 'topic' && !byTopic.has(key) ||
+        kind === 'keyword' && !byKeyword.has(key)) return;
+    if (st.view && st.view.kind === kind && st.view.key === key) return;
+    if (st.view) st.history.push(st.view);
+    st.view = { kind, key };
+    if (kind === 'note' && byNote.get(key).s === 'd' && X.isAssigned(byNote.get(key))) setMethod('child');
+    else if (st.mode !== 'direct') setMethod('direct');
+    drawPreview(); drawFooter();
+    $('.idex-preview').scrollTop = 0;
+  }
+  function selectedBase() {
+    return st.view && st.view.kind === 'note' ? byNote.get(st.view.key) : null;
+  }
+  function setMethod(method) {
+    st.mode = method;
+    if (method === 'direct') st.typed = X.nextRoot(notes);
+    else st.typed = X.suggest(notes, selectedBase(), method) || '';
+  }
+  function valid() {
+    const id = st.typed.trim().toLowerCase();
+    if (!id) return { ok:false, text:'IDを入力してください' };
+    if (subject && subject.s === 'd' && subject.id === id) return {ok:false,text:'現在と同じIDです'};
+    if (!X.available(notes, id, subject)) return {ok:false,text:'IDの形式が無効か、すでに使われています'};
+    return {ok:true,text:'使用可能なID'};
+  }
+  function updateStatus() {
+    const result = valid();
+    $('#idex-status').textContent = result.text;
+    $('#idex-status').className = result.ok ? 'good' : 'bad';
+    $('[data-ix-confirm]').disabled = st.busy || !result.ok;
+  }
+  function drawFooter() {
+    root.querySelectorAll('[data-ix-method]').forEach(button => {
+      button.classList.toggle('on', button.dataset.ixMethod === st.mode);
+      button.disabled = button.dataset.ixMethod !== 'direct' && (!selectedBase() || selectedBase().s !== 'd' || !X.isAssigned(selectedBase()));
+    });
+    $('#idex-candidate').value = st.typed;
+    updateStatus();
+  }
+  root.addEventListener('click', async e => {
+    const closeButton = e.target.closest('[data-ix-close]');
+    if (closeButton) { close(); return; }
+    const scope = e.target.closest('[data-ix-scope]');
+    if (scope) { st.scope = scope.dataset.ixScope; drawResults(); return; }
+    const move = e.target.closest('[data-ix-move]');
+    if (move && !move.disabled) {
+      st.order = X.moveSection(st.order, move.dataset.ixMove, Number(move.dataset.ixDelta));
+      saveOrder(); drawResults(); return;
+    }
+    const ref = e.target.closest('[data-ix-ref-s][data-ix-ref-id]');
+    if (ref) {
+      const currentTopic = st.view && st.view.kind === 'topic' ? st.view.key : '';
+      const routeTo = X.followIndexReference(notes, topics, ref.dataset.ixRefS, ref.dataset.ixRefId,
+        ref.dataset.ixFromTopic || currentTopic);
+      if (routeTo.kind === 'missing') return;
+      navigate(routeTo.kind, routeTo.key); return;
+    }
+    const go = e.target.closest('[data-ix-kind]');
+    if (go) { navigate(go.dataset.ixKind, go.dataset.ixKey); return; }
+    if (e.target.closest('[data-ix-back]')) {
+      st.view = st.history.pop() || null;
+      const previous = selectedBase();
+      if (previous && previous.s === 'd' && X.isAssigned(previous)) setMethod('child');
+      else setMethod('direct');
+      drawPreview(); drawFooter(); return;
+    }
+    const method = e.target.closest('[data-ix-method]');
+    if (method && !method.disabled) { setMethod(method.dataset.ixMethod); drawFooter(); $('#idex-candidate').focus(); return; }
+    if (e.target.closest('[data-ix-confirm]')) {
+      if (st.busy || !valid().ok) return;
+      st.busy = true; updateStatus();
+      try {
+        const success = await onChoose(st.typed.trim().toLowerCase());
+        if (success !== false) close();
+        else { $('#idex-status').textContent = 'IDを変更できませんでした'; st.busy = false; updateStatus(); }
+      } catch (err) {
+        st.busy = false; updateStatus();
+        $('#idex-status').textContent = err && err.message ? err.message : 'IDを決定できませんでした';
+      }
+    }
+  });
+  $('.idex-results').addEventListener('change', e => {
+    const select = e.target.closest('[data-ix-sort]'); if (!select) return;
+    const kind = select.dataset.ixSort;
+    if (!X.SORT_MODES[kind]?.includes(select.value)) return;
+    st.sort[kind] = select.value; saveOrder(); drawResults();
+  });
+  $('#idex-query').addEventListener('input', e => { st.query = e.target.value; drawResults(); });
+  $('#idex-query').addEventListener('keydown', e => { if (e.key === 'Enter') { const first = $('.idex-results [data-ix-ref-s], .idex-results [data-ix-kind]'); if (first) { e.preventDefault(); first.click(); } } });
+  $('#idex-candidate').addEventListener('input', e => { st.typed = e.target.value.trim().toLowerCase(); updateStatus(); });
+  $('#idex-candidate').addEventListener('keydown', e => { if (e.key === 'Enter' && valid().ok) { e.preventDefault(); $('[data-ix-confirm]').click(); } });
+  root.addEventListener('mousedown', e => { if (e.target === root) close(); });
+  drawResults(); drawPreview(); drawFooter(); $('#idex-query').focus();
+  return close;
+}

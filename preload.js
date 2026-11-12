@@ -1,10 +1,56 @@
-'use strict';
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('bridge', Object.freeze({
-  load: () => ipcRenderer.invoke('data:load'),
-  save: data => ipcRenderer.invoke('data:save', data),
-  openFolder: () => ipcRenderer.invoke('data:open-folder'),
-  onCloseRequest: callback => ipcRenderer.on('save-before-close', () => callback()),
-  closeReady: success => ipcRenderer.send('data:close-ready', Boolean(success))
-}));
+const { contextBridge, ipcRenderer: r } = require('electron');
+contextBridge.exposeInMainWorld('api', {
+  load: () => r.invoke('load'),
+  deleteFile: name => r.invoke('deleteFile', name),
+  filePreview: name => r.invoke('filePreview', name),
+  onFileDup: cb => r.on('fileDup', (_e, dups) => cb(dups)),   // 同じファイルが既にあったとき
+  urlTitle: u => r.invoke('urlTitle', u),
+  urlPreview: (u, force) => r.invoke('urlPreview', u, force),
+  urlRefresh: () => r.invoke('urlRefresh'),
+  urlStatus: () => r.invoke('urlStatus'),
+  onUrlProgress: cb => r.on('urlProgress', (_e, p) => cb(p)),   // URL のページの題（リンクの表示名の自動入力）
+  // ウィンドウを閉じる前に、書きかけの保存を済ませる（済んだら main へ知らせる）
+  onFlush: cb => r.on('flush-now', async (_e, request) => {
+    try { await cb(); r.send('flush-done', request); }
+    catch (error) { r.send('flush-failed', request, String(error?.message || error)); }
+  }),
+  state: () => r.invoke('state'),
+  trashList: () => r.invoke('trashList'),
+  trashRestore: f => r.invoke('trashRestore', f),
+  saveNote: n => r.invoke('saveNote', n),
+  createNote: x => r.invoke('createNote', x),
+  addPaperIndex: x => r.invoke('addPaperIndex', x),
+  removePaperIndex: x => r.invoke('removePaperIndex', x),
+  clearId: (sp, id) => r.invoke('clearId', sp, id),
+  rename: (s, a, b) => r.invoke('rename', s, a, b),
+  saveImage: (s, id, bytes) => r.invoke('saveImage', s, id, bytes),
+  saveTopic: (t, old) => r.invoke('saveTopic', t, old),
+  deleteTopic: name => r.invoke('deleteTopic', name),
+  deleteNotes: items => r.invoke('deleteNotes', items),
+  addFiles: list => r.invoke('addFiles', list),
+  filesInfo: () => r.invoke('filesInfo'),
+  setFileInfo: (name, info) => r.invoke('setFileInfo', name, info),
+  openPath: rel => r.invoke('openPath', rel),
+  diaryState: () => r.invoke('diaryState'),
+  openDiary: (date, kind) => r.invoke('openDiary', date, kind),
+  saveDiary: d => r.invoke('saveDiary', d),
+  deleteDiary: (date, kind) => r.invoke('deleteDiary', date, kind),
+  recordOp: (op, ...a) => r.invoke('recordOp', op, ...a),
+  appendToDay: (kind, date, text) => r.invoke('appendToDay', kind, date, text),
+  addDiaryScan: (date, bytes) => r.invoke('addDiaryScan', date, bytes),
+  saveDoc: (name, obj) => r.invoke('saveDoc', name, obj),
+  deleteDoc: name => r.invoke('deleteDoc', name),
+  appInfo: () => r.invoke('appInfo'),
+  checkUpdate: () => r.invoke('checkUpdate'),
+  doUpdate: () => r.invoke('doUpdate'),
+  installShortcuts: () => r.invoke('installShortcuts'),
+  openUrl: u => r.invoke('openUrl', u),
+  setReading: (k, yomi) => r.invoke('setReading', k, yomi),
+  suggest: text => r.invoke('suggest', text),
+  chooseVault: () => r.invoke('chooseVault'),
+  useVault: p => r.invoke('useVault', p),
+  phoneInstall: () => r.invoke('phoneInstall'),
+  phoneImport: () => r.invoke('phoneImport'),
+  onPhoneMsg: cb => r.on('phoneMsg', (_e, m) => cb(m)),
+  onPhoneAuto: cb => r.on('phoneAuto', (_e, m) => cb(m))
+});

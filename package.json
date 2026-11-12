@@ -1,28 +1,128 @@
 {
-  "name": "yuriinote-simple",
-  "version": "0.1.1",
-  "private": true,
-  "description": "A minimal paper-style Double Index System editor",
+  "name": "yuriinote",
+  "version": "1.1.1",
+  "description": "YuriiNote — 紙のPKM（ツェッテルカステン）をデジタルで",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "build": "esbuild src/app.js --bundle --outfile=dist/app.js --format=iife",
+    "start": "npm run build && electron .",
     "test": "node --test test/*.test.js",
-    "test:ui": "node --test test/ui.cjs",
-    "dist:linux": "electron-builder --linux --publish never",
-    "dist:win": "electron-builder --win --publish never",
-    "dist:mac": "electron-builder --mac --publish never"
+    "dist": "npm run build && electron-builder --publish never",
+    "version:minor": "node scripts/bump-version.js minor",
+    "dist:linux": "npm run build && electron-builder --linux --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "version:patch": "node scripts/bump-version.js patch"
   },
+  "license": "MIT",
   "devDependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
     "electron": "^45.2.3",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "31.0.0",
+    "markdown-it": "^15.0.3"
   },
+  "dependencies": {
+    "force-graph": "^1.52.0",
+    "kuromoji": "^0.1.2",
+    "mermaid": "12.3.0"
+  },
+  "productName": "YuriiNote",
+  "homepage": "https://github.com/Yurii7812/YuriiNote",
+  "author": "Yurii7812",
   "build": {
-    "appId": "jp.yurii.yuriinotesimple",
-    "productName": "YuriiNote Simple",
-    "directories": { "output": "release" },
-    "files": ["main.js", "preload.js", "core.js", "renderer.js", "styles.css", "index.html", "package.json"],
-    "linux": { "target": ["AppImage"], "category": "Office" },
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"] }
+    "appId": "jp.yurii.yuriinote",
+    "productName": "YuriiNote",
+    "copyright": "YuriiNote",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "save-lifecycle.js",
+      "url-links.js",
+      "urltitle.js",
+      "store.js",
+      "memo-group.js",
+      "lib.js",
+      "update.js",
+      "phone.js",
+      "capture.js",
+      "index.html",
+      "dist/app.js",
+      "build/icon.png",
+      "package.json",
+      "url-preview.js",
+      "link-core.js",
+      "topic-bulk.js",
+      "topic-ranking.js",
+      "reference-search.js"
+    ],
+    "asarUnpack": [
+      "node_modules/kuromoji/dict/**"
+    ],
+    "artifactName": "YuriiNote-${version}-${os}-${arch}.${ext}",
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "synopsis": "紙のPKM（ツェッテルカステン）をデジタルで"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "YuriiNote",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png"
+    },
+    "dmg": {
+      "title": "YuriiNote ${version}"
+    },
+    "extraResources": [
+      {
+        "from": "downloads/YuriiNote-memo.apk",
+        "to": "YuriiNote-memo.apk"
+      }
+    ]
   }
 }
