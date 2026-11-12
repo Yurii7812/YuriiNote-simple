@@ -491,14 +491,16 @@ function openVault(vault) {
       const out = lines.filter(l => {
         if (/^##\s/.test(l)) inSec = l.trim() === '## 今日のノート';
         if (!inSec) return true;
-        const m = l.match(/^\s*-\s+:(\S+)\s*$/), f = l.match(/^\s*-\s+\[[^\]]*\]\(D_([^)\s]+)\.md\)\s*$/), g = l.match(/^\s*-\s+\[[^\]]*\]\((\d{14}(?:-\d+)?)\.md\)\s*$/);
+        const m = l.match(/^\s*(?:-\s+)?:(\S+)\s*$/), f = l.match(/^\s*(?:-\s+)?\[[^\]]*\]\(D_([^)\s]+)\.md\)\s*$/), g = l.match(/^\s*(?:-\s+)?\[[^\]]*\]\((\d{14}(?:-\d+)?)\.md\)\s*$/);
         const id = m ? m[1] : f ? decodeURIComponent(f[1]) : null;
         if (id && !exists(id)) { changed = true; return false; }
         if (g && ![...notes.values()].some(n => n.stem === g[1])) { changed = true; return false; }   // IDなしのノート（日時の名前）へのリンク。ノートが無ければ外す
         return true;
       });
+      // 昔の「- 」つきの行は、「- 」を外す
+      let sec2 = false; const norm = out.map(l => { if (/^##\s/.test(l)) sec2 = l.trim() === '## 今日のノート'; if (sec2 && /^\s*-\s+(:\S+|\[[^\]]*\]\([^)]*\))\s*$/.test(l)) { changed = true; return l.replace(/^\s*-\s+/, ''); } return l; });
       if (changed) {
-        let body = out.join('\n').replace(/## 今日のノート\n+(?=##\s|$)/g, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+        let body = norm.join('\n').replace(/## 今日のノート\n+(?=##\s|$)/g, '').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
         d.body = body;
       }
     }
@@ -576,11 +578,11 @@ function openVault(vault) {
     const date = L.dayOf(n.created); if (!date) return;
     const d = ensureDiary(date, DIARY);
     if (L.isNoid(n.id)) { // IDなしは :ID で書けないので、ファイルへのリンクにする（ID を付けたとき :ID に直す）
-      if (!d.body.includes(`](${noteHref('d', n.id)})`)) d.body = L.addToSection(d.body, '今日のノート', `- [未整理 ${n.created.slice(11)}](${noteHref('d', n.id)})`);
+      if (!d.body.includes(`](${noteHref('d', n.id)})`)) d.body = L.addToSection(d.body, '今日のノート', `[未整理 ${n.created.slice(11)}](${noteHref('d', n.id)})`);
       return;
     }
     const has = L.tokens(d.body).some(t => t.k === 'ref' && t.id === n.id && !t.n && (!t.sp || t.sp === 'd'));
-    if (!has) d.body = L.addToSection(d.body, '今日のノート', `- :${n.id}`);
+    if (!has) d.body = L.addToSection(d.body, '今日のノート', `:${n.id}`);
   };
   rebuild();
   return {
@@ -752,7 +754,7 @@ function openVault(vault) {
       for (const t of topics.values()) if (t.entry && t.entry.s === s && t.entry.id === from) t.entry.id = to;
       // IDなしだった親に ID が付いたら、その下に分岐していたノートにも、順に ID が付く（1c → 1ca, 1cb …。孫も同じように）
       if (s === 'd' && L.isNoid(from)) { let prev = null; for (const c of [...notes.values()].filter(x => x.s === 'd' && x.parentStem && x.parentStem === n.stem).sort((a, b) => (a.created || '').localeCompare(b.created || ''))) { let id = prev ? L.sibling(prev) : L.child(to); while (get('d', id)) id = L.sibling(id); const cur = c.id; c.parentStem = ''; this.rename('d', cur, id); prev = id; } }
-      if (s === 'd') for (const d of diaries.values()) d.body = d.body.split('\n').map(l => l.trim().match(/^- \[[^\]]*\]\(/) && l.includes(`](${was})`) ? `- :${to}` : l).join('\n'); // 日記の「今日のノート」は :ID に
+      if (s === 'd') for (const d of diaries.values()) d.body = d.body.split('\n').map(l => l.trim().match(/^(- )?\[[^\]]*\]\(/) && l.includes(`](${was})`) ? `:${to}` : l).join('\n'); // 日記の「今日のノート」は :ID に
       rebuild(); return pub(n);
     },
     saveImage(s, id, buf) {

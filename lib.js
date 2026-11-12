@@ -285,7 +285,8 @@ const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
 // 本文の「## 見出し」の節の最後に1行を足す。節が無ければ作る（「紙の日記」は必ず最後、ほかはその前）
 function addToSection(body, heading, line) {
   const H = '## ' + heading, lines = body ? body.split('\n') : [];
-  if (lines.some(l => l.trim() === line.trim())) return body;
+  const norm = x => x.trim().replace(/^-\s+/, '');
+  if (lines.some(l => norm(l) === norm(line))) return body;
   const i = lines.findIndex(l => l.trim() === H);
   if (i < 0) {
     const paper = lines.findIndex(l => l.trim() === '## 紙の日記');
@@ -301,7 +302,7 @@ function addToSection(body, heading, line) {
 function normDay(body) {
   const lines = (body || '').split('\n'), i = lines.findIndex(l => l.trim() === '## 今日のノート');
   if (i < 0) return body;
-  let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*-\s+(\[[^\]]*\]\([^)]*\)|:[0-9a-z]+)/.test(lines[j]))) j++;
+  let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*(-\s+)?(\[[^\]]*\]\([^)]*\)|:[0-9a-z]+)\s*$/.test(lines[j]))) j++;
   const sec = lines.slice(i, j), rest = lines.slice(j), pre = lines.slice(0, i), paper = rest.findIndex(l => l.trim() === '## 紙の日記');
   const mid = paper < 0 ? rest : rest.slice(0, paper), tail = paper < 0 ? [] : rest.slice(paper);
   return [...pre, ...mid, '', ...sec, '', ...tail].join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');

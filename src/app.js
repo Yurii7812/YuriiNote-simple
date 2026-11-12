@@ -147,7 +147,7 @@ function links(mode, space) {
         if (d === 'mk') { rs.push(Decoration.mark({ class: 'mk' }).range(f, t)); continue; }
         if (d && d.t === 'ref' && !d.n && ok && !(sel.from <= t && sel.to >= f)) {   // 「- :ID」だけの行（今日のノートなど）は、ID のかわりにノートの題を見せる
           const ls = text.lastIndexOf('\n', f - 1) + 1, le = text.indexOf('\n', f), line = text.slice(ls, le < 0 ? text.length : le);
-          const nt = /^\s*-\s+:[0-9a-z]+\s*$/.test(line) && get(d.s, d.id);
+          const nt = /^\s*(-\s+)?:[0-9a-z]+\s*$/.test(line) && get(d.s, d.id);
           if (nt) { rs.push(Decoration.replace({ widget: new TitleWidget(titleOf(nt), d) }).range(f, t)); continue; }
         }
         rs.push(Decoration.mark({ class: 'lk' + (cls ? ' ' + cls : '') + (d && d.t === 'ref' ? ' ref' : '') + (d && d.t === 'self' ? ' selfref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(d) } }).range(f, t));
