@@ -431,7 +431,16 @@ function sortNotes(list, tab) {
   const key = n => by === 'fz' ? null : by === 'updated' ? (n.updated || n.created || '') : (n.created || '');
   return list.slice().sort((a, b) => sg * (by === 'fz' ? L.cmpId(a.id, b.id) : key(a).localeCompare(key(b)) || L.cmpId(a.id, b.id)));
 }
+const SORT_ICON = { fz: '🔢', created: '🕒', updated: '✏️' }, SORT_NAME = { fz: '番号順', created: '作成順', updated: '更新順' };
+function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→作成→更新）と、昇順・降順
+  const k = $('#sort-key'), d = $('#sort-dir'); if (!k || !d) return;
+  k.textContent = SORT_ICON[sortBy] || '🔢'; k.title = `並び順: ${SORT_NAME[sortBy] || ''}（押すと切り替え）`;
+  d.textContent = sortDir === 'asc' ? '↑' : '↓'; d.title = sortDir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）';
+}
+$('#sort-key').onclick = () => { const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
+$('#sort-dir').onclick = () => { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; diarySortDir = sortDir; savePrefs(); renderList(); };
 function renderList() {
+  drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
@@ -1597,10 +1606,6 @@ function loaded(st) {
 $('#more').onclick = () => {   // 「⋯」: USB での取り込みと、設定だけ。ほかは、全部、設定に
   const r = $('#more').getBoundingClientRect();
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
-    [`${sortBy === 'fz' ? '✔ ' : ''}並び: 番号順`, () => { sortBy = 'fz'; savePrefs(); renderList(); }],
-    [`${sortBy === 'created' ? '✔ ' : ''}並び: 作成順`, () => { sortBy = 'created'; savePrefs(); renderList(); }],
-    [`${sortBy === 'updated' ? '✔ ' : ''}並び: 更新順`, () => { sortBy = 'updated'; savePrefs(); renderList(); }],
-    [sortDir === 'asc' ? '↑ 昇順（押すと降順）' : '↓ 降順（押すと昇順）', () => { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; diarySortDir = sortDir; savePrefs(); renderList(); }],
     ['📱 スマホのメモを取り込む…（USB）', phoneImport],
     ['⚙️ 設定…', settingsDialog]
   ]);

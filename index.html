@@ -62,7 +62,7 @@ button:disabled{opacity:.4;cursor:default}
 #pane.drop{outline:2px dashed var(--acc);outline-offset:-8px;background:#f7faff}
 
 .grpbar{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:6px 10px}.grpbar .tbtn{height:34px;min-height:34px;padding:0;font-size:16px}.grpbar #ix-mode{flex:1 1 auto;min-width:0}.grpbar #ix-add{flex:none;width:34px}.chip.g.on{background:var(--acc-bg);color:var(--acc);border-color:transparent}
-#searchbox{padding:8px 10px 2px;flex:none}#searchbox #q{width:100%;margin:0;box-sizing:border-box;padding:6px 12px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:14px;background:#f4f5f8;outline:none}#searchbox #q:focus{width:100%;background:#fff;border-color:var(--line)}
+#searchbox{padding:8px 10px 2px;flex:none;display:flex;align-items:center;gap:4px}#searchbox #q{flex:1 1 auto;min-width:0}#searchbox .ic{flex:none;width:32px;height:32px;font-size:15px;background:#f4f5f8;border-radius:8px;color:var(--sub);padding:0}#searchbox .ic:hover{background:var(--hl)}#searchbox #q{margin:0;box-sizing:border-box;padding:6px 12px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:14px;background:#f4f5f8;outline:none}#searchbox #q:focus{background:#fff;border-color:var(--line)}
 #paperonly{font-size:15px}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
@@ -585,7 +585,7 @@ body{-webkit-user-select:none;user-select:none}
 <main>
   <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="settings-btn" title="設定">⚙️</button></nav>
   <aside>
-    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"></div>
+    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>
     <div id="selbar"></div>
     <div id="list"></div>
