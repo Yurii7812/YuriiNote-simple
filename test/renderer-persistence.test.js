@@ -143,15 +143,13 @@ test('renderer: bulk selection buttons copy, cancel, wrap and exclude topic rows
   const escape = target => target.dispatchEvent(new c.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   try {
     c.open('1'); startSel();
-    assert.match($('.sel-head').textContent, /1件/);
-    c.click('#list .topicrow'); assert.match($('.sel-head').textContent, /1件/);   // 索引の行は選べない
+    assert.match($('.sel-n').textContent, /^1$/);
+    c.click('#list .topicrow'); assert.match($('.sel-n').textContent, /^1$/);   // 索引の行は選べない
     c.click('#sel-all'); assert.equal(c.w.document.querySelectorAll('#list .ck:checked').length, 2);
-    assert.match($('.sel-head').textContent, /2件/);
-    assert.equal(c.w.getComputedStyle($('.sel-actions')).flexWrap, 'wrap');
-    assert.equal(c.w.getComputedStyle($('#selbar')).flexDirection, 'column');
+    assert.match($('.sel-n').textContent, /^2$/);
     c.click('#sel-copy'); await tick();
     assert.match(c.flags.clipboard.at(-1), /最初の文章/); assert.match(c.flags.clipboard.at(-1), /別のノート/);
-    c.click('#sel-end small'); assert.equal($('#selbar').style.display, 'none'); assert.equal($('#list .ck'), null);
+    c.click('#sel-end'); assert.equal($('#selbar').style.display, 'none'); assert.equal($('#list .ck'), null);
     startSel(); c.click('#sel-all'); c.click('#sel-exp');
     assert.equal($('#modal').style.display, 'flex');
     escape($('#modal')); assert.equal($('#modal').style.display, 'none'); assert.ok($('#sel-end'));

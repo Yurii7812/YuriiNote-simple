@@ -1734,8 +1734,8 @@ function renderSelbar() {
   const bar = $('#selbar');
   bar.classList.toggle('selecting', selMode);
   bar.innerHTML = selMode
-    ? `<div class="sel-head"><span>${picked.size}件を選択</span><button id="sel-end" title="複数選択を終了（Esc）">やめる <small>Esc</small></button></div>
-      <div class="sel-actions"><button id="sel-all">全部</button><button id="sel-link" ${picked.size ? '' : 'disabled'}>リンクを作成</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">コピー</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤 エクスポート</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'}>削除</button></div>`
+    ? `<button id="sel-end" title="複数選択をやめる（Esc）">✖️</button><b class="sel-n" title="選んだ件数">${picked.size}</b><span class="sel-sp"></span>
+      <button id="sel-all" title="見えているノートを全部選ぶ">☑️</button><button id="sel-link" ${picked.size ? '' : 'disabled'} title="リンクを作成">🔗</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">📋</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'} title="選んだノートを削除">🗑️</button>`
     : '';   // 複数選択は、ノートを右クリックして始める
   bar.style.display = selMode ? 'flex' : 'none';
 }
