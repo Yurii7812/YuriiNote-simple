@@ -88,7 +88,7 @@
   }
   function findRefs(body) {
     const text = String(body || '');
-    const re = /(?<![\w(-])(?::)?([1-9]\d*[a-z0-9]*-\d+(?:\(\d+\))?|[1-9]\d*[a-z0-9]*(?:\(\d+\))?)(?::)?(?![\w)-])/g;
+    const re = /(?<![\w(-])(?::)?([1-9]\d*[a-z0-9]*-\d+(?:\(\d+\))?|[1-9]\d*[a-z0-9]*(?:\(\d+\))?)(?::)?(?!(?:-\d)|[\w)-])/g;
     const seen = new Set(), refs = [];
     for (const match of text.matchAll(re)) {
       const ref = parseRef(match[1]);
