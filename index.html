@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:">
+  <title>YuriiNote Simple</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./core.js" defer></script>
+  <script src="./renderer.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-title">YuriiNote <span>simple</span></div><p>紙のPKMを、そのままシンプルに。</p></div>
+      <button type="button" id="newNote" class="primary sidebar-create">＋ ノート</button>
+      <label for="search" class="sr-only">ノートを検索</label>
+      <input type="search" id="search" class="search" placeholder="検索…  /  ID・本文・キーワード" autocomplete="off">
+      <nav class="nav" aria-label="表示">
+        <button data-view="notes" class="nav-button active">ノート</button>
+        <button data-view="topics" class="nav-button">Topic Index</button>
+        <button data-view="zero" class="nav-button">0 Index</button>
+        <button data-view="global" class="nav-button">Global Index</button>
+      </nav>
+      <div id="sidebarList" class="sidebar-list" aria-label="項目一覧"></div>
+      <div class="sidebar-foot">
+        <button id="openFolder" class="quiet">保存先を開く</button>
+        <span id="saveStatus" role="status">準備中…</span>
+      </div>
+    </aside>
+    <main class="workspace">
+      <header class="workspace-toolbar">
+        <span id="workspaceLabel">ノート</span>
+        <div class="jump">
+          <label for="jumpInput" class="sr-only">IDを入力して移動</label>
+          <input id="jumpInput" placeholder="IDで移動（例 1-1(2)）" autocomplete="off">
+          <button id="jumpButton" class="quiet" type="button">開く</button>
+        </div>
+      </header>
+      <div class="workspace-scroll" id="workspaceScroll">
+        <div id="content" class="editor-shell"></div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
