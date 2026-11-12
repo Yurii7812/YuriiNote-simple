@@ -68,6 +68,38 @@ button:disabled{opacity:.4;cursor:default}
 #idbar button.idb{font-size:16px}#idbar button.idb b{font-size:14px}.idline .gid{font-size:18px!important;line-height:1}
 .kwlist{display:flex;flex-direction:column;gap:2px}.kwrow{padding:4px 8px;margin:0 -8px;border-radius:7px;font-size:14px;color:var(--acc);cursor:default}.kwrow:hover{background:var(--hl)}
 button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);background:var(--bg)}button.ic.dj:hover{background:var(--hl)}#dlist .dtop #d-today{flex:1}
+#scan{position:fixed;inset:0;background:var(--bg);display:none;z-index:9;color:var(--fg)}
+#scan .sc-stage{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:#20232d}
+#scan .sc-view{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:18px}
+#scan .sc-view img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.45);background:#fff;cursor:zoom-in}
+#scan.zoomed .sc-view{overflow:auto;align-items:flex-start;justify-content:flex-start}#scan.zoomed .sc-view img{max-width:none;max-height:none;cursor:zoom-out}
+#scan .sc-strip{flex:none;display:flex;gap:8px;padding:10px 14px;overflow-x:auto;background:#181b23;scrollbar-width:thin}
+#scan .sc-th{position:relative;flex:none;width:62px;height:62px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#2a2e3a;cursor:pointer;opacity:.55}
+#scan .sc-th img{width:100%;height:100%;object-fit:cover;display:block}
+#scan .sc-th.on{border-color:var(--acc);opacity:1}#scan .sc-th.done{opacity:.35;cursor:default}
+#scan .sc-th i{position:absolute;right:2px;bottom:1px;font-style:normal;font-size:15px}
+#scan .sc-side{flex:0 0 360px;display:flex;flex-direction:column;gap:10px;padding:18px 20px;overflow-y:auto;border-left:1px solid var(--line)}
+#scan .sc-head{display:flex;align-items:center;gap:10px;font-size:15px}#scan .sc-head b{font-size:22px}#scan .sc-grow{flex:1}#scan #sc-n{font-weight:700;color:var(--sub)}
+#scan .sc-x{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:16px;cursor:pointer;padding:0}
+#scan .sc-bar{height:5px;border-radius:3px;background:var(--hl);overflow:hidden}#scan .sc-bar i{display:block;height:100%;background:var(--acc);transition:width .25s}
+#scan .sc-lab{font-size:18px;margin-top:6px}
+#scan .sc-idrow{display:flex;align-items:center;gap:10px}
+#scan #sc-id{flex:1;min-width:0;height:56px;box-sizing:border-box;padding:0 14px;border:2px solid var(--line);border-radius:12px;font:700 28px ui-monospace,monospace;outline:none;background:var(--bg);color:var(--fg)}
+#scan #sc-id:focus{border-color:var(--acc)}#scan #sc-id.good{border-color:#198754;box-shadow:0 0 0 3px #19875422}#scan #sc-id.bad{border-color:var(--red,#c0392b);box-shadow:0 0 0 3px #c0392b22}
+#scan #sc-mark{font-size:24px;width:30px;text-align:center}
+#scan .sc-hint{min-height:18px;font-size:12.5px;color:var(--sub)}#scan .sc-hint.bad{color:var(--red,#c0392b)}
+#scan .sc-quick{display:flex;gap:8px}
+#scan .sc-quick button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:inherit;font-size:16px;cursor:pointer}
+#scan .sc-quick button b{font:700 15px ui-monospace,monospace}#scan .sc-quick button:hover{background:var(--hl)}
+#scan kbd{font:500 11px ui-monospace,monospace;color:var(--sub);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--bg)}
+#scan #sc-kw{height:42px;box-sizing:border-box;padding:0 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:15px;outline:none;background:var(--bg);color:var(--fg)}#scan #sc-kw:focus{border-color:var(--acc)}
+#scan .sc-kcs{display:flex;flex-wrap:wrap;gap:6px}#scan .sc-kc{padding:2px 10px;border-radius:999px;background:var(--acc-bg);color:var(--acc);font-size:13px;cursor:pointer}
+#scan .sc-primary{height:52px;border:0;border-radius:12px;background:var(--acc);color:#fff;font:700 17px inherit;cursor:pointer;margin-top:4px}#scan .sc-primary:hover{filter:brightness(1.08)}
+#scan .sc-row2{display:flex;gap:8px;align-items:center}#scan .sc-row2 button{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:17px;cursor:pointer}
+#scan .sc-row2 input{flex:1;min-width:0;height:40px;box-sizing:border-box;padding:0 8px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13px;background:var(--bg);color:var(--fg)}
+#scan #sc-msg{min-height:20px;font-size:13px}#scan #sc-msg.ok{color:#198754}#scan #sc-msg.bad{color:var(--red,#c0392b)}
+#scan .sc-keys{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12px;color:var(--sub);padding-top:10px;border-top:1px solid var(--line)}#scan .sc-keys span{display:inline-flex;align-items:center;gap:5px}
+@media(max-width:760px){#scan{flex-direction:column}#scan .sc-side{flex:none;border-left:0}}
 #paperonly,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#save-status[hidden]{display:none}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
@@ -206,10 +238,6 @@ button.danger{color:var(--red);border-color:#efc9c4}
 .modal .box{background:#fff;border-radius:10px;padding:18px 20px;width:440px;display:flex;flex-direction:column;gap:8px}
 .modal h3{margin:0}.modal input{padding:6px 9px;border:1px solid var(--line);border-radius:6px;font:inherit}
 .m-add{margin:3px 4px 0 0}
-#scan{position:fixed;inset:0;background:#fff;display:none;flex-direction:column;z-index:9}
-#scan .top{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-#scan input{padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit}
-#scan .view{flex:1;overflow:auto;text-align:center;background:#f6f6f6}#scan .view img{max-width:100%}
 @media(max-width:800px){.paper,.two{grid-template-columns:1fr}aside{width:220px}}
 
 #clist .ci{margin-right:8px}#clist .item small{float:right;color:var(--sub)}
@@ -539,19 +567,34 @@ body{-webkit-user-select:none;user-select:none}
 
 <div id="modal" class="modal"><div class="box"></div></div>
 
-<div id="scan">
-  <div class="top">
-    <b id="sc-n"></b>
-    <span>紙のID</span><input id="sc-id" style="width:110px;font-size:18px">
-    <span class="sub">キーワード</span><input id="sc-kw" placeholder="任意（、で区切る）">
-    <button id="sc-ok" class="p">決定して次へ (Enter)</button>
-    <button id="sc-skip">飛ばす</button>
-    <span class="sc-diary">｜ 紙の日記なら <input id="sc-date" type="date"><button id="sc-diary" title="Alt+D">日記として登録</button></span>
-    <button id="sc-prev">前のID (Tab)</button>
-    <button id="sc-close">閉じる (Esc)</button>
-    <span id="sc-msg" class="sub"></span>
+<div id="scan" role="dialog" aria-label="紙を取り込む" tabindex="-1">
+  <div class="sc-stage">
+    <div class="sc-view"><img id="sc-img" alt="" title="押すと、拡大・全体表示を切り替え (Alt+Z)"></div>
+    <div class="sc-strip" id="sc-strip"></div>
   </div>
-  <div class="view"><img id="sc-img"></div>
+  <aside class="sc-side">
+    <div class="sc-head"><b>📥</b><span id="sc-n"></span><span class="sc-grow"></span><button id="sc-close" class="sc-x" title="閉じる (Esc)">✖️</button></div>
+    <div class="sc-bar"><i id="sc-bar-i"></i></div>
+    <div class="sc-lab">🆔</div>
+    <div class="sc-idrow"><input id="sc-id" autocomplete="off" spellcheck="false" aria-label="紙のID"><span id="sc-mark"></span></div>
+    <div id="sc-hint" class="sc-hint"></div>
+    <div class="sc-quick">
+      <button data-sc-q="sib" title="直前の次（並列）  Alt+→" tabindex="-1">↔️ <b id="q-sib"></b><kbd>Alt →</kbd></button>
+      <button data-sc-q="chi" title="直前の子（分岐）  Alt+↓" tabindex="-1">🌱 <b id="q-chi"></b><kbd>Alt ↓</kbd></button>
+      <button data-sc-q="up" title="直前の親の次  Alt+←" tabindex="-1">⤴️ <b id="q-up"></b><kbd>Alt ←</kbd></button>
+    </div>
+    <div class="sc-lab">🏷️</div>
+    <input id="sc-kw" placeholder="キーワード（、で区切る）" autocomplete="off" aria-label="キーワード">
+    <div id="sc-kwchips" class="sc-kcs"></div>
+    <button id="sc-save" class="sc-primary" title="保存して次へ  Enter">⏎ 保存して次へ</button>
+    <div class="sc-row2">
+      <button id="sc-skip" title="飛ばす  Alt+S" tabindex="-1">⏭️<kbd>Alt S</kbd></button>
+      <button id="sc-diary" title="紙の日記として、右の日付に入れる  Alt+D" tabindex="-1">📔<kbd>Alt D</kbd></button>
+      <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1">
+    </div>
+    <div id="sc-msg"></div>
+    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Alt K</kbd>前と同じ🏷️</span><span><kbd>Alt Z</kbd>拡大</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
+  </aside>
 </div>
 <script src="dist/app.js"></script>
 </body>

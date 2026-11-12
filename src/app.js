@@ -1607,52 +1607,117 @@ function shrink(file, max = 2000) {
     im.src = u;
   });
 }
-let queue = [], qi = 0, lastId = '';
+// 取り込み画面: 左に画像と、並んだ全部の小さな画像（✅=済み ⏭️=飛ばした 📔=日記）。右に ID・キーワード。キーだけで、どんどん進める
+//   Enter 保存して次へ ／ Alt+→ 次(↔️) ／ Alt+↓ 子(🌱) ／ Alt+← 親の次(⤴️) ／ Alt+K 前と同じキーワード ／ Alt+S 飛ばす ／ Alt+D 日記へ ／ Alt+Z 拡大 ／ PageUp/PageDown 画像を移る ／ Esc 閉じる
+let queue = [], qi = 0, lastId = '', lastKws = '', lastDiary = '';
+let scanSt = [], scanThumbs = [], scanBusy = false, scanBatch = '', scanTimer = null;
 const startScan = fs => {
   queue = [...fs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-  qi = 0; $('#scan').style.display = 'flex'; showScan();
+  scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = queue.map(f => URL.createObjectURL(f));
+  scanSt = queue.map(() => ''); qi = 0; scanBatch = ''; lastKws = '';
+  $('#scan').style.display = 'flex'; $('#scan').classList.remove('zoomed'); showScan();
 };
 $('#imp').onclick = () => pick(true, startScan);
+const scanNext = from => { for (let i = Math.max(0, from); i < queue.length; i++) if (!scanSt[i]) return i; return -1; };
+const scanPrevious = from => { for (let i = from; i >= 0; i--) if (!scanSt[i]) return i; return -1; };
+const scanSuggest = {
+  sib: () => free('p', lastId ? L.sibling(lastId) : '1'),
+  chi: () => lastId ? free('p', L.child(lastId)) : '1',
+  up: () => { if (!lastId) return '1'; const p = L.parentIn(lastId, () => true); return free('p', L.sibling(p || lastId)); }
+};
+function scanFlash(text) { const m = $('#sc-msg'); m.textContent = text; m.className = 'ok'; clearTimeout(scanTimer); scanTimer = setTimeout(() => { m.textContent = ''; }, 2500); }
+function scanCheck() {   // ID が使えるか。✅ / ❌ と、枠の色で見せる
+  const id = $('#sc-id').value.trim().toLowerCase(), box = $('#sc-id');
+  const bad = !id ? '' : !L.isId(id) ? 'IDの形が違います（例: 2a1）' : get('p', id) ? `紙 ${id} は、もうあります` : '';
+  const ok = !!id && !bad;
+  $('#sc-mark').textContent = !id ? '' : ok ? '✅' : '❌';
+  box.classList.toggle('good', ok); box.classList.toggle('bad', !!id && !ok);
+  $('#sc-hint').textContent = bad || (lastId ? `直前 紙 ${lastId}` : '最初の1枚');
+  $('#sc-hint').classList.toggle('bad', !!bad);
+  return ok;
+}
+function scanStrip() {
+  $('#sc-strip').innerHTML = queue.map((f, i) => `<button class="sc-th${i === qi ? ' on' : ''}${scanSt[i] === 'done' || scanSt[i] === 'diary' ? ' done' : ''}" data-sc-i="${i}" title="${esc(f.name)}" tabindex="-1"><img src="${scanThumbs[i]}" alt="">${scanSt[i] === 'done' ? '<i>✅</i>' : scanSt[i] === 'diary' ? '<i>📔</i>' : scanSt[i] === 'skip' ? '<i>⏭️</i>' : ''}</button>`).join('');
+  const on = $('#sc-strip .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
 function showScan() {
-  if (qi >= queue.length) return closeScan();
-  $('#sc-n').textContent = `${qi + 1} / ${queue.length}`;
-  $('#sc-img').src = URL.createObjectURL(queue[qi]);
-  $('#sc-id').value = free('p', lastId ? L.sibling(lastId) : '1');
-  $('#sc-kw').value = ''; $('#sc-msg').textContent = queue[qi].name; if (!$('#sc-date').value) $('#sc-date').value = L.todayStr();
+  if (qi < 0 || qi >= queue.length || scanSt[qi]) qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0);
+  if (qi < 0) return closeScan();
+  const finished = scanSt.filter(Boolean).length;
+  $('#sc-n').textContent = `${finished + 1} / ${queue.length}`;
+  $('#sc-bar-i').style.width = Math.round(finished / queue.length * 100) + '%';
+  $('#sc-img').src = scanThumbs[qi]; $('#scan').classList.remove('zoomed');
+  $('#sc-id').value = scanSuggest.sib(); $('#sc-kw').value = '';
+  $('#q-sib').textContent = scanSuggest.sib(); $('#q-chi').textContent = scanSuggest.chi(); $('#q-up').textContent = scanSuggest.up();
+  if (!$('#sc-date').value) $('#sc-date').value = lastDiary || L.todayStr();
+  const recent = [...new Set([...L.splitKw(lastKws), ...allKeywords().slice(0, 40)])].slice(0, 12);
+  $('#sc-kwchips').innerHTML = recent.map(k => `<span class="sc-kc" data-sc-kw="${esc(k)}" tabindex="-1">${esc(k)}</span>`).join('');
+  scanStrip(); scanCheck();
   $('#sc-id').focus(); $('#sc-id').select();
 }
 async function scanOk() {
-  const id = $('#sc-id').value.trim().toLowerCase();
-  if (!L.isId(id)) { $('#sc-msg').textContent = 'IDの形が違います（例: 2a1）'; return; }
-  if (get('p', id)) { $('#sc-msg').textContent = `紙 ${id} は既にあります。別のIDにしてください`; return; }
-  await api.saveImage('p', id, await shrink(queue[qi]));
-  const kws = L.splitKw($('#sc-kw').value);
-  for (const k of kws) if (!readings[k]) { readings[k] = await api.suggest(k); await api.setReading(k, readings[k]); }
-  const n = await api.saveNote({ s: 'p', id, keywords: kws, body: '' });
-  notes.push(n); lastId = id; qi++; renderList(); showScan();
+  if (scanBusy) return;
+  if (!scanCheck()) { $('#sc-id').focus(); return; }
+  scanBusy = true;
+  try {
+    const id = $('#sc-id').value.trim().toLowerCase();
+    await api.saveImage('p', id, await shrink(queue[qi]));
+    const kws = L.splitKw($('#sc-kw').value);
+    for (const k of kws) if (!readings[k]) { readings[k] = await api.suggest(k); await api.setReading(k, readings[k]); }
+    const n = await api.saveNote({ s: 'p', id, keywords: kws, body: '' });
+    notes.push(n); lastId = id; lastKws = kws.join('、'); scanSt[qi] = 'done'; scanBatch = 'note';
+    scanFlash(`✅ 紙 ${id} を保存しました`); renderList();
+    qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
+  } finally { scanBusy = false; }
 }
 async function diaryScanOk() { // 紙の日記: ID は付けず、日付の日記の最後に入れる
+  if (scanBusy) return;
   const date = $('#sc-date').value;
-  if (!L.isDate(date)) { $('#sc-msg').textContent = '日付を入れてください'; return; }
-  upsertDiary(await api.addDiaryScan(date, await shrink(queue[qi])));
-  lastDiary = date; lastId = ''; qi++; renderList(); showScan();
+  if (!L.isDate(date)) { scanFlash('日付を入れてください'); $('#sc-msg').className = 'bad'; return $('#sc-date').focus(); }
+  scanBusy = true;
+  try {
+    upsertDiary(await api.addDiaryScan(date, await shrink(queue[qi])));
+    lastDiary = date; scanSt[qi] = 'diary'; scanBatch = 'diary'; scanFlash(`📔 ${date} の日記に入れました`); renderList();
+    qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
+  } finally { scanBusy = false; }
 }
-let lastDiary = '';
+function scanSkip() { scanSt[qi] = 'skip'; qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan(); }
+function scanGo(dir) {
+  const to = dir > 0 ? scanNext(qi + 1) : scanPrevious(qi - 1);
+  if (to < 0) return; qi = to; showScan();
+}
 function closeScan() {
-  $('#scan').style.display = 'none';
-  if (lastDiary && !lastId) { renderList(); return openDiary(lastDiary); }
-  tab = 'p'; mode = 'notes'; renderList(); if (lastId && get('p', lastId)) openNote('p', lastId);
+  clearTimeout(scanTimer); $('#scan').style.display = 'none';
+  scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = [];
+  if (scanBatch === 'diary' && lastDiary) { renderList(); return openDiary(lastDiary); }
+  if (scanBatch === 'note') { tab = 'p'; mode = 'notes'; renderList(); if (lastId && get('p', lastId)) openNote('p', lastId); return; }
+  renderList();
 }
-$('#sc-ok').onclick = scanOk;
+$('#sc-save').onclick = scanOk;
 $('#sc-diary').onclick = diaryScanOk;
-$('#sc-skip').onclick = () => { qi++; showScan(); };
-$('#sc-prev').onclick = () => { if (lastId) { $('#sc-id').value = lastId; $('#sc-id').focus(); } };
+$('#sc-skip').onclick = scanSkip;
 $('#sc-close').onclick = closeScan;
+$('#sc-id').addEventListener('input', scanCheck);
+$('#scan').addEventListener('click', e => {
+  const q = e.target.closest('[data-sc-q]'); if (q) { $('#sc-id').value = scanSuggest[q.dataset.scQ](); scanCheck(); $('#sc-id').focus(); return; }
+  const kc = e.target.closest('[data-sc-kw]'); if (kc) { const cur = L.splitKw($('#sc-kw').value); if (!cur.includes(kc.dataset.scKw)) cur.push(kc.dataset.scKw); $('#sc-kw').value = cur.join('、'); $('#sc-kw').focus(); return; }
+  const th = e.target.closest('[data-sc-i]'); if (th) { const i = +th.dataset.scI; if (scanSt[i] === 'done' || scanSt[i] === 'diary') return; if (scanSt[i] === 'skip') scanSt[i] = ''; qi = i; showScan(); return; }
+  if (e.target.closest('#sc-img')) { $('#scan').classList.toggle('zoomed'); $('#sc-id').focus(); }
+});
 $('#scan').onkeydown = e => {
-  if (e.key === 'Enter' && e.target.id !== 'sc-date') { e.preventDefault(); scanOk(); }
-  else if (e.altKey && e.key.toLowerCase() === 'd') { e.preventDefault(); diaryScanOk(); }
-  else if (e.key === 'Escape') closeScan();
-  else if (e.key === 'Tab') { e.preventDefault(); $('#sc-prev').click(); }
+  if (e.isComposing || e.keyCode === 229) return;
+  const alt = e.altKey && !e.ctrlKey && !e.metaKey, k = e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };
+  if (e.key === 'Enter' && e.target.id !== 'sc-date') { stop(); scanOk(); }
+  else if (e.key === 'Escape') { stop(); closeScan(); }
+  else if (alt && e.key === 'ArrowRight') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && e.key === 'ArrowDown') { stop(); $('#sc-id').value = scanSuggest.chi(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && e.key === 'ArrowLeft') { stop(); $('#sc-id').value = scanSuggest.up(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && k === 'k') { stop(); $('#sc-kw').value = lastKws; }
+  else if (alt && k === 's') { stop(); scanSkip(); }
+  else if (alt && k === 'd') { stop(); diaryScanOk(); }
+  else if (alt && k === 'z') { stop(); $('#scan').classList.toggle('zoomed'); }
+  else if (e.key === 'PageDown') { stop(); scanGo(1); }
+  else if (e.key === 'PageUp') { stop(); scanGo(-1); }
 };
 
 // ===== 保存フォルダ =====
