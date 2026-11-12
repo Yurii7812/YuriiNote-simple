@@ -41,7 +41,7 @@ const kwTopic = k => topics.find(t => t.keyword === k);
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
 let paperOnly = !!prefs.paperOnly;   // 全体を紙だけにする（ノート・Index・トピックIndex）
 const isVisS = sp => !paperOnly || sp === 'p';
-let groupSel = '';   // 0 Index で選んでいるグループIndex の名前（'' = 全体）
+let groupMode = false;   // Index タブ: false = グローバルIndex、true = グループIndex
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
 const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir, paperOnly })); } catch { } };
@@ -466,16 +466,15 @@ function renderList() {
     out.push(...fl.map(f => fileRow(f)));   // map にそのまま渡すと、行の番号が検索語の欄に入って落ちる
     if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
   } else if (tab === 'i') {
-    // Index: グローバルIndex（キーワードの一覧）と、グループIndex（0-1, 0-2 …）をボタンで切り替える
+    // Index: グローバルIndex（キーワードの一覧）⇄ グループIndex（0-1, 0-2 …）を、1つのボタンで切り替える
     const groups = topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1));
-    if (groupSel && !groups.some(g => g.name === groupSel)) groupSel = '';
-    // 1つのボタンを押すたびに、グローバル → 0-1 → 0-2 … → グローバル と切り替わる
-    out.push(`<div class="grpbar"><button id="grp-cycle" class="tbtn p" title="押すたびに、グローバルIndex ⇄ グループIndex を切り替えます">${groupSel ? '👥 ' + esc(topicLabel(groups.find(x => x.name === groupSel))) : '🌐 グローバルIndex'}</button><button id="grp-new" class="tbtn" title="グループIndex を作る">＋</button></div>`);
-    const g = groups.find(x => x.name === groupSel);
-    if (g) {
-      const m = L.mergeTopic(g);
-      out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
-      if (!m.rows.length) out.push('<div class="none">まだ空です。「編集」で、キーワードとIDを書きます</div>');
+    out.push(`<div class="grpbar"><button id="ix-mode" class="tbtn p" title="押すと、グローバルIndex ⇄ グループIndex を切り替えます">${groupMode ? '👥 グループ' : '🌐 グローバル'}</button>${groupMode ? '<button id="grp-new" class="tbtn" title="グループIndex を作る">＋ グループを作る</button>' : ''}</div>`);
+    if (groupMode) {
+      for (const g of groups) {
+        const m = L.mergeTopic(g);
+        out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
+      }
+      if (!groups.length) out.push('<div class="none">グループIndex はまだありません。「＋ グループを作る」で作ります</div>');
     } else {
       out.push(PI.form());
       let row = null;
@@ -515,7 +514,7 @@ function onOpenClick(e) {
   const dd = e.target.closest('[data-diary]'); if (dd && !e.target.closest('.cm-editor')) return openDiary(dd.dataset.diary, undefined, dd.dataset.kind || '日記');
   const row = e.target.closest('#list .item');
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
-  const gc = e.target.closest('#grp-cycle'); if (gc) { const names = ['', ...topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1)).map(t => t.name)]; if (names.length === 1) { toast('グループIndex がまだありません。作ります'); return topicNewDialog('', true); } groupSel = names[(names.indexOf(groupSel) + 1) % names.length]; return renderList(); }
+  if (e.target.closest('#ix-mode')) { groupMode = !groupMode; return renderList(); }
   const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic);
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
@@ -1203,7 +1202,7 @@ function topicNewDialog(kw = '', grp = false) {
       if (topics.find(t => t.name === name)) return alert('その名前は既にあります');
       const g = { name, entry: { s: 'd', id: '0' }, keyword: '', text: '' }, sv = await api.saveTopic(g);
       if (!sv) return alert('保存できませんでした');
-      g.num = sv === true ? 0 : sv; topics.push(g); close(); tab = 'i'; groupSel = g.name; renderList(); newTab = true; return openTopic(name, 'edit');
+      g.num = sv === true ? 0 : sv; topics.push(g); close(); tab = 'i'; groupMode = true; renderList(); newTab = true; return openTopic(name, 'edit');
     }
     if (!L.isId(id)) return alert('IDの形が違います（例: 12 や 3a）');
     if (!name) return alert('名前を入れてください');
