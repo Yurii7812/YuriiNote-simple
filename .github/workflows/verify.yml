@@ -16,5 +16,7 @@ jobs:
           node --check renderer.js
           node --check main.js
           node --check preload.js
+      - name: Validate Linux installer
+        run: sh -n install/linux.sh
       - name: Unit tests
         run: npm test
