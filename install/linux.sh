@@ -1,7 +1,7 @@
 #!/bin/sh
 # YuriiNote Simple: user-local Linux installation and update.
 # Install: curl -fsSL https://raw.githubusercontent.com/Yurii7812/YuriiNote-simple/main/install/linux.sh | sh
-# Update:  ~/.local/bin/YuriiNote-simple --update
+# Update:  YuriiNote-Simple --update
 # No sudo, no modifications to original YuriiNote or its data.
 set -eu
 
@@ -9,7 +9,8 @@ REPO="Yurii7812/YuriiNote-simple"
 BASE="$HOME/.local/share/YuriiNote-simple"
 SRC="$BASE/src"
 NODE_HOME="$BASE/node"
-BIN="$HOME/.local/bin/YuriiNote-simple"
+BIN="$HOME/.local/bin/YuriiNote-Simple"
+LEGACY_BIN="$HOME/.local/bin/YuriiNote-simple"
 APP_ENTRY="$HOME/.local/share/applications/yuriinote-simple.desktop"
 
 say() { printf '%s\n' "$*"; }
@@ -105,9 +106,9 @@ case "$ARG" in
     exec node -p 'require(process.argv[1]).version' "$APP/package.json"
     ;;
   --help|-h)
-    printf '%s\n' 'YuriiNote-simple             アプリを起動' \
-       'YuriiNote-simple --update    最新版に更新' \
-       'YuriiNote-simple --version   バージョンを表示'
+    printf '%s\n' 'YuriiNote-Simple             アプリを起動' \
+       'YuriiNote-Simple --update    最新版に更新' \
+       'YuriiNote-Simple --version   バージョンを表示'
     exit 0
     ;;
 esac
@@ -118,6 +119,23 @@ esac
 exec "$APP/node_modules/.bin/electron" "$APP" "$@"
 LAUNCHER
 chmod 755 "$BIN"
+# Keep the previous command name working for existing installations.
+ln -sf "$BIN" "$LEGACY_BIN"
+
+# Ensure this user-local command is found in future Bash sessions.
+# The installer runs in a subshell: opening a new terminal may be necessary.
+ensure_user_path() {
+  PROFILE="$1"
+  [ -f "$PROFILE" ] || : > "$PROFILE"
+  if ! grep -F 'export PATH="$HOME/.local/bin:$PATH" # YuriiNote Simple' "$PROFILE" >/dev/null 2>&1; then
+    printf '\n%s\n' 'export PATH="$HOME/.local/bin:$PATH" # YuriiNote Simple' >> "$PROFILE"
+  fi
+}
+# ~/.profile covers login sessions; ~/.bashrc covers interactive non-login Bash.
+if ! command -v YuriiNote-Simple >/dev/null 2>&1; then
+  ensure_user_path "$HOME/.profile"
+  if [ -f "$HOME/.bashrc" ]; then ensure_user_path "$HOME/.bashrc"; fi
+fi
 
 # FreeDesktop launcher, including XFCE's app menu.
 printf '[Desktop Entry]\nType=Application\nName=YuriiNote Simple\nComment=Minimal paper-style PKM\nExec="%s"\nTerminal=false\nCategories=Office;Utility;\nStartupNotify=true\n' \
@@ -132,9 +150,9 @@ fi
 say ""
 say "YuriiNote Simple のインストール／更新が完了しました。"
 say "アプリ一覧: YuriiNote Simple"
-say "起動: $BIN"
-say "更新: $BIN --update"
+say "起動: YuriiNote-Simple"
+say "更新: YuriiNote-Simple --update"
 say "データは元のYuriiNoteとは別の場所に保存されます。"
-if ! command -v YuriiNote-simple >/dev/null 2>&1; then
+if ! command -v YuriiNote-Simple >/dev/null 2>&1; then
   say "コマンド名だけで起動できない場合は、新しいターミナルを開くか、上記のフルパスで起動してください。"
 fi
