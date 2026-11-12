@@ -1294,9 +1294,11 @@ function openTopic(name, tmode = 'view', keep) {
   else body = `<table class="ti">${rows.map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
       ${marks.map(x => `<tr class="tmark"><td colspan="2">◯ ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
   // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
-  const upChip = u => {   // ^キーワード ID: IDがあればそのIDのトピックIndex（無ければキーワードのトピックIndex）を開く。IDは押すとノートへ
-    const o = (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw));
-    return `<span class="chip t${o ? '' : ' miss'}"${o ? ` data-topic="${esc(o.name)}"` : ''}>↑ ${esc(u.kw || u.ids.map(x => x.raw).join(' '))}</span>${u.ids.map(x => chip(x.s, x.raw)).join('')}`;
+  const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
+    const o = (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw)), x0 = u.ids[0];
+    const name = esc(u.kw || u.ids.map(x => x.raw).join(' '));
+    if (o) return `<span class="chip t" data-topic="${esc(o.name)}">${name}</span>`;
+    return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
   };
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
   $('#pane').innerHTML = `
