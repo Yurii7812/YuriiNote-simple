@@ -20,7 +20,9 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
   root.className = 'idex-cover';
   root.innerHTML = '<section class="idex-dialog" role="dialog" aria-modal="true" aria-label="IDを探して付ける">' +
     '<header class="idex-head"><div><h2>🔢 IDをつける</h2></div>' +
-    '<button type="button" data-ix-close aria-label="閉じる">×</button></header>' +
+    '<div class="idex-decision"><label>ID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
+    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">🆗 決定</button></div>' +
+    '<button type="button" data-ix-close aria-label="やめる" title="やめる">✖️</button></header>' +
     '<div class="idex-main"><aside class="idex-sidebar">' +
     '<input id="idex-query" type="search" placeholder="本文・ID・Index・索引を検索" aria-label="知識を検索">' +
     '<div class="idex-scopes"><button data-ix-scope="all" class="on" title="全部">🔎</button><button data-ix-scope="keywords" title="Index（キーワード）">🔖</button><button data-ix-scope="topics" title="トピックIndex">📑</button><button data-ix-scope="notes" title="ノート">📝</button></div>' +
@@ -28,8 +30,7 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     '<div class="idex-detail"><div class="idex-trail"><button type="button" data-ix-back disabled title="戻る">⬅️</button><span class="idex-path"></span></div>' +
     '<div class="idex-preview"></div></div></div>' +
     '<footer class="idex-footer"><div id="idex-pos" class="idex-pos"></div><div class="idex-method"><button type="button" data-ix-method="child" title="分岐（子）にする">🌱 子</button><button type="button" data-ix-method="sibling" title="並列（きょうだい）にする">↔️ 並列</button><button type="button" data-ix-method="direct" class="on" title="IDを直接指定">✍️ 直接</button></div>' +
-    '<div class="idex-decision"><label>ID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
-    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">🆗 決定</button><button type="button" data-ix-close title="やめる">✖️</button></div></footer></section>';
+    '</footer></section>';
   document.body.append(root);
   const $ = sel => root.querySelector(sel);
   const byNote = new Map(notes.map(n => [nkey(n), n]));
