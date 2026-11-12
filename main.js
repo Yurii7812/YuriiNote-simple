@@ -220,7 +220,7 @@ if (!argv.some(a => ['--version', '--update', '--check', '--install'].includes(a
   if (process.platform === 'win32') app.setAppUserModelId('jp.yurii.yuriinote');
   Menu.setApplicationMenu(null);
   const w = new BrowserWindow({
-    width: 1200, height: 800, title: 'YuriiNote', backgroundColor: '#ffffff', show: false,
+    width: 1200, height: 800, title: 'YuriiNote', backgroundColor: '#ffffff', show: false, icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true }
   });
   // 外部Webサイトはアプリの中へ遷移させず、OSの既定ブラウザーで開く。
