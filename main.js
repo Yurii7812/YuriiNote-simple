@@ -14,6 +14,7 @@ function storePaths() {
 }
 function loadData() {
   const { target, backup } = storePaths();
+  let unreadable = false;
   for (const filename of [target, backup]) {
     if (!fs.existsSync(filename)) continue;
     try {
@@ -21,10 +22,11 @@ function loadData() {
       if (!data || typeof data !== 'object' || !Array.isArray(data.notes)) throw Error('invalid file');
       return data;
     } catch (error) {
-      // If the latest save is unreadable, try the previous backup.
-      if (filename === backup) throw Error('保存データとバックアップを読み取れません。');
+      // Never treat an unreadable existing store as a new, empty installation.
+      unreadable = true;
     }
   }
+  if (unreadable) throw Error('保存データとバックアップを読み取れません。');
   return { version: 1, notes: [], topics: [] };
 }
 function saveData(value) {

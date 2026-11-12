@@ -78,10 +78,10 @@
     return candidate;
   }
   function parseRef(input) {
-    const raw = String(input || '').trim().replace(/^[★↑＝= ]+/, '').replace(/^:/, '').replace(/:$/, '').trim();
+    const raw = String(input || '').trim().replace(/^[★↑●^+＝= ]+/, '').replace(/^:/, '').replace(/:$/, '').trim();
     if (raw === '0') return { kind: 'zero', id: '0', page: 1 };
     const topic = raw.match(/^([1-9]\d*[a-z0-9]*-\d+)(?:\((\d+)\))?$/);
-    if (topic && validTopic(topic[1])) return { kind: 'topic', id: topic[1], page: topic[2] ? Number(topic[2]) : 1 };
+    if (topic && validTopic(topic[1]) && (!topic[2] || (Number.isSafeInteger(Number(topic[2])) && Number(topic[2]) > 0))) return { kind: 'topic', id: topic[1], page: topic[2] ? Number(topic[2]) : 1 };
     const note = raw.match(/^([1-9]\d*[a-z0-9]*)(?:\((\d+)\))?$/);
     if (note && validNote(note[1])) return { kind: 'note', id: note[1], anchor: note[2] ? Number(note[2]) : null };
     return null;

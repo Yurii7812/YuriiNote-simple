@@ -11,34 +11,49 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand"><div class="brand-title">YuriiNote <span>simple</span></div><p>紙のPKMを、そのままシンプルに。</p></div>
-      <button type="button" id="newNote" class="primary sidebar-create">＋ ノート</button>
-      <label for="search" class="sr-only">ノートを検索</label>
-      <input type="search" id="search" class="search" placeholder="検索…  /  ID・本文・キーワード" autocomplete="off">
-      <nav class="nav nav-two" aria-label="表示">
-        <button type="button" data-view="notes" class="nav-button active">ノート</button>
-        <button type="button" data-view="index" class="nav-button">Index</button>
+    <header class="app-header">
+      <span class="brand">YuriiNote <span>Simple</span></span>
+      <nav aria-label="画面">
+        <button type="button" data-view="index" class="nav-button active" aria-current="page">Index</button>
+        <button type="button" data-view="notes" class="nav-button">ノート</button>
       </nav>
-      <div id="sidebarList" class="sidebar-list" aria-label="項目一覧"></div>
-      <div class="sidebar-foot">
-        <button id="openFolder" class="quiet">保存先を開く</button>
-        <span id="saveStatus" role="status">準備中…</span>
+      <button type="button" id="newNote" class="primary">＋ ノート</button>
+    </header>
+    <main class="workspace" id="workspace">
+      <div id="indexTools" class="index-tools">
+        <label for="indexKind" class="sr-only">索引の種類</label>
+        <select id="indexKind">
+          <option value="global">Global Index</option>
+          <option value="topics">Topic Index</option>
+          <option value="zero">0 Index</option>
+          <option value="all">ノート一覧</option>
+        </select>
+        <label for="search" class="sr-only">キーワード・ID・本文で絞り込む</label>
+        <input type="search" id="search" placeholder="キーワード・ID・本文で絞り込む" autocomplete="off">
       </div>
-    </aside>
-    <main class="workspace">
-      <header class="workspace-toolbar">
-        <span id="workspaceLabel">ノート</span>
-        <div class="jump">
-          <label for="jumpInput" class="sr-only">IDを入力して移動</label>
-          <input id="jumpInput" placeholder="IDで移動（例 1-1(2)）" autocomplete="off">
-          <button id="jumpButton" class="quiet" type="button">開く</button>
-        </div>
-      </header>
-      <div class="workspace-scroll" id="workspaceScroll">
-        <div id="content" class="editor-shell"></div>
-      </div>
+      <div id="content"></div>
+      <details id="settings" class="settings">
+        <summary>設定・使い方</summary>
+        <label class="setting-line"><input id="allowMultipleTopics" type="checkbox">同じIDに複数のTopic Indexを作成する</label>
+        <p class="small-note">初期設定はオフ。オンにすると 1-2、1-3…を追加できます。オフに戻しても作成済みの索引は残ります。</p>
+        <p class="small-note">まず本文を書き、必要になったらIDを付けます。関連する考えは分岐・並列で追加し、ノートが増えてからTopic Indexを作れます。</p>
+        <p class="small-note">↑ 上位の索引　★ 関連する索引　● まとめ<br>1a(2) はノートの参照箇所、1-1(2) は索引の2ページ目。本文下の参照を押すと移動できます。<br>Ctrl+N 新規ノート ／ Ctrl+S 保存 ／ 検索欄でIDを入力してEnter 移動</p>
+        <button id="openFolder" class="quiet" type="button">保存先を開く</button>
+      </details>
     </main>
+    <footer class="app-footer"><span id="saveStatus" role="status">準備中…</span></footer>
   </div>
+  <dialog id="entryDialog">
+    <form id="entryForm">
+      <h2 id="dialogTitle"></h2>
+      <p id="dialogMessage" class="small-note"></p>
+      <label id="dialogLabel" for="dialogInput"></label>
+      <input id="dialogInput" autocomplete="off">
+      <div class="dialog-buttons">
+        <button id="dialogCancel" class="quiet" type="button">キャンセル</button>
+        <button id="dialogSubmit" class="primary" type="submit">決定</button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>

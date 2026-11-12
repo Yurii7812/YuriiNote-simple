@@ -71,3 +71,11 @@ test('Both settings modes retain existing indexes without deleting notes', () =>
   assert.equal(P.nextTopicId('1', enabled.topics.map(t => t.id), true), '1-3');
   assert.equal(P.globalEntries(enabled).find(e => e.keyword === '出発点').items[0].id, '1-1');
 });
+
+test('Topic Index notation accepts the agreed symbols and rejects invalid page numbers', () => {
+  for (const prefix of ['↑', '★', '●', '^', '+', '=']) {
+    assert.equal(P.parseRef(prefix + ' 1-1(2)').page, 2);
+  }
+  assert.equal(P.parseRef('1-1(0)'), null);
+  assert.equal(P.parseRef('1-1(99999999999999999999)'), null);
+});

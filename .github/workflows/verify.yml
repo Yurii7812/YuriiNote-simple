@@ -20,3 +20,23 @@ jobs:
         run: sh -n install/linux.sh
       - name: Unit tests
         run: npm test
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install UI test tools separately from the application
+        run: npm install --prefix "$RUNNER_TEMP/ui-deps" --no-audit --no-fund playwright@1.62.1
+      - name: Install Chromium
+        run: '"$RUNNER_TEMP/ui-deps/node_modules/.bin/playwright" install --with-deps chromium'
+      - name: Test the two-screen workflow
+        run: NODE_PATH="$RUNNER_TEMP/ui-deps/node_modules" UI_SCREENSHOT_DIR="$RUNNER_TEMP/ui-screenshots" npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: ${{ runner.temp }}/ui-screenshots
+          if-no-files-found: ignore

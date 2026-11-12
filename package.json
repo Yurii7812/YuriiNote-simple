@@ -1,12 +1,13 @@
 {
   "name": "yuriinote-simple",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A minimal paper-style Double Index System editor",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
+    "test:ui": "node --test test/ui.cjs",
     "dist:linux": "electron-builder --linux --publish never",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never"
