@@ -1,0 +1,27 @@
+{
+  "name": "yuriinote-simple",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A minimal paper-style Double Index System editor",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist:linux": "electron-builder --linux --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "jp.yurii.yuriinotesimple",
+    "productName": "YuriiNote Simple",
+    "directories": { "output": "release" },
+    "files": ["main.js", "preload.js", "core.js", "renderer.js", "styles.css", "index.html", "package.json"],
+    "linux": { "target": ["AppImage"], "category": "Office" },
+    "win": { "target": ["nsis"] },
+    "mac": { "target": ["dmg"] }
+  }
+}
