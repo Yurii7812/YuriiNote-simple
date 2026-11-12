@@ -27,7 +27,33 @@
 
 本Aの読書ノートを `1` 系列で続け、本Bは `2` 系列で始める、といった使い方ができます。途中の寄り道やまとめが古くなることは問題にしません。
 
-## 起動
+## Linuxに1行でインストール（Debian / Ubuntu / XFCEなど）
+
+ターミナルで次の1行を実行します。**sudoは不要**です。Node.js 22がない場合はユーザーのホームディレクトリに自動で準備します。
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Yurii7812/YuriiNote-simple/main/install/linux.sh | sh
+```
+
+アプリ一覧に **YuriiNote Simple** が登録され、デスクトップフォルダがあればショートカットも作成されます。元のYuriiNoteとは別の場所にインストールします。
+
+**起動**
+
+```sh
+~/.local/bin/YuriiNote-simple
+```
+
+**更新**
+
+```sh
+~/.local/bin/YuriiNote-simple --update
+```
+
+`~/.local/bin` がPATHに入っている場合は、`YuriiNote-simple` と `YuriiNote-simple --update` でも動きます。同じインストールコマンドをもう一度実行しても更新できます。アプリを終了してから更新してください。保存データは更新対象外です。
+
+Linux版のインストールには、`curl`、`tar`、`sha256sum` とインターネット接続が必要です。依存するGUIライブラリはLinux側に必要ですが、一般的なDebian/XFCE環境なら通常備わっています。
+
+## 開発者向けの起動
 
 Node.js 22以上が必要です。
 
