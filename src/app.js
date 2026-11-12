@@ -39,11 +39,13 @@ const kwTopic = k => topics.find(t => t.keyword === k);
 // そのキーワードの索引 があれば赤い点（押すと開く）。IDが2つ以上でまだ無ければ「作る」
 // 左の一覧の並べ替えと表示。ノート（デジタル・紙・未整理）と日記は、並び順をそれぞれ別に覚える
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
+let paperOnly = !!prefs.paperOnly;   // 全体を紙だけにする（ノート・Index・トピックIndex）
+const isVisS = sp => !paperOnly || sp === 'p';
 let ixFilter = 'all';   // Index タブのフィルター（all | paper）
 let groupSel = '';   // 0 Index で選んでいるグループIndex の名前（'' = 全体）
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
-const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir })); } catch { } };
+const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir, paperOnly })); } catch { } };
 // 「キーワード ID ID(p) …」の 1 行。親の側と違う ID には、(p) か (d) を付ける
 const idsText = (k, v, def) => { const toks = [...v.d.map(x => def === 'd' ? x : x + '(d)'), ...v.p.map(x => def === 'p' ? x : x + '(p)')]; return toks.length ? k + ' ' + toks.join(' ') : ''; };
 const ixRow = ([k, v]) => {
@@ -318,6 +320,7 @@ function globalIndex() {
     if (!m.has(e.kw)) m.set(e.kw, { d: [], p: [] });
     for (const id of e.ids) if (!m.get(e.kw).p.includes(id)) m.get(e.kw).p.push(id);
   }
+  if (paperOnly) for (const [k, v] of m) { v.d = []; if (!v.p.length) m.delete(k); }   // 紙だけ: 紙のIDがあるキーワードだけ
   for (const v of m.values()) { v.d.sort(L.cmpId); v.p.sort(L.cmpId); }
   return [...m].sort((a, b) => L.byReading(readingOf)(a[0], b[0]));
 }
@@ -326,8 +329,10 @@ const chip = (s, raw) => {
   const { id, n } = L.splitAnchor(raw), ts = n ? [] : topicsOf(s, id);
   return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${s === 'p' ? '紙' : ''}${esc(raw)}</span>${ts.length ? `<i class="tix" data-tix="${s}:${esc(id)}" title="トピック Index を開く">📑</i>` : ''}`;
 };
-const rowChips = r => [['d', r.d], ['p', r.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
-const chips = v => [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
+const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
+const paperRows = rows => paperOnly ? rows.filter(r => r.p.length) : rows;   // 紙だけのとき、紙のIDがない行は出さない
+const topicVisible = t => !paperOnly || !t.entry || t.entry.s === 'p' || t.entry.id === '0';   // グループIndex（0番）は、いつも
+const chips = v => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
 const topicNo = t => t.entry ? `${t.entry.id}-${t.num || 1}` : '';   // 1-1, 1-2, … グループIndexは 0-1, 0-2
 const topicLabel = t => (topicNo(t) ? topicNo(t) + ' ' : '') + stripId(t.name);
@@ -429,8 +434,9 @@ function sortNotes(list, tab) {
   return list.slice().sort((a, b) => sg * (by === 'fz' ? L.cmpId(a.id, b.id) : key(a).localeCompare(key(b)) || L.cmpId(a.id, b.id)));
 }
 function renderList() {
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
+  document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
+  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.id === 'paperonly' ? paperOnly : b.dataset.mode === mode));
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
@@ -441,12 +447,12 @@ function renderList() {
     const gi = globalIndex().filter(([k]) => k.toLowerCase().includes(q) || (readings[k] || '').includes(hq)).sort((a, b) => rk(a[0]) - rk(b[0]));
     if (gi.length) out.push('<h4>Index</h4>', ...gi.map(ixRow));
     const ti = [];
-    for (const t of topics) {
+    for (const t of topics.filter(topicVisible)) {
       if (t.name.toLowerCase().includes(q)) ti.push([-1, `<div class="ix">${tchip(t.name)}</div>`]);
-      for (const r of L.mergeTopic(t).rows) if (r.kw.toLowerCase().includes(q)) ti.push([rank(r.kw), `<div class="ix"><b>${esc(r.kw)}</b> ${chips(r)} <small>← ${tchip(t.name)}</small></div>`]);
+      for (const r of paperRows(L.mergeTopic(t).rows)) if (r.kw.toLowerCase().includes(q)) ti.push([rank(r.kw), `<div class="ix"><b>${esc(r.kw)}</b> ${chips(r)} <small>← ${tchip(t.name)}</small></div>`]);
     }
     if (ti.length) out.push('<h4>索引</h4>', ...ti.sort((a, b) => a[0] - b[0]).map(x => x[1]));
-    const hit = sortNotes(notes.filter(n => [n.id, n.title || '', n.body, n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
+    const hit = sortNotes(notes.filter(n => isVisS(n.s) && [n.id, n.title || '', n.body, n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
     if (hit.length) out.push('<h4>ノート</h4>', sortBar(false), ...hit.map(n => noteRow(n, true, q)));
     const fh = filesCache.filter(f => [f.title, f.desc, f.orig, f.name].join('\n').toLowerCase().includes(q));
     if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, q)));
@@ -468,11 +474,11 @@ function renderList() {
     if (g) {
       out.push(`<h4>${esc(topicLabel(g))}</h4>`);
       const m = L.mergeTopic(g);
-      out.push(...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...m.rows.map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`));
+      out.push(...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`));
       out.push(topicRow(g, false));
       if (!m.rows.length) out.push('<div class="none">まだ空です。「編集」で、キーワードとIDを書きます</div>');
     } else {
-      const roots = topics.filter(t => t.entry && /^[1-9]\d*$/.test(t.entry.id) && ['d', 'p'].includes(t.entry.s) && !get(t.entry.s, t.entry.id)?.noid)
+      const roots = topics.filter(topicVisible).filter(t => t.entry && /^[1-9]\d*$/.test(t.entry.id) && ['d', 'p'].includes(t.entry.s) && !get(t.entry.s, t.entry.id)?.noid)
         .sort((a, b) => L.cmpId(a.entry.id, b.entry.id) || a.entry.s.localeCompare(b.entry.s) || (a.num || 1) - (b.num || 1));
       out.push('<h4>0 Index</h4>', ...roots.map(t => topicRow(t, true)));
       if (!roots.length) out.push('<div class="none">親ID（1、2…）のトピックIndexが、ここに並びます</div>');
@@ -492,7 +498,7 @@ function renderList() {
     const byFz = sortBy === 'fz' && tab !== 'u';
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
     for (const n of list) {
-      if (byFz) for (const t of topicsOf(n.s, n.id)) out.push(topicRow(t)); // 「1-1」「1-2」は、ノート 1 の手前
+      if (byFz) for (const t of topicsOf(n.s, n.id).filter(topicVisible)) out.push(topicRow(t)); // 「1-1」「1-2」は、ノート 1 の手前
       out.push(noteRow(n));
     }
     if (!list.length) out.push(`<div class="none">${tab === 'p' ? '「📷 スキャン取り込み」で紙を入れます' : tab === 'u' ? 'IDなしで書いたノートが、ここに並びます。あとでIDを付けて整理します' : '「＋ 新規」で書き始めます'}</div>`);
@@ -527,7 +533,7 @@ function onOpenClick(e) {
   }
 }
 document.addEventListener('click', onOpenClick);
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'paperonly') { paperOnly = !paperOnly; savePrefs(); toast(paperOnly ? '紙だけ表示' : 'すべて表示'); if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode, true); else renderList(); return; } if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
@@ -1291,7 +1297,7 @@ function openTopic(name, tmode = 'view', keep) {
         <input id="t-id" value="${e ? esc(e.id) : ''}" style="width:110px" placeholder="番号"><span class="sub">この索引の親になるノートの番号</span></div>
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑 この索引を削除</button></div></div>`;
-  else body = `<table class="ti">${rows.map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
+  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
       ${marks.map(x => `<tr class="tmark"><td colspan="2">◯ ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
   // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
   const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
