@@ -82,7 +82,7 @@ const EN = {
 'キーワード（空なら点なし）': 'Keyword (empty = no dot)',
 'ノートにキーワードを書くと、ここに並びます': 'Keywords written in notes appear here',
 'キーワードは、IDが2つ以上あるものだけです': 'Only keywords with two or more IDs are shown',
-'索引': 'Topic Index', '索引「': 'Topic Index "', '索引を作る': 'Create topic Index', '索引を探す': 'Find topic Index',
+'今日の記録': "Today's records", '索引': 'Topic Index', '索引「': 'Topic Index "', '索引を作る': 'Create topic Index', '索引を探す': 'Find topic Index',
 '索引を選んでください': 'Choose a topic Index', 'トピック「': 'Topic "', 'トピックの設定': 'Topic settings', 'トピックを作る': 'Create topic', 'トピックを変える': 'Change topic',
 'トピック未選択': 'No topic', '未選択': 'Unselected', '未選択 / 日記 / トピック名': 'Unselected / Diary / topic name',
 '＋ トピック': '+ Topic', '＋ 索引に入れる': '+ Add to topic Index', 'を索引に追加': ' added to topic Index',

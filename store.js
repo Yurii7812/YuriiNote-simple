@@ -252,13 +252,21 @@ function openVault(vault) {
   const kindParents = k => { const x = recDoc().kinds.find(y => y.name === k) || {}; return x.parents || (x.parent ? [x.parent] : []); };   // 種類の上位（いくつでも）
   const kindParent = k => kindParents(k)[0] || '';
   const asList = v => (Array.isArray(v) ? v : v ? [v] : []).map(String).filter(Boolean);
-  const dayParents = d => d.parents || (d.parent ? [d.parent] : []);
-  const setDayParents = (d, list) => { list = [...new Set(asList(list))]; d.parents = list; d.parent = list[0] || ''; };
+  const rawParents = d => d.parents || (d.parent ? [d.parent] : []);
+  // その日の上位。選んだ日（明示）はそれ。選んでいない日は、前の日の選び方がそのまま続く。どこにも無ければ、種類の初期値、それも無ければ日記
+  const earlierExplicit = d => { let best = null; for (const o of diaries.values()) if (o.kind === d.kind && o.date < d.date && o.parentsSet !== false && rawParents(o).length && (!best || o.date > best.date)) best = o; return best; };
+  const dayParents = d => {
+    if (d.kind === DIARY) return [];
+    if (d.parentsSet !== false && rawParents(d).length) return rawParents(d);
+    const best = earlierExplicit(d), p = best ? rawParents(best) : kindParents(d.kind);
+    return p.length ? p : [DIARY];
+  };
+  const setDayParents = (d, list) => { list = [...new Set(asList(list))]; if (!list.length) list = [DIARY]; d.parents = list; d.parent = list[0] || ''; d.parentsSet = true; };
   const kindNames = () => { const out = [DIARY]; for (const k of recDoc().kinds.map(x => x.name).concat([...diaries.values()].map(d => d.kind))) if (k && !out.includes(k)) out.push(k); return out; };
   const saveRecDoc = d => { docs.set('K_records', d); put(abs('K_records.json'), JSON.stringify(d, null, 1)); };
   // その日の上位: 日ごとの parent。その種類のその日のノートが無ければ、種類の上位をたどる（その日に無い中間は飛ばす）
   const upDay = (p0, date) => { let p = p0, seen = new Set(); while (p && !diaries.has(dk(p, date)) && !seen.has(p)) { seen.add(p); p = kindParent(p); } return p && diaries.has(dk(p, date)) ? p : ''; };
-  const effParents = day => [...new Set(dayParents(day).map(p => upDay(p, day.date)).filter(Boolean))];
+  const effParents = day => [...new Set(dayParents(day).map(p => upDay(p, day.date)).filter(p => p && p !== day.kind))];
   const effParent = day => effParents(day)[0] || '';
   // この日のノートの下に並べる、下位の記録。日記には最上位の記録、各記録にはその日にある直接の下位
   const lowerOf = day => [...diaries.values()].filter(o => o.date === day.date && o.kind !== day.kind && (day.kind === DIARY ? (effParents(o).length === 0 || effParents(o).includes(DIARY)) : effParents(o).includes(day.kind))).sort((x, y) => x.kind.localeCompare(y.kind, 'ja'));
@@ -299,7 +307,7 @@ function openVault(vault) {
     if (!r.fm) continue;
     if (r.fm.record !== undefined && r.fm.date) { // 記録（日記・夢…）の、その日のノート
       const text = r.text, i = text.indexOf(BODY), j = text.indexOf(NAV), kind = String(r.fm.record) || DIARY;
-      diaries.set(dk(kind, String(r.fm.date)), { kind, date: String(r.fm.date), title: r.fm.title || '', parent: asList(r.fm.parent_record)[0] || '', parents: asList(r.fm.parent_record), stem: r.stem, created: r.fm.created || '', updated: r.fm.updated || r.fm.created || '', body: L.mdToBody(i >= 0 ? text.slice(i + BODY.length, j > i ? j : undefined) : L.fmParse(text).rest) });
+      diaries.set(dk(kind, String(r.fm.date)), { kind, date: String(r.fm.date), title: r.fm.title || '', parent: asList(r.fm.parent_record)[0] || '', parents: asList(r.fm.parent_record), parentsSet: asList(r.fm.parent_record).length > 0, stem: r.stem, created: r.fm.created || '', updated: r.fm.updated || r.fm.created || '', body: L.mdToBody(i >= 0 ? text.slice(i + BODY.length, j > i ? j : undefined) : L.fmParse(text).rest) });
       continue;
     }
     const y = r.fm, sp = y.source === 'paper' ? 'p' : 'd', fz = y.folgezettel !== undefined ? String(y.folgezettel) : '';
@@ -357,8 +365,8 @@ function openVault(vault) {
   const sameKind = d => [...diaries.values()].filter(x => x.kind === d.kind).sort((x, y) => x.date < y.date ? -1 : 1);
   function diaryMd(d) {
     const low = lowerOf(d), head = `${d.date}${d.kind !== DIARY ? '（' + esc(d.kind) + '）' : ''}${d.title ? '-' + esc(d.title) : ''}`;
-    return [L.fmDump({ record: d.kind, date: d.date, parent_record: dayParents(d).length ? (dayParents(d).length === 1 ? dayParents(d)[0] : dayParents(d)) : undefined, title: d.title || undefined, created: d.created || undefined, updated: d.updated || d.created || undefined }).replace(/\n$/, ''), `# ${head}`, '',
-      low.length ? `DailyNotes: ${low.map(o => `[${esc(o.kind)}](${diaryHref(o)})`).join('　')}\n` : null,
+    return [L.fmDump({ record: d.kind, date: d.date, parent_record: d.parentsSet !== false && rawParents(d).length ? (rawParents(d).length === 1 ? rawParents(d)[0] : rawParents(d)) : undefined, title: d.title || undefined, created: d.created || undefined, updated: d.updated || d.created || undefined }).replace(/\n$/, ''), `# ${head}`, '',
+      low.length ? `今日の記録: ${low.map(o => `[${esc(o.kind)}](${diaryHref(o)})`).join('　')}\n` : null,
       BODY + L.bodyToMd(d.body, (x, sp) => noteHref(sp || 'd', x)) + '\n' + NAV, ''].filter(x => x !== null).join('\n');
   }
   // 日記の一覧: 種類ごとに。月はいつも、年は2つ以上の年にまたがってから（Gnosis 同様）
@@ -538,9 +546,13 @@ function openVault(vault) {
   const url = n => n.img ? 'file://' + abs(n.img).split('/').map(enc).join('/') + '?' + fs.statSync(abs(n.img)).mtimeMs : null;
   const pub = n => ({ pinned: !!n.pinned, color: n.color || '', archived: !!n.archived, s: n.s, id: n.id, stem: n.stem, created: n.created, updated: n.updated || n.created, keywords: n.keywords, body: n.kind === 'memo-group' ? MemoGroup.body(n.data, docs.get('C_チャット')) : n.body, image: url(n), kind: n.kind || 'text', data: n.data || null, noid: L.isNoid(n.id), title: n.title || '', parentStem: n.parentStem || '' });
 
-  const pubDiary = d => ({ kind: d.kind, date: d.date, title: d.title, body: d.body, parent: d.parent || '', parents: dayParents(d), stem: d.stem, pages: d.kind === DIARY ? pages.get(d.date) || [] : [], lower: lowerOf(d).map(o => o.kind) });
+  const pubDiary = d => ({ kind: d.kind, date: d.date, title: d.title, body: d.body, parent: dayParents(d)[0] || '', parents: dayParents(d), stem: d.stem, pages: d.kind === DIARY ? pages.get(d.date) || [] : [], lower: lowerOf(d).map(o => o.kind) });
   const ensureDiary = (date, kind = DIARY) => {
-    if (!diaries.has(dk(kind, date))) diaries.set(dk(kind, date), { kind, date, title: '', body: '', parent: kind === DIARY ? '' : kindParent(kind), parents: kind === DIARY ? [] : kindParents(kind), stem: freeStem(), created: L.now() });
+    if (!diaries.has(dk(kind, date))) {
+      const d = { kind, date, title: '', body: '', parent: '', parents: [], parentsSet: false, stem: freeStem(), created: L.now() };
+      diaries.set(dk(kind, date), d);
+      if (kind !== DIARY && !earlierExplicit(d) && kindParents(kind).length) setDayParents(d, kindParents(kind));   // 前の選び方が無い最初の日だけ、種類の初期値を、その日の上位にする
+    }
     return diaries.get(dk(kind, date));
   };
   // その日に作ったデジタルノートへのリンクを、日記の「今日のノート」に足す（無ければ日記も作る）
