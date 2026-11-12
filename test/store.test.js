@@ -399,7 +399,7 @@ test('記録の種類（日記・夢・ビジネス）: 足す・上位・今日
   assert.strictEqual(get('営業').parent, 'ビジネス');                                   // 種類の上位が、新しい日の初期値になる
   assert.deepStrictEqual(get('日記').lower.sort(), ['ビジネス', '夢'].sort());          // 日記には最上位だけ
   assert.deepStrictEqual(get('ビジネス').lower, ['営業']);                             // 各記録には、その日の直接の下位
-  assert.match(r(get('日記').stem + '.md'), /今日の記録: .*\[夢\]\([^)]+\)/); assert.match(r(get('夢').stem + '.md'), /^---\nrecord: "夢"\ndate: "2026-11-08"/);
+  assert.match(r(get('日記').stem + '.md'), /## 今日の記録 *\n\n(- .*\n)*- \[夢\]\([^)]+\)/); assert.match(r(get('夢').stem + '.md'), /^---\nrecord: "夢"\ndate: "2026-11-08"/);
   // 種類の上位が変わっても、もう作った日は変わらない。次の日は、前の日の選び方が続く
   assert.ok(v.setRecordParent('営業', '')); v.saveDiary({ date: '2026-11-09', kind: '営業', body: '次の日' });
   const st2 = v.state(); assert.strictEqual(st2.diaries.find(d => d.kind === '営業' && d.date === '2026-11-08').parent, 'ビジネス'); assert.strictEqual(st2.diaries.find(d => d.kind === '営業' && d.date === '2026-11-09').parent, 'ビジネス');   // 前の日の選び方が、次の日にも続く
@@ -639,7 +639,7 @@ test('時系列記録の上位: 何も選ばなければ日記。前の日の選
   v.saveDiary({ date: '2026-11-01', kind: 'メモ帳', body: '一日目' });
   assert.deepStrictEqual(get('メモ帳', '2026-11-01').parents, ['日記']);              // 何も選ばなければ、日記
   v.openDiary('2026-11-01'); assert.ok(get('日記', '2026-11-01').lower.includes('メモ帳'));
-  assert.match(r(get('日記', '2026-11-01').stem + '.md'), /今日の記録: \[メモ帳\]/);
+  assert.match(r(get('日記', '2026-11-01').stem + '.md'), /## 今日の記録 *\n\n- \[メモ帳\]/);
   // 3日目に、上位を夢に変える → 4日目以降は、自動で夢
   v.saveDiary({ date: '2026-11-02', kind: 'メモ帳', body: '二日目' }); v.saveDiary({ date: '2026-11-03', kind: 'メモ帳', body: '三日目' });
   v.setDayParent('メモ帳', '2026-11-03', '夢');
@@ -648,6 +648,9 @@ test('時系列記録の上位: 何も選ばなければ日記。前の日の選
   // 前の日を変えると、後ろの（自分で選んでいない）日も付いてくる。前の日は変わらない
   v.setDayParent('メモ帳', '2026-11-02', '日記'); 
   assert.deepStrictEqual([get('メモ帳', '2026-11-01'), get('メモ帳', '2026-11-02'), get('メモ帳', '2026-11-03'), get('メモ帳', '2026-11-04')].map(d => d.parents[0]), ['日記', '日記', '夢', '夢']);
+  // 題があれば「記録名-題」で、日記の「今日の記録」に並ぶ
+  v.saveDiary({ date: '2026-11-04', kind: 'メモ帳', title: '旅の話' }); v.openDiary('2026-11-04');
+  assert.match(get('日記', '2026-11-04').body, /^## 今日の記録\n\n- \[メモ帳-旅の話\]\([^)]+\)/);
   // 読み直しても、同じ
   const w = openVault(dir); assert.deepStrictEqual(['2026-11-01', '2026-11-03', '2026-11-04'].map(x => w.state().diaries.find(d => d.kind === 'メモ帳' && d.date === x).parents[0]), ['日記', '夢', '夢']);
   fs.rmSync(dir, { recursive: true });

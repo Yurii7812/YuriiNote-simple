@@ -1582,7 +1582,6 @@ async function openDiary(date, keep, kind) {
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
     ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}</div>` : ''}
-    ${lower ? `<div class="row"><span class="sub">今日の記録</span>${lower}</div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
     kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
@@ -1590,8 +1589,11 @@ async function openDiary(date, keep, kind) {
   document.querySelectorAll('[data-dpar]').forEach(c => c.onclick = async () => { const cur0 = d.parents || (d.parent ? [d.parent] : []), u = c.dataset.dpar, next = cur0.includes(u) ? cur0.filter(x => x !== u) : [...cur0, u]; await flush(); const r = await api.recordOp('setDayParent', kind, date, next); if (r) { upsertDiary(r); const st = await api.state(); applyState(st); openDiary(date, true, kind); } else alert('その上位にはできません（輪になります）'); });
   renderTabs(); renderList();
   // 自由に書く部分（最初の「## 」より前）にカーソル。節で始まる日記は、その前に空行を足して書く場所を作る
-  if (/^## /.test(view.state.doc.toString())) view.dispatch({ changes: { from: 0, insert: '\n\n\n' } }); // 本文は onChange で d.body に入る（上下に空行）
-  const text = view.state.doc.toString(), h2 = text.search(/^## /m), at = h2 > 0 ? h2 - 2 : text.length; // 見出しの前の、真ん中の空行
+  let text = view.state.doc.toString(), base = 0;
+  const ls = text.split('\n');
+  if (ls[0].trim() === '## 今日の記録') { let j = 1; while (j < ls.length && (!ls[j].trim() || /^\s*-\s+\[[^\]]*\]\([^)]*\)/.test(ls[j]))) j++; base = ls.slice(0, j).join('\n').length + (j < ls.length ? 1 : 0); }   // 一番上の「今日の記録」の下が、書く場所
+  if (/^## /.test(text.slice(base))) { view.dispatch({ changes: { from: base, insert: '\n\n\n' } }); text = view.state.doc.toString(); }   // 本文は onChange で d.body に入る（上下に空行）
+  const h2 = text.slice(base).search(/^## /m), at = h2 > 0 ? base + h2 - 2 : text.length; // 見出しの前の、真ん中の空行
   if (cur.pos != null && keep) view.dispatch({ selection: { anchor: Math.min(cur.pos, view.state.doc.length) } });
   else { view.dispatch({ selection: { anchor: at } }); view.focus(); }
 }

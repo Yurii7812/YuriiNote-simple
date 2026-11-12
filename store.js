@@ -271,6 +271,19 @@ function openVault(vault) {
   // この日のノートの下に並べる、下位の記録。日記には最上位の記録、各記録にはその日にある直接の下位
   const lowerOf = day => [...diaries.values()].filter(o => o.date === day.date && o.kind !== day.kind && (day.kind === DIARY ? (effParents(o).length === 0 || effParents(o).includes(DIARY)) : effParents(o).includes(day.kind))).sort((x, y) => x.kind.localeCompare(y.kind, 'ja'));
 
+  // 「## 今日の記録」: 本文の一番上に、その日の下位の記録へのリンク（題があれば「記録名-題」）。下位が無ければ、見出しごと無し
+  const lowerLabel = o => (o.kind + (o.title ? '-' + o.title : '')).replace(/[\[\]\n]/g, ' ');
+  function syncLowerSection(d) {
+    const low = lowerOf(d), lines = (d.body || '').split('\n'), H = '## 今日の記録';
+    const i = lines.findIndex(l => l.trim() === H);
+    let rest = lines;
+    if (i >= 0) { let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*-\s+\[[^\]]*\]\([^)]*\)/.test(lines[j]))) j++; rest = [...lines.slice(0, i), ...lines.slice(j)]; }
+    const free = rest.join('\n').replace(/^\n+/, '');
+    const sec = low.length ? [H, '', ...low.map(o => `- [${lowerLabel(o)}](${diaryHref(o)})`)].join('\n') : '';
+    const body = sec ? sec + (free ? '\n\n' + free : '') : free;
+    if (body !== (d.body || '')) d.body = body;
+  }
+
   // ===== 読み込み =====
   fs.mkdirSync(vault, { recursive: true });
   if (!fs.existsSync(abs(MARK))) { flatten(vault); put(abs(MARK), 'flat1\n'); }
@@ -364,9 +377,8 @@ function openVault(vault) {
 
   const sameKind = d => [...diaries.values()].filter(x => x.kind === d.kind).sort((x, y) => x.date < y.date ? -1 : 1);
   function diaryMd(d) {
-    const low = lowerOf(d), head = `${d.date}${d.kind !== DIARY ? '（' + esc(d.kind) + '）' : ''}${d.title ? '-' + esc(d.title) : ''}`;
+    const head = `${d.date}${d.kind !== DIARY ? '（' + esc(d.kind) + '）' : ''}${d.title ? '-' + esc(d.title) : ''}`;
     return [L.fmDump({ record: d.kind, date: d.date, parent_record: d.parentsSet !== false && rawParents(d).length ? (rawParents(d).length === 1 ? rawParents(d)[0] : rawParents(d)) : undefined, title: d.title || undefined, created: d.created || undefined, updated: d.updated || d.created || undefined }).replace(/\n$/, ''), `# ${head}`, '',
-      low.length ? `今日の記録: ${low.map(o => `[${esc(o.kind)}](${diaryHref(o)})`).join('　')}\n` : null,
       BODY + L.bodyToMd(d.body, (x, sp) => noteHref(sp || 'd', x)) + '\n' + NAV, ''].filter(x => x !== null).join('\n');
   }
   // 日記の一覧: 種類ごとに。月はいつも、年は2つ以上の年にまたがってから（Gnosis 同様）
@@ -522,6 +534,7 @@ function openVault(vault) {
   function rebuild() {
     numberTopics();
     mergePaperIndex(); pruneDiaryLinks();
+    for (const d of diaries.values()) syncLowerSection(d);
     const chatFiles = chatMdFiles();
     for (const f of fs.readdirSync(vault)) if (/^C_\d{4}-\d{2}-\d{2}\.md$/.test(f) && !chatFiles.has(f)) removeFile(f);   // メモが無くなった日のファイル
     // 日記には、その日のチャットメモ一覧へのリンクを（その日にメモがあるとき）
@@ -597,7 +610,7 @@ function openVault(vault) {
       const d = ensureDiary(date, kind || DIARY);
       // 日記の手書き部分の末尾（「今日のノート」「紙の日記」等の節の前）へ追記
       const lines = (d.body || '').split('\n');
-      const section = lines.findIndex(l => /^##\s/.test(l.trim()));
+      const section = lines.findIndex(l => /^##\s/.test(l.trim()) && l.trim() !== '## 今日の記録');
       const before = (section < 0 ? d.body || '' : lines.slice(0, section).join('\n')).trimEnd();
       const after = section < 0 ? '' : lines.slice(section).join('\n').trimStart();
       d.body = L.normDay((before ? before + '\n' : '') + text + (after ? '\n\n' + after : ''));
