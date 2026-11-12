@@ -881,7 +881,7 @@ let idPick = null;   // { stem }（付けるノート）
 const idSubject = () => idPick && notes.find(n => n.stem === idPick.stem && n.noid) || null;
 function giveIdDialog(note) {
   if (!note || note.s !== 'd') return;
-  idPick = { stem: note.stem }; drawIdBar(); toast('基準にするノートを開いて、🌱分岐／↔️並列を押します（🆕新規ならノートは選ばなくてOK）');
+  idPick = { stem: note.stem }; drawIdBar();
 }
 function endIdPick() { idPick = null; drawIdBar(); }
 function drawIdBar() {
@@ -893,12 +893,11 @@ function drawIdBar() {
   const ok = base && base.s === 'd' && !base.noid && base !== subject;
   const child = ok ? X.suggest(notes, base, 'child') : '', sib = ok ? X.suggest(notes, base, 'sibling') : '';
   bar.hidden = false;
-  bar.innerHTML = `<span class="idb-t">🆔 <b>${esc(titleOf(subject) || '（無題）')}</b> のIDを選んでいます</span>`
-    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="ノートに関係なく、新しい系統（次の空き番号）にする">🆕 <b>${esc(X.nextRoot(notes))}</b></button>`
-    + (ok ? `<span class="idb-base">基準 <b>${esc(base.id)}</b> ${esc(limit(titleOf(base), 14))}</span>`
-      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐（子）する">🌱 <b>${esc(child)}</b></button>`
-      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列（次）にする">↔️ <b>${esc(sib)}</b></button>`
-      : '<span class="idb-hint">ノートを開くと、🌱分岐／↔️並列が選べます</span>')
+  bar.innerHTML = `<span class="idb-t" title="${esc(titleOf(subject) || '（無題）')}">🆔 <span class="idb-title">${esc(titleOf(subject) || '（無題）')}</span></span>`
+    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="新規（次の空き番号）">🆕 <b>${esc(X.nextRoot(notes))}</b></button>`
+    + (ok ? `<span class="idb-base" title="${esc(titleOf(base))}">${esc(base.id)}</span>`
+      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐">🌱 <b>${esc(child)}</b></button>`
+      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列">↔️ <b>${esc(sib)}</b></button>` : '')
     + '<span class="grow"></span><button class="idb" data-idcancel title="やめる（Esc）">✖️</button>';
 }
 const limit = (t, n) => String(t || '').length > n ? String(t).slice(0, n) + '…' : String(t || '');
@@ -1051,6 +1050,7 @@ function noteMenu(btn, note) {
   const r = btn.getBoundingClientRect(), { s, id } = note, text = (note.kind || 'text') === 'text';
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
     ...(text ? [['▦ 表を入れる', () => insertTable()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
+    ...(s === 'd' && text ? [['🌱 IDなしで分岐', () => createNoidRel(note, 'chi')], ['↔️ IDなしで並列', () => createNoidRel(note, 'sib')]] : []),
     ['🆔 IDを変更・解除…', () => idSettingsDialog(note)],
     ['🗑️ 削除', () => deleteNotes([{ s, id }]), true]
   ]);
@@ -1072,29 +1072,27 @@ function highlightMemoRange(id, range) {
   if (a && b) { const selected = document.createRange(); selected.setStart(a.node, from - a.from); selected.setEnd(b.node, end - b.from); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(selected); }
 }
 function idSettingsDialog(note) {
-  dialog(`<h3>IDを変更・解除</h3>
-    <div class="sub">現在のID: <b data-user>${note.noid ? 'IDなし' : esc(note.id)}</b></div>
-    <div class="row"><label for="id-next">新しいID</label><input id="id-next" value="${note.noid ? '' : esc(note.id)}" autocomplete="off" spellcheck="false"></div>
+  dialog(`<h3>🆔</h3>
+    <div class="row"><input id="id-next" value="${note.noid ? '' : esc(note.id)}" placeholder="ID" autocomplete="off" spellcheck="false" aria-label="ID" style="flex:1"><button class="p" id="id-apply" title="変更する（Enter）">✅</button></div>
     <div id="id-error" role="alert"></div>
-    <div class="row"><button id="id-cancel">やめる</button>${note.s === 'd' ? '<button id="id-find">索引・本文からIDを探す</button>' : ''}<button class="p" id="id-apply">変更する</button></div>
-    ${note.s === 'd' && !note.noid ? '<div class="da-sep"></div><button class="danger" id="id-clear">IDを外す（IDなしにする）</button>' : ''}`, close => {
+    <div class="row"><button id="id-cancel" title="やめる">✖️</button>${note.s === 'd' ? '<button id="id-find" title="ノートを探して、分岐・並列で決める">🔎</button>' : ''}${note.s === 'd' && !note.noid ? '<button class="danger" id="id-clear" title="IDを外す（IDなしにする）">🗑️</button>' : ''}</div>`, close => {
     const input = $('#id-next'), error = $('#id-error'), apply = $('#id-apply');
     $('#id-cancel').onclick = close;
     if ($('#id-find')) $('#id-find').onclick = () => { close(); giveIdDialog(note); };
     apply.onclick = async () => {
       const id = input.value.trim().toLowerCase();
-      if (!id) { error.textContent = '新しいIDを入力してください。空欄ではIDは外れません。'; return input.focus(); }
+      if (!id) { error.textContent = 'IDを入れてください'; return input.focus(); }
       if (id === note.id) return close();
       apply.disabled = true; error.textContent = '';
       try {
         if (await changeId(note, id)) close();
-        else error.textContent = 'そのIDは使えません（形が違うか、既にあります）';
-      } catch { error.textContent = '保存できませんでした。入力内容は保持しています。'; }
+        else error.textContent = 'このIDは使えません';
+      } catch { error.textContent = '保存できませんでした'; }
       finally { apply.disabled = false; }
     };
     if ($('#id-clear')) $('#id-clear').onclick = async () => {
       try { if (await clearIdFlow(note)) close(); }
-      catch { error.textContent = 'IDを外せませんでした。保存先を確認してください。'; }
+      catch { error.textContent = 'IDを外せませんでした'; }
     };
     input.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); apply.click(); } };
     input.focus(); input.select();
@@ -1115,7 +1113,9 @@ async function clearIdFlow(note) {
 // IDなしのノートを作る。あとでIDを付けて整理する
 // IDなしのノートから、IDなしのまま分岐・並列を作る。親にIDが付いた時に、子のIDも決まる
 async function createNoidRel(note, act) {
-  const parentStem = act === 'chi' ? note.stem : (note.parentStem || '');
+  // IDなしの分岐・並列。IDがあるノートからも作れる（分岐=そのノートの下、並列=同じ親の下）
+  const has = x => !!get(note.s, x), par = note.noid ? null : get(note.s, L.parentIn(note.id, has) || '');
+  const parentStem = act === 'chi' ? note.stem : (note.noid ? (note.parentStem || '') : (par ? par.stem : ''));
   const n = await api.createNote({ kind: 'text', created: L.now(), parentStem });
   notes.push(n); await refreshDiaries(); openNote('d', n.id);
   setTimeout(() => { if (cur && cur.k === 'note' && cur.id === n.id && lastView && lastView.dom.isConnected) lastView.focus(); }, 30);
@@ -1934,6 +1934,7 @@ document.addEventListener('contextmenu', e => {
     ['📂 開く', () => openNote(n.s, n.id)],
     ['🔍 類似検索', () => openSimilar([{ s: n.s, id: n.id }])],
     ['☑️ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
+    ...(n.s === 'd' && (n.kind || 'text') === 'text' ? [['🌱 IDなしで分岐', () => createNoidRel(n, 'chi')], ['↔️ IDなしで並列', () => createNoidRel(n, 'sib')]] : []),
     ['📋 コピー', () => copyNotes([n])],
     ['🗑️ 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
   ]);

@@ -121,10 +121,10 @@ test('renderer: ID copies on click; changing and clearing require the note menu 
     c.click('#f-id'); await tick(); assert.deepEqual(c.flags.clipboard, ['1']);
     assert.equal(f.store.state().notes.find(n => n.id === '1').body, '最初の文章');
     settings(); $('#id-next').value = ''; c.click('#id-apply');
-    assert.match($('#id-error').textContent, /空欄ではIDは外れません/);
+    assert.match($('#id-error').textContent, /IDを入れてください/);
     assert.ok(f.store.state().notes.some(n => n.id === '1'));
     $('#id-next').value = '2'; c.click('#id-apply'); await tick();
-    assert.match($('#id-error').textContent, /そのIDは使えません/);
+    assert.match($('#id-error').textContent, /このIDは使えません/);
     $('#id-next').value = '3'; c.click('#id-apply'); await tick();
     assert.equal($('#modal').style.display, 'none'); assert.equal($('#f-id').textContent, '3');
     settings(); c.w.confirm = () => false; c.click('#id-clear'); await tick();
