@@ -8,14 +8,8 @@ import * as LC from './linked-content.js';
 import * as ReferencePicker from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch } from './md.js';
 import { ctx } from './shared.js';
-import * as Chat from './chat.js';
 import * as IDExplorer from './id-explorer.js';
-import * as RP from './roleplay.js';
 import * as PI from './pindex.js';
-import * as GR from './graph.js';
-import * as MD from './mandala.js';
-import * as SM from './similar.js';
-import * as CV from './canvas.js';
 import { dialog, popMenu, toast, renderMd } from './shared.js';
 import { installMermaidObserver } from './mermaid.js';
 import UrlLinks from '../url-links.js';
@@ -147,7 +141,7 @@ function durableSave(key, kind, payload, write, done = () => {}) {
 }
 const saveNote = n => { durableSave(noteKey(n), 'note', pubNote(n), x => api.saveNote(x), r => { if (r.updated) n.updated = r.updated; }); setTimeout(() => LC.refresh(), 0); };
 const saveTopic = t => durableSave('t' + t.name, 'topic', t, x => api.saveTopic(x));
-const saveDiary = d => durableSave(diaryKey(d), 'diary', { date: d.date, kind: d.kind || '日記', title: d.title, body: d.body }, x => api.saveDiary(x), (_r, x) => { Chat.dayEdited(x.kind, x.date, x.body); renderTabs(); });
+const saveDiary = d => durableSave(diaryKey(d), 'diary', { date: d.date, kind: d.kind || '日記', title: d.title, body: d.body }, x => api.saveDiary(x), (_r, x) => { renderTabs(); });
 const saveDocument = (key, name, doc, done) => durableSave(key, 'doc', { name, doc }, x => api.saveDoc(x.name, x.doc), done);
 async function flush() { await saves.flush(); }
 window.addEventListener('beforeunload', e => {
@@ -336,7 +330,7 @@ function jump(view, pos) {
   view.dispatch({ selection: { anchor: pos, head: pos }, effects: EditorView.scrollIntoView(pos, { y: 'center' }) });
   view.focus();
 }
-// 本文のリンクの行き先。アプリの中のもの（なりきり会話・日記）は中で開き、それ以外は既定のアプリで開く
+// 本文のリンクの行き先。アプリの中のもの（日記）は中で開き、それ以外は既定のアプリで開く
 function openLink(rel) {
   if (/^(link|memo|reply|note):/.test(rel)) return LC.openUri(rel);
   if (UrlLinks.externalUri(rel)) return api.openPath(UrlLinks.externalUri(rel)); // #フラグメントとクエリを保持
@@ -345,15 +339,6 @@ function openLink(rel) {
   try { path = decodeURIComponent(path); } catch { }
   let m;
   if ((m = path.match(/^(\d{14}(?:-\d+)?)\.md$/)) && (m = notes.find(x => x.stem === m[1]))) return openNote(m.s, m.id, null, false, hash); // ノート（紙・IDなし・なりきり・キャンバスも）
-  if (path.match(/^C_\d{4}-\d{2}-\d{2}\.md$/)) {
-    if (!hash) return Chat.openDay(path.slice(2, 12));   // その日のチャットメモ一覧: チャットメモの画面で、その日を表示
-    if (hash.startsWith('ms-')) return Chat.gotoSource(hash.slice(3).split(',').filter(Boolean)); // 新しいノート: 選択した全ID
-    if (hash.startsWith('m-')) {
-      const id = hash.slice(2), note = cur && cur.k === 'note' && get(cur.s, cur.id);
-      const oldIds = note && Chat.memosForNote(note.stem); // 旧ノートでも、保存された対応情報があれば全件を復元
-      return Chat.gotoSource(oldIds && oldIds.includes(id) ? oldIds : [id]);
-    }
-  }
   if ((m = path.match(/^(\d{14}(?:-\d+)?)\.md$/)) && (m = diaries.find(x => x.stem === m[1]))) return openDiary(m.date, false, m.kind);   // 記録（日記・夢…）の、その日のノート
   return api.openPath(rel);
 }
@@ -386,7 +371,7 @@ const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
 const topicLabel = t => stripId(t.name);
 const tchip = name => `<span class="chip t" data-topic="${esc(name)}">${esc(stripId(name))}</span>`;
 const firstLine = n => (n.body.split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').trim().slice(0, 40);
-const titleOf = n => (n.title || '').trim() || (n.kind === 'memo-group' ? 'ノート化したメモ' : firstLine(n) || (n.kind === 'rp' ? '会話' : n.kind === 'canvas' ? 'キャンバス' : '（無題）'));
+const titleOf = n => (n.title || '').trim() || (firstLine(n) || '（無題）');
 // 検索: 一致した所を mark で囲む（大文字小文字は区別しない）
 const escRe = q => q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const mk = (text, q) => !q ? esc(text) : String(text).split(new RegExp('(' + escRe(q) + ')', 'ig')).map((p, i) => i % 2 ? `<mark>${esc(p)}</mark>` : esc(p)).join('');
@@ -413,10 +398,10 @@ const topicRow = (t, zero = false) => `<div class="item topicrow${listView === '
 let filesCache = [], fileFilter = 'all', filesBusy = false;
 const refreshFiles = async () => { if (filesBusy) return; filesBusy = true; try { const x = await api.filesInfo(); if (JSON.stringify(x) !== JSON.stringify(filesCache)) { filesCache = x; if (tab === 'f' && !$('#q').value) renderList(); } } finally { filesBusy = false; } };
 const fileIcon = e => /^\.(png|jpe?g|gif|webp|svg|bmp|avif)$/.test(e) ? '🖼' : /^\.html?$/.test(e) ? '🌐' : /^\.(csv|tsv|xlsx?)$/.test(e) ? '📊' : /^\.pdf$/.test(e) ? '📕' : '📄';
-// ファイルが使われている、ノート・日記・チャットメモ（本文のリンク `](ファイル名` で探す）
+// ファイルが使われている、ノート・日記（本文のリンク `](ファイル名` で探す）
 const fileUsage = name => {
   const e = encRel(name), has = t => !!t && (t.includes('](' + e) || t.includes('](' + name));
-  return { notes: notes.filter(n => has(n.body)), diaries: diaries.filter(d => has(d.body)), memos: Chat.memosMatching(has) };
+  return { notes: notes.filter(n => has(n.body)), diaries: diaries.filter(d => has(d.body)), memos: [] };
 };
 const fileUsedCount = name => { const u = fileUsage(name); return u.notes.length + u.diaries.length + u.memos.length; };
 const fileRow = (f, q = '') => `<div class="item note frow" data-file="${esc(f.name)}"><div class="nrow"><div class="nt">${fileIcon(f.ext)} ${f.title ? mk(f.title, q) : `<span class="sub">（タイトルなし）</span> ${mk(f.orig, q)}`}</div><div class="ns">${esc(f.name)}${f.title && f.orig !== f.name ? ' · ' + mk(f.orig, q) : ''}${f.desc ? ' · ' + mk(f.desc.slice(0, 40), q) : ''}${(() => { const n = fileUsedCount(f.name); return n ? ` · 🔗 ${n} 件で使用` : ' · 使われていません'; })()}</div></div></div>`;
@@ -460,7 +445,6 @@ function fileDialog(name) {
       const n = e.target.closest('[data-un]'), d = e.target.closest('[data-ud]'), m = e.target.closest('[data-um]');
       if (n) { const [s, id] = n.dataset.un.split('|'); close(); openNote(s, id); }
       else if (d) { const [date, kind] = d.dataset.ud.split('|'); close(); openDiary(date, false, kind); }
-      else if (m) { close(); Chat.gotoMemo(m.dataset.um); }
     };
   }
   $('#fi-del').onclick = async () => {
@@ -475,7 +459,7 @@ function fileDialog(name) {
     close(); view.dispatch({ changes: { from: h, insert: md }, selection: { anchor: h + md.length } }); view.focus();
   };
 }
-const sortBar = (diary) => `<div class="sortbar">${diary ? '<span class="sub">日付順</span>' : `<select id="sb-by" title="並べ替え"><option value="fz"${sortBy === 'fz' ? ' selected' : ''}>番号順</option><option value="created"${sortBy === 'created' ? ' selected' : ''}>作成順</option><option value="updated"${sortBy === 'updated' ? ' selected' : ''}>更新順</option></select>`}<button id="sb-dir" class="mini" data-diary="${diary ? 1 : ''}" title="${(diary ? diarySortDir : sortDir) === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）'}">${(diary ? diarySortDir : sortDir) === 'asc' ? '↑' : '↓'}</button>${diary ? '' : '<button id="sb-loc" class="mini" title="いま開いているノートへ飛ぶ (o)">◎</button><button id="sb-sim" class="mini" title="似たノートを探す (s)">≈</button>'}</div>`;
+const sortBar = (diary) => `<div class="sortbar">${diary ? '<span class="sub">日付順</span>' : `<select id="sb-by" title="並べ替え"><option value="fz"${sortBy === 'fz' ? ' selected' : ''}>番号順</option><option value="created"${sortBy === 'created' ? ' selected' : ''}>作成順</option><option value="updated"${sortBy === 'updated' ? ' selected' : ''}>更新順</option></select>`}<button id="sb-dir" class="mini" data-diary="${diary ? 1 : ''}" title="${(diary ? diarySortDir : sortDir) === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）'}">${(diary ? diarySortDir : sortDir) === 'asc' ? '↑' : '↓'}</button>${diary ? '' : '<button id="sb-loc" class="mini" title="いま開いているノートへ飛ぶ (o)">◎</button>'}</div>`;
 // 並べ替え。IDなし（未整理）は folgezettel が無いので、作成日順
 function sortNotes(list, tab) {
   const by = tab === 'u' && sortBy === 'fz' ? 'created' : sortBy, sg = sortDir === 'asc' ? 1 : -1;
@@ -499,7 +483,6 @@ function renderList() {
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
-  if (!q && mode === 'chat') { $('#list').innerHTML = Chat.listHtml(); renderSelbar(); return; }
   if (!q && mode === 'pindex') { if (!$('#pi')) $('#list').innerHTML = PI.html(); PI.draw(); renderSelbar(); return; } // 入力中の欄は、描き直さない
   if (q) {
     // 1. Index  2. 索引  3. ノート
@@ -519,8 +502,6 @@ function renderList() {
     if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, q)));
     const dh = diaries.filter(d => [d.date, d.title, d.body].join('\n').toLowerCase().includes(q)).sort((a, b) => b.date.localeCompare(a.date));
     if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, q)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, q) ? `<div class="sn">${snippet(d.body, q)}</div>` : ''}</div></div>`));
-    const ch = Chat.searchMemos(q);   // チャットメモも
-    if (ch.length) out.push('<h4>チャットメモ</h4>', ...ch.slice(0, 80).map(m => `<div class="item note" data-cmemo="${esc(m.id)}"><div class="nrow"><div class="nt">${mk((m.text || '').split('\n')[0].slice(0, 80), q)}</div><div class="ns">${esc(Chat.label(m.topic))} · ${new Date(m.t).toLocaleString()}</div></div></div>`));
     if (!out.length) out.push('<div class="none">見つかりません</div>');
   } else if (tab === 'f') {
     refreshFiles();
@@ -544,7 +525,7 @@ function renderList() {
     }
     if (out.length === 1) out.push('<div class="none">ノートにキーワードを書くと、ここに並びます</div>');
   } else {
-    const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)).filter(n=>!Chat.isImportedRoleplay(n)), tab);
+    const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
     out.push(sortBar(false));
     const byFz = sortBy === 'fz' && tab !== 'u';
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
@@ -567,15 +548,7 @@ document.addEventListener('keydown', e => { if (e.altKey && (e.key === 'ArrowLef
 document.addEventListener('mouseup', e => { if (e.button === 3) { e.preventDefault(); go(-1); } if (e.button === 4) { e.preventDefault(); go(1); } });
 function onOpenClick(e) {
   if (e.target.closest('#modal') || e.target.closest('#selbar')) return;
-  const cct = e.target.closest('[data-cchat]'); if (cct) { mode = 'chat'; return Chat.open(cct.dataset.cchat, e.ctrlKey || e.metaKey); }
-  const cm = e.target.closest('[data-cmemo]'); if (cm) { mode = 'chat'; return Chat.gotoMemo(cm.dataset.cmemo); }
   const dd = e.target.closest('[data-diary]'); if (dd && !e.target.closest('.cm-editor')) return openDiary(dd.dataset.diary, undefined, dd.dataset.kind || '日記');
-  const ctw = e.target.closest('[data-ctw]'); if (ctw && ctw.textContent.trim()) return Chat.toggleGroup(ctw.dataset.ctw);
-  const cc = e.target.closest('[data-chat]'); if (cc) return Chat.open(cc.dataset.chat);
-  if (e.target.id === 'c-topic-graph') return Chat.openTopicGraph();
-  if (e.target.id === 'c-new') return Chat.toggleNewTopicRow();
-  if (e.target.id === 'c-newok') return Chat.createTopicInline();
-  if (e.target.id === 'c-newopt') return Chat.newTopicDialog();
   const row = e.target.closest('#list .item');
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
   const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic);
@@ -589,7 +562,7 @@ function onOpenClick(e) {
   }
 }
 document.addEventListener('click', onOpenClick);
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.dataset.mode === 'graph') return openGraph(); if (b && b.dataset.mode === 'mandala') return openMandala(); if (b && b.dataset.mode === 'cards') return openCards(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.dataset.mode === 'cards') return openCards(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
@@ -597,7 +570,6 @@ $('#list').addEventListener('click', e => {
   const fr = e.target.closest('[data-file]'); if (fr) return fileDialog(fr.dataset.file);
   if (e.target.closest('#ff-add')) return pick(true, f => attach(null, f), '*');
   if (e.target.closest('#sb-loc')) return locateCur();
-  if (e.target.closest('#sb-sim') || e.target.closest('#sel-sim')) return startSimilar();
   { const sd = e.target.closest('#sb-dir'); if (sd) { if (sd.dataset.diary) diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); return renderList(); } }
   if (e.target.closest('#ix-edit')) { ixEdit = !ixEdit; return renderList(); }
   const c = e.target.closest('.chip.pick'); if (c) pickDot(c.dataset.pk, c.dataset.ps, c.dataset.pid);
@@ -675,14 +647,13 @@ function kbNav(k) {
   }
 }
 document.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || $('#modal').style.display === 'flex' || $('#idpop') || (cur && cur.k === 'mandala')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || $('#modal').style.display === 'flex' || $('#idpop')) return;
   const ae = document.activeElement, editing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable);
   if (editing) { if (e.key === 'Escape' && ae.closest && ae.closest('.cm-editor')) { ae.blur(); e.preventDefault(); } return; }   // Esc で書く状態から抜けると、キー操作が使える
   const k = e.key;
   if (k === 'Backspace' && !$('#q').value) { e.preventDefault(); go(-1); const off = () => { const a = document.activeElement; if (a && a !== document.body && (a.closest('.cm-editor') || /^(INPUT|TEXTAREA)$/.test(a.tagName))) a.blur(); }; off(); setTimeout(off, 0); setTimeout(off, 80); return; }   // 戻っても入力状態にならない（続けて Backspace で戻れる）   // 前に開いていたものへ（戻るボタンと同じ）
   if (k === 'o' && !decided && cur && ['note', 'topic'].includes(cur.k)) { e.preventDefault(); return locateCur(); }   // 黄色（決めたもの）が無いときは、いま開いているものを一覧の真ん中に
-  if (k === 's' && cur && cur.k === 'note') { e.preventDefault(); return startSimilar(); }
-  if (k === 'i' && cur && cur.k === 'note') { e.preventDefault(); const t = $('#c-in'); return t ? t.focus() : lastView && lastView.dom.isConnected && lastView.focus(); }   // なりきり・チャットの入力欄、ふつうのノートの本文に入る
+  if (k === 'i' && cur && cur.k === 'note') { e.preventDefault(); const t = $('#c-in'); return t ? t.focus() : lastView && lastView.dom.isConnected && lastView.focus(); }   // ふつうのノートの本文に入る
   if (mode !== 'notes') return;
   if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'j', 'k', 'h', 'l', '[', ']', 'Enter', 'o', 'u', 'Escape'].includes(k)) return;
   const cn = cur && cur.k === 'note' ? get(cur.s, cur.id) : null;
@@ -697,7 +668,7 @@ document.addEventListener('keydown', e => {
     decided = cur.k === 'note' ? { k: 'note', s: cur.s, id: cur.id } : { k: 'topic', name: cur.name }; renderList(); centerOn();
     if (cn && lastView && lastView.dom.isConnected) lastView.focus(); return;
   }
-  if (!cur || !['note', 'topic'].includes(cur.k)) return;   // カード・曼荼羅・グラフなどを見ているときは、動かさない
+  if (!cur || !['note', 'topic'].includes(cur.k)) return;   // カードなどを見ているときは、動かさない
   e.preventDefault(); kbNav(k);
 });
 
@@ -789,7 +760,7 @@ function show(i) {
   active = Math.max(-1, Math.min(i, tabs.length - 1));
   const t = tabs[active];
   if (!t || t.k === 'empty') { cur = t || null; $('#pane').innerHTML = '<div class="none">左から選ぶか、「＋ 新規」で書き始めます。<br>Ctrl+クリックで新しいタブに開きます。</div>'; renderTabs(); return renderList(); }
-  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'chat') Chat.open(t.topic, true, t.sourceMemoIds, t.topicGraph); else if (t.k === 'graph') openGraph(true); else if (t.k === 'mandala') openMandala(true); else if (t.k === 'cards') openCards(true); else if (t.k === 'similar') openSimilar(t.base, true); else if (t.k === 'export') openExport(t, true); else openTopic(t.name, t.mode, true);
+  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'cards') openCards(true); else if (t.k === 'export') openExport(t, true); else openTopic(t.name, t.mode, true);
 }
 function closeTab(i) {
   if (i < 0 || i >= tabs.length) return;
@@ -799,7 +770,7 @@ function closeTab(i) {
   show(active < 0 && tabs.length ? 0 : active);
 }
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
-  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'chat' ? (t.topicGraph ? '🕸 チャットトピック' : t.sourceMemoIds ? '💬 元のチャットメモ' : `💬 ${esc(Chat.label(t.topic))}`) : t.k === 'graph' ? '🕸 グラフ' : t.k === 'mandala' ? '❖ 曼荼羅' : t.k === 'cards' ? '🗒 カード' : t.k === 'similar' ? '≈ 似たノート' : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
+  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'cards' ? '🗒 カード' : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
 function renderTabs() {
   $('#tabbar').innerHTML = tabs.map((t, i) => `<div class="tab${i === active ? ' on' : ''}" data-ti="${i}"><span>${tabLabel(t)}</span><b class="x" data-close="${i}" title="閉じる (Ctrl+W)">×</b></div>`).join('')
     + '<button class="tab-new" title="新しいタブ (Ctrl+T)">＋</button>';
@@ -839,17 +810,17 @@ function openNote(s, id, n, keep, mid) {
   cur = place({ k: 'note', s, id }, keep); mode = 'notes'; lastNote = { s, id };
   if (!inPreview) decided = { k: 'note', s, id };
   if (!$('#q').value) tab = note.noid ? 'u' : s;
-  const kind = note.kind || 'text', noid = !!note.noid, text = kind === 'text', memoGroup = kind === 'memo-group';
+  const kind = note.kind || 'text', noid = !!note.noid, text = kind === 'text';
   $('#pane').innerHTML = `
     <div class="stage"><div class="col${s === 'p' || !text ? ' wide' : ''}">
       <div class="idline">
         ${noid ? '<span class="idin" id="f-id">IDなし</span>' : `<button class="idin" id="f-id" data-act="copyid" data-user title="IDをコピー" aria-label="ID ${esc(id)} をコピー">${esc(id)}</button>`}
         ${s === 'd' && noid ? '<button class="gid" data-act="giveid">IDを付ける</button>' : ''}
-        ${s === 'p' ? '<span class="dt">紙</span>' : ''}${memoGroup ? '' : L.KINDS[kind] ? `<span class="dt">${L.KINDS[kind]}</span>` : ''}
-        ${memoGroup ? `<textarea class="ntitle mgtitle" id="f-title" rows="1" placeholder="タイトル" spellcheck="false">${esc(note.title || '')}</textarea><span class="mgcount" title="元のチャットメモの数">💬 ${(note.data && note.data.memoIds || []).length} 件</span>${Chat.memoGroupSpeakerHtml()}` : s === 'd' ? `<span class="dt">${esc(note.created)}</span>` : ''}
-        ${memoGroup ? '' : '<span class="grow"></span>'}${noid ? (s === 'd' && text ? '<button class="nb" data-act="sib" title="IDなしのまま、並列のノートを作る（親にIDが付くと、IDも決まる）">＋ 並列</button><button class="nb" data-act="chi" title="IDなしのまま、分岐のノートを作る（このノートにIDが付くと、IDも決まる）">＋ 分岐</button>' : '') : `<button class="nb" data-act="sib" title="並列のノートを作る（同じ階層の次: ${esc(free(s, L.sibling(id)))}）">＋ 並列 <small>${esc(free(s, L.sibling(id)))}</small></button><button class="nb" data-act="chi" title="分岐のノートを作る（一つ下: ${esc(free(s, L.child(id)))}）">＋ 分岐 <small>${esc(free(s, L.child(id)))}</small></button>`}<button class="ic nm" data-act="mgn" title="右の欄を隠す・出す (Ctrl+\\)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button><button class="ic nm" data-act="nmenu" title="このノートのメニュー">${'<svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>'}</button>
+        ${s === 'p' ? '<span class="dt">紙</span>' : ''}${L.KINDS[kind] ? `<span class="dt">${L.KINDS[kind]}</span>` : ''}
+        ${s === 'd' ? `<span class="dt">${esc(note.created)}</span>` : ''}
+        ${'<span class="grow"></span>'}${noid ? (s === 'd' && text ? '<button class="nb" data-act="sib" title="IDなしのまま、並列のノートを作る（親にIDが付くと、IDも決まる）">＋ 並列</button><button class="nb" data-act="chi" title="IDなしのまま、分岐のノートを作る（このノートにIDが付くと、IDも決まる）">＋ 分岐</button>' : '') : `<button class="nb" data-act="sib" title="並列のノートを作る（同じ階層の次: ${esc(free(s, L.sibling(id)))}）">＋ 並列 <small>${esc(free(s, L.sibling(id)))}</small></button><button class="nb" data-act="chi" title="分岐のノートを作る（一つ下: ${esc(free(s, L.child(id)))}）">＋ 分岐 <small>${esc(free(s, L.child(id)))}</small></button>`}<button class="ic nm" data-act="mgn" title="右の欄を隠す・出す (Ctrl+\\)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button><button class="ic nm" data-act="nmenu" title="このノートのメニュー">${'<svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>'}</button>
       </div>
-      ${memoGroup ? `<div class="mgmeta">${esc(note.created)} ・ ノート化</div>` : `<textarea class="ntitle" id="f-title" rows="1" placeholder="タイトル" spellcheck="false">${esc(note.title || '')}</textarea>`}
+      <textarea class="ntitle" id="f-title" rows="1" placeholder="タイトル" spellcheck="false">${esc(note.title || '')}</textarea>
       ${!text ? '<div id="nbody"></div>' : s === 'p' ? `<div class="paper"><div class="pic">${note.image ? `<img src="${note.image}">` : '<button data-act="img">画像を入れる</button>'}</div><div class="ed" id="ed"></div></div>` : '<div class="ed" id="ed"></div>'}
     </div><aside class="mgn" id="margin"></aside></div>`;
   applyMgn();
@@ -859,14 +830,15 @@ function openNote(s, id, n, keep, mid) {
   growTitle();
   titleField.oninput = e => { // 長いタイトルは折り返し、全文が見える高さに自動調整
     growTitle();
-    note.title = e.target.value; if (note.data) note.data.title = memoGroup ? note.title : (note.title || note.data.title);
-    if (!text && !memoGroup) note.body = L.deriveBody(kind, note.data);
+    note.title = e.target.value; if (note.data) note.data.title = note.title || note.data.title;
+    if (!text) note.body = L.deriveBody(kind, note.data);
     saveNote(note); renderList(); renderTabs();
   };
   titleField.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing && !e.shiftKey) { e.preventDefault(); if (lastView && lastView.dom.isConnected) { lastView.focus(); lastView.dispatch({ selection: { anchor: 0 } }); } } };
   renderTabs(); renderList(); if (!$('#q').value) centerOn();   // タブの移動・リンクで開いたときも、見ているノートが一覧の真ん中に（同じタブにあるとき。検索中は動かさない）
-  if (!text) { // なりきりチャット・キャンバス: ノートの中に、それぞれの画面
-    if (kind === 'rp') RP.render($('#nbody'), note, mid); else if (kind === 'canvas') CV.render($('#nbody'), note); else if (memoGroup) Chat.renderMemoGroup($('#nbody'), note);
+  if (!text) { // 今は扱わない種類（旧なりきり・キャンバス・メモのノート）: 書いてある文字だけを読み取り専用で見せる
+    $('#nbody').innerHTML = '<div class="sub">この種類のノートは、いまは編集できません。</div><pre class="legacy-body"></pre>';
+    $('#nbody').querySelector('pre').textContent = note.body || '';
     return;
   }
   const view = editor($('#ed'), note.body, 'note', s, v => { note.body = v; saveNote(note); renderList(); },
@@ -877,17 +849,6 @@ function openNote(s, id, n, keep, mid) {
   else if (hitAt >= 0) view.dispatch({ effects: EditorView.scrollIntoView(hitAt, { y: 'center' }) }); // 検索から開いたら、最初の一致の所へ
   else if (keep && cur.pos != null) jump(view, Math.min(cur.pos, view.state.doc.length));
   else if (s === 'd' && !note.body) view.focus(); // 新規ノートは題名欄でなく本文にカーソルを置く
-}
-// グラフの横に、ふつうのノートと同じ表示（題・本文のエディタ。直すと、そのまま保存）を入れる
-function mountNoteIn(el, s, id) {
-  const note = get(s, id); if (!note) return false;
-  if ((note.kind || 'text') !== 'text') return false;
-  el.innerHTML = `<div class="stage"><div class="col${s === 'p' ? ' wide' : ''}"><div class="idline"><span class="dt">${s === 'p' ? '紙 ' : ''}${esc(id)}</span><span class="grow"></span><button class="nb" data-gopen title="ノートの画面で開く">↗ 開く</button></div>
-    <input class="ntitle" value="${esc(note.title || '')}" placeholder="タイトル"><div class="ed"></div></div></div>`;
-  el.querySelector('.ntitle').oninput = e => { note.title = e.target.value; saveNote(note); renderList(); renderTabs(); };
-  el.querySelector('[data-gopen]').onclick = () => openNote(s, id);
-  editor(el.querySelector('.ed'), note.body, 'note', s, v => { note.body = v; saveNote(note); renderList(); }, s === 'p' ? '紙の内容を文字で（テキスト化）' : '本文', () => note.body);
-  return true;
 }
 // ノートにIDを付ける・変える（ファイル名が変わり、日記のリンクなども直る）
 async function changeId(note, v) {
@@ -955,7 +916,7 @@ function renderMeta(note) {
   const bundles = LC.allLinks().filter(l => l.targets.some(t => t.kind === 'note' && t.stem === note.stem && t.s === note.s));
   if (note.noid) { el.innerHTML = parentHtml(note) + childrenHtml(note) + (bundles.length ? `<div class="sec">${metaLabel('🔗', 'バックリンク', bundles.length)}${bundles.map(l => `<div class="mt"><a class="tl" data-link-object="${esc(l.id)}">${esc(l.title)}</a></div>`).join('')}</div>` : '') + '<div class="hint">🆔 IDなしのノートです。<br>「IDを付ける」と、キーワードや索引、バックリンクが使えます。</div>'; return; }
   const tops = topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[note.s].some(x => L.splitAnchor(x).id === note.id)).map(r => r.kw) })).filter(x => x.kws.length); // 自分のキーワードがあるものだけ
-  const bl = backlinks(note), memoReplies = Chat.noteBacklinks(note);
+  const bl = backlinks(note);
   el.innerHTML =
     `<div class="sec">${metaLabel('🏷', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwchips">${note.keywords.map(k => `<span class="chip kwc" title="${esc(readings[k] || '')}">${esc(k)}<b data-kwdel="${esc(k)}" title="外す">×</b></span>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
     (ownTopic(note) ? `<div class="sec">${metaLabel('📑', '自トピック')}<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(ownTopic(note).name)}">${esc(topicLabel(ownTopic(note)))}</a></div></div>` : '') +
@@ -965,7 +926,7 @@ function renderMeta(note) {
     (bl.length || bundles.length ? `<div class="sec">${metaLabel('🔗', 'バックリンク', bl.length + bundles.length)}${bl.map(x => x.m
       ? `<div class="bl" data-s="${x.m.s}" data-id="${esc(x.m.id)}"><div class="bh"><b>${esc(titleOf(x.m))}</b><em>${esc(x.m.id)}</em></div><p>${x.c}</p></div>`
       : `<div class="bl" data-diary="${x.d.date}"><div class="bh"><b>${x.d.date.slice(5)}（${L.weekday(x.d.date)}）</b><em>日記</em></div><p>${x.c}</p></div>`).join('')}${bundles.map(l => `<div class="mt"><a class="tl" data-link-object="${esc(l.id)}">${esc(l.title)}</a></div>`).join('')}</div>` : '') +
-    (memoReplies.length ? `<div class="sec">${metaLabel('💬', 'チャットメモ', memoReplies.length)}${memoReplies.map(m => `<div class="bl" data-cmemo="${esc(m.id)}"><div class="bh"><b>${esc(m.topic || '未所属')}</b><em>${esc((m.text || '').slice(0, 25))}</em></div></div>`).join('')}</div>` : '');
+    '';
 }
 // 🏷 キーワードを足す窓: 入力・今までのキーワードの候補・読み（自動で入る。違っていれば直す）
 function keywordDialog(note) {
@@ -1015,8 +976,6 @@ async function refreshDiaries() {
 }
 $('#pane').addEventListener('click', async e => {
   const objectLink = e.target.closest('[data-link-object]'); if (objectLink) return LC.detail(objectLink.dataset.linkObject);
-  const memoLink = e.target.closest('[data-cmemo]');
-  if (memoLink) { e.preventDefault(); Chat.gotoMemo(memoLink.dataset.cmemo); return; }
   const del = e.target.closest('[data-kwdel]');
   if (del && cur && cur.k === 'note') {
     if (!confirm(`キーワード「${del.dataset.kwdel}」をこのノートから外しますか？`)) return;
@@ -1057,10 +1016,7 @@ function noteMenu(btn, note) {
   const r = btn.getBoundingClientRect(), { s, id } = note, text = (note.kind || 'text') === 'text';
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
     ...(text ? [['▦ 表を入れる', () => insertTable()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
-    ...(s === 'd' ? [['💬 チャットメモで返信', () => Chat.replyToNote(note)]] : []),
     ['🔗 リンクを作成（選択範囲／全体）', () => LC.edit([currentLinkTarget(note)])],
-    ['@ チャットメモをメンション', () => pickMemoRelation(note, false)],
-    ['↩ チャットメモへリプライ', () => pickMemoRelation(note, true)],
     ['🔢 IDを変更・解除…', () => idSettingsDialog(note)],
     ['🗑 削除', () => deleteNotes([{ s, id }]), true]
   ]);
@@ -1084,16 +1040,6 @@ function highlightMemoRange(id, range) {
 function currentLinkTarget(note) {
   const selection = cur?.k === 'note' && cur.id === note.id && lastView?.dom.isConnected ? lastView.state.selection.main : null;
   return LC.targetNote(note, selection && !selection.empty ? selection : undefined);
-}
-function pickMemoRelation(note, reply) {
-  const view = lastView, selection = view?.dom.isConnected ? view.state.selection.main : null;
-  LC.chooseMemo(m => {
-    if (!view?.dom.isConnected || !selection) return toast('元のノートを開いてからもう一度選択してください');
-    const label = LinkCore.safeTitle(m.text.split('\n')[0]);
-    const text = reply ? `[↩ ${label}](reply:${m.id}) ` : `:[${label}](memo:${m.id}) `;
-    view.dispatch({ changes: { from: selection.from, to: selection.to, insert: text }, selection: { anchor: selection.from + text.length } });
-    view.focus();
-  });
 }
 function idSettingsDialog(note) {
   dialog(`<h3>IDを変更・解除</h3>
@@ -1136,7 +1082,7 @@ async function clearIdFlow(note) {
   if (stem) openNote('d', stem.id, null, true); else show(Math.max(0, active));
   toast('IDを消しました'); return true;
 }
-// IDなしのノートを作る（kind: text / rp / canvas）。あとでIDを付けて整理する
+// IDなしのノートを作る。あとでIDを付けて整理する
 // IDなしのノートから、IDなしのまま分岐・並列を作る。親にIDが付いた時に、子のIDも決まる
 async function createNoidRel(note, act) {
   const parentStem = act === 'chi' ? note.stem : (note.parentStem || '');
@@ -1145,21 +1091,18 @@ async function createNoidRel(note, act) {
   setTimeout(() => { if (cur && cur.k === 'note' && cur.id === n.id && lastView && lastView.dom.isConnected) lastView.focus(); }, 30);
 }
 async function createNoid(kind) {
-  const data = kind === 'rp' ? RP.emptyData() : kind === 'canvas' ? CV.emptyData() : null;
-  const n = await api.createNote({ kind, data, created: L.now() });
+  const n = await api.createNote({ kind, data: null, created: L.now() });
   notes.push(n); await refreshDiaries(); openNote('d', n.id);
   if (kind === 'text') setTimeout(() => { if (cur && cur.k === 'note' && cur.id === n.id && lastView && lastView.dom.isConnected) lastView.focus(); }, 30);
   else setTimeout(() => { const t = $('#f-title'); if (t) t.focus(); }, 30);
 }
 $('#new').onclick = e => {
   if (mode === 'diary') return openDiary(L.todayStr());
-  if (mode === 'chat') return Chat.newTopicDialog();
   const r = $('#new').getBoundingClientRect();
   popMenu({ clientX: r.left, clientY: r.bottom + 4 }, [
     ['📝 ノート', () => createNoid('text')],
     ['🔗 リンクを作成', () => LC.edit()],
     ['🔗 リンク一覧', () => LC.browse()],
-    ['🗺 キャンバス', () => createNoid('canvas')],
     ['📷 スキャンを取り込む（紙）', () => $('#imp').click()]
   ]);
 };
@@ -1503,147 +1446,13 @@ document.addEventListener('input', e => { if (e.target.id === 'k-q') { keepPrefs
 document.addEventListener('change', e => { if (e.target.id === 'k-sort') { sortBy = e.target.value; savePrefs(); drawBoard(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur && cur.k === 'cards' && $('#k-add') && $('#k-add').classList.contains('open') && $('#kover').hidden) { e.preventDefault(); commitAdd(); } });
 
-// ===== 似たノート（新しいタブ）。本文の言葉・キーワード・リンク・同じ索引。度数で上から。並べ替え・絞り込み =====
-let simP = null, simSig = '';
-function startSimilar() {
-  const base = selMode && picked.size ? [...picked].map(k => get(k[0], k.slice(2))).filter(Boolean) : cur && cur.k === 'note' ? [get(cur.s, cur.id)].filter(Boolean) : [];
-  if (!base.length) return toast('似たノートを探すノートを、開くか選んでください');
-  if (selMode) { selMode = false; picked.clear(); renderList(); }
-  newTab = true; openSimilar(base.map(n => ({ s: n.s, id: n.id })));
-}
-function simRows(st, base) {
-  const sig = notes.length + ':' + notes.reduce((m, n) => n.updated > m ? n.updated : m, '') + ':' + topics.length;
-  if (!simP || simSig !== sig) { simP = SM.prepare(notes, topics, L.mergeTopic); simSig = sig; }
-  let rows = SM.rank(simP, notes, base, { bases: st.bases, multi: st.multi });
-  const f = st.f, baseSet = new Set(base.map(n => n.s + ':' + n.id));
-  rows = rows.filter(r => { const n = r.note, kind = n.noid ? 'u' : n.s;
-    if (!f.kinds[kind]) return false;
-    if (f.kw && !n.keywords.includes(f.kw)) return false;
-    const day = (n.created || '').slice(0, 10); if (f.from && day < f.from) return false; if (f.to && day > f.to) return false;
-    if (f.noDesc && base.some(b => !b.noid && !n.noid && n.s === b.s && L.fzSubtree([n.id], b.id).length)) return false;
-    if (f.noLinked && base.some(b => { const l = simP.links.get(b.s + ':' + b.id) || new Set(); return l.has(n.s + ':' + n.id) || (simP.links.get(n.s + ':' + n.id) || new Set()).has(b.s + ':' + b.id); })) return false;
-    return true; });
-  const sg = st.dir === 'asc' ? 1 : -1, by = st.sort;
-  rows.sort((a, b) => sg * (by === 'total' ? a.total - b.total : SM.BASES[by] ? a.score[by] - b.score[by] : by === 'fz' ? L.cmpId(a.note.id, b.note.id) : by === 'updated' ? (a.note.updated || '').localeCompare(b.note.updated || '') : (a.note.created || '').localeCompare(b.note.created || '')) || b.total - a.total);
-  return rows;
-}
-function openSimilar(baseKeys, keep) {
-  cur = place({ k: 'similar', base: baseKeys }, keep); mode = 'notes';
-  cur.st = cur.st || { bases: { text: true, kw: true, link: true, topic: true }, multi: 'avg', sort: 'total', dir: 'desc', f: { kinds: { d: true, p: true, u: true }, kw: '', from: '', to: '', noDesc: false, noLinked: false } };
-  drawSimilar(true);
-}
-function drawSimilar(full) {
-  const st = cur.st, base = cur.base.map(b => get(b.s, b.id)).filter(Boolean); if (!base.length) return;
-  const rows = simRows(st, base), allKw = [...new Set(notes.flatMap(n => n.keywords))].sort((a, b) => a.localeCompare(b, 'ja'));
-  const ck = (k, on, l, attr) => `<label class="smck"><input type="checkbox" ${attr}="${k}"${on ? ' checked' : ''}> ${l}</label>`;
-  const bar = `<div class="smbar"><div class="smrow"><b>基準</b> ${base.map(n => `<span class="chip ${n.s}" data-s="${n.s}" data-id="${esc(n.id)}">${esc(n.noid ? 'IDなし' : n.label || (n.s === 'p' ? '紙' : '') + n.id)} ${esc(titleOf(n).slice(0, 14))}</span>`).join('')}
-      ${base.length > 1 ? `<span class="sub">複数: </span><select data-sm="multi"><option value="avg"${st.multi === 'avg' ? ' selected' : ''}>全体の平均</option><option value="any"${st.multi === 'any' ? ' selected' : ''}>どれかに似ている</option><option value="all"${st.multi === 'all' ? ' selected' : ''}>全部に似ている</option></select>` : ''}</div>
-    <div class="smrow"><b>基準にする</b> ${Object.entries(SM.BASES).map(([k, l]) => ck(k, st.bases[k], l, 'data-smb')).join('')}</div>
-    <div class="smrow"><b>並べ替え</b> <select data-sm="sort">${[['total', '総合の度数'], ['text', '本文の言葉'], ['kw', 'キーワード'], ['link', 'リンク'], ['topic', '索引'], ['fz', '番号'], ['created', '作成日'], ['updated', '更新日']].map(([k, l]) => `<option value="${k}"${st.sort === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button class="mini" data-sm="dir">${st.dir === 'asc' ? '↑ 昇順' : '↓ 降順'}</button></div>
-    <div class="smrow"><b>絞り込み</b> ${ck('d', st.f.kinds.d, '💻', 'data-smk')}${ck('p', st.f.kinds.p, '📜', 'data-smk')}${ck('u', st.f.kinds.u, '📥', 'data-smk')}
-      <select data-sm="kw"><option value="">キーワード: すべて</option>${allKw.map(k => `<option${st.f.kw === k ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
-      <span class="sub">作成日</span><input type="date" data-sm="from" value="${st.f.from}"><span class="sub">〜</span><input type="date" data-sm="to" value="${st.f.to}">
-      ${ck('noDesc', st.f.noDesc, '基準の子孫は除く', 'data-smf')}${ck('noLinked', st.f.noLinked, 'リンク済みは除く', 'data-smf')}</div></div>`;
-  const list = rows.slice(0, 300).map(r => { const n = r.note; return `<div class="smrow2 item note" data-s="${n.s}" data-id="${esc(n.id)}"><div class="smtop"><b>${n.noid ? '📥' : (n.s === 'p' ? '📜 ' : '💻 ') + esc(n.id)}</b> <span class="smt">${esc(titleOf(n))}</span><span class="smp" title="総合の度数">${Math.round(r.total * 100)}%</span></div>
-    <div class="smmeter"><i style="width:${Math.round(r.total * 100)}%"></i></div><div class="smre">${Object.entries(SM.BASES).filter(([k]) => st.bases[k] && r.score[k] > 0.005).map(([k, l]) => `<span class="smb smb-${k}">${l} ${Math.round(r.score[k] * 100)}%</span>`).join('')} ${r.reasons.slice(0, 3).map(x => `<span class="sub">${esc(x.t)}</span>`).join('　')}</div></div>`; }).join('');
-  $('#pane').innerHTML = `<div class="similar"><h2>≈ 似たノート <small class="sub">${rows.length} 件</small></h2>${bar}<div class="smlist">${list || '<div class="none">似たノートは見つかりません。基準や絞り込みを変えてください</div>'}</div></div>`;
-  renderTabs(); renderList();
-}
-$('#pane').addEventListener('change', e => {
-  if (!cur || cur.k !== 'similar') return; const st = cur.st, t = e.target;
-  if (t.dataset.smb) st.bases[t.dataset.smb] = t.checked; else if (t.dataset.smk) st.f.kinds[t.dataset.smk] = t.checked; else if (t.dataset.smf) st.f[t.dataset.smf] = t.checked;
-  else if (t.dataset.sm === 'multi') st.multi = t.value; else if (t.dataset.sm === 'sort') { st.sort = t.value; st.dir = ['fz'].includes(t.value) ? 'asc' : 'desc'; } else if (t.dataset.sm === 'kw') st.f.kw = t.value;
-  else if (t.dataset.sm === 'from') st.f.from = t.value; else if (t.dataset.sm === 'to') st.f.to = t.value; else return;
-  drawSimilar();
-});
-$('#pane').addEventListener('click', e => {
-  if (!cur || cur.k !== 'similar') return;
-  if (e.target.dataset.sm === 'dir') { cur.st.dir = cur.st.dir === 'asc' ? 'desc' : 'asc'; return drawSimilar(); }
-}, true);
-
-// ===== 曼荼羅ビュー =====
-function openMandala(keep, center) {
-  cur = place({ k: 'mandala' }, keep); mode = 'notes';
-  cur.m = MD.init(cur.m);
-  if (center) { if (cur.m.center) cur.m.hist.push(cur.m.center); cur.m.center = center; cur.m.sel = 0; cur.m.page = 0; cur.m.fwd = []; }
-  if (!cur.m.center || !get(cur.m.center.s, cur.m.center.id)) {
-    const n = (lastNote && get(lastNote.s, lastNote.id) && !get(lastNote.s, lastNote.id).noid) ? get(lastNote.s, lastNote.id) : notes.filter(x => !x.noid && x.s === 'd').sort((a, b) => L.cmpId(a.id, b.id))[0];
-    cur.m.center = n ? { s: n.s, id: n.id } : null;
-  }
-  drawMandala();
-}
-function drawMandala() {
-  const st = cur.m;
-  $('#pane').innerHTML = MD.html(notes, st, titleOf, get);
-  const pv = $('#mprev'), sn = MD.selected(notes, st), n = sn && get(sn.s, sn.id);
-  if (pv) pv.innerHTML = n ? `<h3>${esc((n.s === 'p' ? '紙 ' : '') + n.id)} ${esc(titleOf(n))}</h3>${esc(n.body || '')}` : '<span class="sub">空きマス。Enter か ＋ で、ここに新しいノートを作ります</span>';
-  const m = $('.mandala'); if (m) m.focus({ preventScroll: true });
-  renderTabs(); renderList();
-}
-const MPOS = [4, 0, 1, 2, 5, 8, 7, 6, 3];   // マス番号（0=中心, 1〜8）→ 3×3 の位置
-function mandalaKey(e) {
-  const st = cur.m; if (!st || !st.center) return false;
-  const k = e.key, set = fn => { fn(); drawMandala(); return true; };
-  const move = (dx, dy) => set(() => { const p = MPOS[st.sel], x = Math.max(0, Math.min(2, p % 3 + dx)), y = Math.max(0, Math.min(2, Math.floor(p / 3) + dy)); st.sel = MPOS.indexOf(y * 3 + x); });
-  const recenter = c => set(() => { st.hist.push(st.center); st.fwd = []; st.center = { s: c.s, id: c.id }; st.sel = 0; st.page = 0; });
-  if (['h', 'ArrowLeft'].includes(k)) return move(-1, 0);
-  if (['l', 'ArrowRight'].includes(k)) return move(1, 0);
-  if (['k', 'ArrowUp'].includes(k)) return move(0, -1);
-  if (['j', 'ArrowDown'].includes(k)) return move(0, 1);
-  if (/^[0-8]$/.test(k)) return set(() => { st.sel = +k; });
-  if (k === 'Tab') return set(() => { st.sel = (st.sel + (e.shiftKey ? 8 : 1)) % 9; });
-  if (k === '[' || k === ']') return set(() => { const r = MD.ring(notes, st, st.center, st.page); st.page = (st.page + (k === ']' ? 1 : r.pages - 1)) % r.pages; st.sel = 0; });
-  if (k === 'Enter') { const c = MD.selected(notes, st); if (!c) { const id = (() => { let x = L.child(st.center.id); while (get(st.center.s, x)) x = L.sibling(x); return x; })(); create(st.center.s, id); return true; } if (st.sel === 0) return openNote(c.s, c.id) || true; return recenter(c); }
-  if (k === ' ') { const c = MD.selected(notes, st); if (c) openNote(c.s, c.id); return true; }
-  if (k === 'b' || k === 'Backspace') return set(() => { const p = st.hist.pop(); if (p) { st.fwd.push(st.center); st.center = p; st.sel = 0; st.page = 0; } });
-  if (k === 'B') return set(() => { const p = st.fwd.pop(); if (p) { st.hist.push(st.center); st.center = p; st.sel = 0; st.page = 0; } });
-  if (k === 'f') return set(() => { st.big = !st.big; });
-  if (k === 'p') return set(() => { st.preview = !st.preview; });
-  if (k === '?') { const h = $('#mhelp'); if (h) h.hidden = !h.hidden; return true; }
-  if (MD.MODES[k]) return set(() => { st.mode = k; st.sel = 0; st.page = 0; });
-  return false;
-}
-document.addEventListener('keydown', e => {
-  if (!cur || cur.k !== 'mandala' || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || $('#modal').style.display === 'flex') return;
-  const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
-  if (mandalaKey(e)) e.preventDefault();
-}, true);
-document.addEventListener('click', e => {
-  if (!cur || cur.k !== 'mandala' || !e.target.closest('.mandala')) return;
-  const st = cur.m, mm = e.target.closest('[data-mm]'), c = e.target.closest('.mc');
-  if (mm) { st.mode = mm.dataset.mm; st.sel = 0; st.page = 0; return drawMandala(); }
-  if (e.target.closest('[data-mf]')) { st.big = !st.big; return drawMandala(); }
-  if (e.target.closest('[data-mp]')) { st.preview = !st.preview; return drawMandala(); }
-  if (e.target.closest('[data-mb]')) { mandalaKey({ key: 'b' }); return; }
-  if (e.target.closest('[data-mq]')) { const h = $('#mhelp'); if (h) h.hidden = !h.hidden; return; }
-  if (!c) return;
-  e.stopImmediatePropagation();
-  const i = +c.dataset.i;
-  if (c.dataset.new) { create(st.center.s, c.dataset.new); return; }
-  // 大きい（9×9）で周りの曼荼羅のマスを押したら、そのノートを中心に。それ以外は、まず選ぶ → もう一度で中心に
-  if (c.dataset.id) {
-    if (st.sel === i && !c.closest('.mbig>.mg.sub')) { if (i === 0) return openNote(c.dataset.s, c.dataset.id); st.hist.push(st.center); st.fwd = []; st.center = { s: c.dataset.s, id: c.dataset.id }; st.sel = 0; st.page = 0; return drawMandala(); }
-    if (c.closest('.mbig>.mg.sub')) { st.hist.push(st.center); st.fwd = []; st.center = { s: c.dataset.s, id: c.dataset.id }; st.sel = 0; st.page = 0; return drawMandala(); }
-    st.sel = i; drawMandala();
-  }
-}, true);
-let graphDoc = {};   // グラフの設定（リンク / ツリーで別々に覚える・保存した設定は共有）。vault の K_graph.json
-function openGraph(keep) {
-  GR.unmount($('#pane'));
-  cur = place({ k: 'graph' }, keep); mode = 'notes';
-  cur.gs = cur.gs || {};   // Link map / Tree map・線の長さ・固定（タブに覚える）
-  const rootKey = lastNote ? lastNote.s + ':' + lastNote.id : null;
-  GR.mount($('#pane'), { doc: graphDoc, saveDoc: d => later('doc:G', () => api.saveDoc('K_graph', d)), notes, titleOf, rootKey, mountNote: mountNoteIn, childNotes: (s, id) => { const nn = get(s, id); return nn ? childNotes(nn).map(c => ({ s: c.s, id: c.id, title: titleOf(c) || '（無題）' })) : []; }, chat: Chat.graphData(), files: filesCache, fileUrl: n => 'file://' + kImg(n), onChat: name => { mode = 'chat'; Chat.open(name); }, onMemo: id => { mode = 'chat'; Chat.gotoMemo(id); }, onFile: name => api.openPath(encodeURIComponent(name)), topics, mergeTopic: L.mergeTopic, get, renderMd, state: cur.gs, onOpen: (s, id, e, topic) => topic ? openTopic(topic) : openNote(s, id),
-    onMenu: (node, e) => popMenu(e, [['📖 開く', () => openNote(node.s, node.nid)], ['🗂 新しいタブで開く', () => { bgOpen = true; try { openNote(node.s, node.nid); } finally { bgOpen = false; } }]]) });
-  renderTabs(); renderList();
-}
 function openTopic(name, tmode = 'view', keep) {
   const t = topics.find(x => x.name === name); if (!t) return;
   if (bgOpen) { place({ k: 'topic', name, mode: tmode }, false); return; }   // ホイールクリック: 背景の新しいタブで開く。いまのタブは動かない
   cur = place({ k: 'topic', name, mode: tmode }, keep); cur.mode = tmode; mode = 'notes';
   if (!inPreview) decided = { k: 'topic', name };
   if (!inPreview && !$('#q').value && t.entry && tab !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
-  const { rows, stars, refs, chats } = L.mergeTopic(t), e = t.entry;
+  const { rows, stars, refs } = L.mergeTopic(t), e = t.entry;
   let body;
   if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ID の前の * は赤い点 ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
       <div class="ed" id="ed-t"></div>`;
@@ -1654,7 +1463,7 @@ function openTopic(name, tmode = 'view', keep) {
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑 この索引を削除</button></div></div>`;
   else body = `<table class="ti">${rows.map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
-      ${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${chats.map(x => `<tr><td>💬 ${esc(x)}</td><td><span class="chip t" data-cchat="${esc(x)}">${esc(x)}</span></td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
+      ${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
   // 逆方向（上に出す）: この索引の親を載せている Index・このIndexを + で案内している Index（引用できるのは Index だけ）
   const back = topics.filter(o => o !== t && (L.mergeTopic(o).stars.includes(t.name) || (e && L.mergeTopic(o).rows.some(r => r[e.s].some(x => L.splitAnchor(x).id === e.id))))).sort((x, y) => x.name.localeCompare(y.name, 'ja'));
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・⬆️ 索引されているトピック → 索引の中身
@@ -1772,7 +1581,7 @@ async function openDiary(date, keep, kind) {
     const since = saves.revision, r = await api.openDiary(date, kind); if (!r) return;
     d = upsertDiary(r, since);
   }
-  setKind(kind); Chat.dayBaseline(kind, date, d.body);
+  setKind(kind);
   cur = place({ k: 'diary', date, kind }, keep); mode = 'diary';
   const mine = diaries.filter(x => (x.kind || '日記') === kind).map(x => x.date).sort(), idx = mine.indexOf(date);
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
@@ -1904,16 +1713,16 @@ function firstRun(st) {
 function loaded(st) {
   if (st && st.firstRun) return firstRun(st);
   if (st && st.warnings && st.warnings.length) setTimeout(() => alert(st.warnings.join('\n\n')), 300);   // 壊れたファイルを控えから戻したときなど
-  loadSettings(st); graphDoc = (st.docs || {})['K_graph'] || {};
+  loadSettings(st);
   if (pendingLang) { settings.lang = pendingLang; pendingLang = null; saveSettings(); }
   vault = st.vault; recovery = new Persistence.RecoveryJournal(localStorage, vault); restoreRecovery(st);
   LC.init(st.docs || {});
-  ({ notes, topics, vault } = st); readings = st.readings || {}; diaries = st.diaries || []; records = st.records || records; Chat.init(st.docs || {}); RP.init(st.docs || {}); Chat.migrateLegacyRoleplay(); PI.init(st.docs || {}); cur = null; tabs = []; active = -1; refreshFiles();
+  ({ notes, topics, vault } = st); readings = st.readings || {}; diaries = st.diaries || []; records = st.records || records; PI.init(st.docs || {}); cur = null; tabs = []; active = -1; refreshFiles();
   $('#vault').textContent = '📁 ' + vault.split('/').pop(); $('#vault').title = vault + '\n（Brave では Index.md を開くと全部たどれます）';
   try {
     const saved = JSON.parse(localStorage.getItem('pkm-tabs:' + vault) || 'null');
     if (saved) {
-      tabs = saved.tabs.filter(t => t.k === 'empty' || (t.k === 'note' && get(t.s, t.id)) || (t.k === 'topic' && topics.find(x => x.name === t.name)) || (t.k === 'diary' && getDiary(t.date, t.kind)) || t.k === 'chat' || t.k === 'graph' || t.k === 'mandala' || t.k === 'cards' || (t.k === 'similar' && (t.base || []).every(b => get(b.s, b.id))));
+      tabs = saved.tabs.filter(t => t.k === 'empty' || (t.k === 'note' && get(t.s, t.id)) || (t.k === 'topic' && topics.find(x => x.name === t.name)) || (t.k === 'diary' && getDiary(t.date, t.kind)) || t.k === 'cards');
       tabs.forEach(t => { if (t.k === 'topic') t.mode = 'view'; });
       active = Math.min(saved.active, tabs.length - 1);
     }
@@ -2004,8 +1813,7 @@ api.onPhoneAuto(async m => {   // スマホがつながったら、自動で取�
   if (m.ok && m.state) {
     try {
       const since = saves.revision; await flush(); const st = await api.state();
-      Chat.init(st.docs || {}, true); applyState(st, since); refreshFiles();
-      if (cur && cur.k === 'chat') Chat.render();
+      applyState(st, since); refreshFiles();
     } catch { toast('保存が完了していないため、取り込み結果の表示を保留しています'); }
   }
   if (m.message && !m.quiet) toast(m.message);
@@ -2016,7 +1824,7 @@ async function phoneImport() {
   const r = await api.phoneImport();
   if (r.ok) {
     const since = saves.revision; await flush(); const st = await api.state();
-    Chat.init(st.docs || {}, true); applyState(st, since); refreshFiles();
+    applyState(st, since); refreshFiles();
   }
   alert(r.message);
 }
@@ -2053,7 +1861,7 @@ function renderSelbar() {
   bar.classList.toggle('selecting', selMode);
   bar.innerHTML = selMode
     ? `<div class="sel-head"><span>${picked.size}件を選択</span><button id="sel-end" title="複数選択を終了（Esc）">やめる <small>Esc</small></button></div>
-      <div class="sel-actions"><button id="sel-all">全部</button><button id="sel-link" ${picked.size ? '' : 'disabled'}>リンクを作成</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">コピー</button><button id="sel-sim" ${picked.size ? '' : 'disabled'} title="選んだノートに似たノートを探す">≈ 似たノート</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤 エクスポート</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'}>削除</button></div>`
+      <div class="sel-actions"><button id="sel-all">全部</button><button id="sel-link" ${picked.size ? '' : 'disabled'}>リンクを作成</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">コピー</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤 エクスポート</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'}>削除</button></div>`
     : '<button id="sel-start" title="複数のノートを選んで、まとめて削除します">☑ 選択</button>';
   bar.style.display = !selMode && (tab === 'i' || tab === 'f' || mode !== 'notes') && !$('#q').value ? 'none' : 'flex';
 }
@@ -2080,7 +1888,6 @@ $('#selbar').addEventListener('click', e => {
   if (id === 'sel-all') { visibleRows().forEach(r => picked.add(r.dataset.s + ':' + r.dataset.id)); renderList(); }
   if (id === 'sel-copy') copySelection();
   if (id === 'sel-link') LC.edit([...picked].map(k => get(k[0], k.slice(2))).filter(Boolean).map(n => LC.targetNote(n)));
-  if (id === 'sel-sim') startSimilar();
   if (id === 'sel-exp') exportDialog([...picked]);
   if (id === 'sel-del') deleteNotes([...picked].map(k => ({ s: k[0], id: k.slice(2) })));
 });
@@ -2121,22 +1928,16 @@ async function attach(note, files) {
   view.dispatch({ changes: { from: head, insert: md }, selection: { anchor: head + md.length } }); view.focus();
 }
 const curNote = () => cur && cur.k === 'note' ? get(cur.s, cur.id) : cur && cur.k === 'diary' ? getDiary(cur.date, cur.kind) : null;
-$('#pane').addEventListener('dragover', e => { if ((curNote() || (cur && cur.k === 'chat')) && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); $('#pane').classList.add('drop'); } });
+$('#pane').addEventListener('dragover', e => { if (curNote() && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); $('#pane').classList.add('drop'); } });
 $('#pane').addEventListener('dragleave', e => { if (!e.relatedTarget || !$('#pane').contains(e.relatedTarget)) $('#pane').classList.remove('drop'); });
 $('#pane').addEventListener('drop', e => {
   $('#pane').classList.remove('drop');
-  if (e.target.closest('#cv-wrap') && e.dataTransfer.files.length) { e.preventDefault(); return CV.dropImages(e); }
-  if (e.target.closest('.chat') && e.dataTransfer.files.length) { e.preventDefault(); return (e.target.closest('.rp') ? RP : Chat).attach([...e.dataTransfer.files]); }
   const n = curNote(); if (!n || !e.dataTransfer.files.length) return;
   e.preventDefault(); attach(n, [...e.dataTransfer.files]);
 });
 // 貼り付け（スクリーンショットなど）
 document.addEventListener('paste', e => {
   const n = curNote(), fs = [...(e.clipboardData ? e.clipboardData.files : [])];
-  const kind = cur && cur.k === 'note' && n ? n.kind : null;
-  if (kind === 'canvas' && fs.length) { e.preventDefault(); return CV.attach(fs); }
-  if (kind === 'rp' && fs.length) { e.preventDefault(); return RP.attach(fs); }
-  if (cur && cur.k === 'chat' && fs.length) { e.preventDefault(); return Chat.attach(fs); }
   if (n && fs.length) { e.preventDefault(); attach(n, fs); }
 });
 
@@ -2176,13 +1977,13 @@ function restoreRecovery(st) {
   }
   if (entries.length) toast('前回の未保存の入力内容を復元しました');
 }
-// チャット・なりきり・キャンバスの部品に、アプリの機能を渡す
+// 本文のリンク・参照などの部品に、アプリの機能を渡す
 Object.assign(ctx, {
   api, later, flush, place,
   renderMemoGroupPlain: LC.legacyGroup,
   memoReferenceBacklinks: LC.memoBacklinks,
   highlightMemo: (id, range) => { setTimeout(() => highlightMemoRange(id, range), 30); },
-  enhanceRendered: LC.enhance, searchReferences: LC.search, memos: () => Chat.messages(), diaries: () => diaries, gotoMemo: id => Chat.gotoMemo(id),
+  enhanceRendered: LC.enhance, searchReferences: LC.search, memos: () => [], diaries: () => diaries, gotoMemo: () => {},
   selectRange: (from, to) => { if (lastView?.dom.isConnected) { lastView.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) }); lastView.focus(); } },
   createLink: (targets) => LC.edit(targets), targetMemo: LC.targetMemo, addNote: n => notes.push(n),
   renderChanged: () => LC.refresh(), renderTabs, openLink, applyState, readings: () => readings, lastNote: () => lastNote,

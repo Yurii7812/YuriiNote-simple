@@ -91,7 +91,6 @@ button:disabled{opacity:.4;cursor:default}
 .tab .x{font-weight:400;color:#aaa;padding:0 3px;border-radius:4px}.tab .x:hover{background:#e3e5ea;color:var(--fg)}
 .tab-new{border:0;background:none;color:var(--sub);padding:3px 9px;margin-bottom:3px}
 #pane:has(.note-map-widget){padding:0;display:flex;flex-direction:column;overflow:hidden}
-.graph{flex:1;min-height:0;display:flex;flex-direction:column}
 .glegend{display:flex;gap:18px;flex-wrap:wrap;padding:10px 18px;font-size:13px;color:var(--sub,#6b7080);border-bottom:1px solid #eceef3;align-items:center}
 .glegend i{display:inline-block;vertical-align:middle;margin-right:6px}
 .glegend i.c{width:12px;height:12px;border-radius:50%;border:2px solid var(--acc)}.glegend i.c.p{border-color:#2f9e44}
@@ -133,7 +132,6 @@ button:disabled{opacity:.4;cursor:default}
 .col.wide{width:1000px}
 .stage:has(#nbody)>.mgn{position:static;min-height:0;margin:0;overflow:auto;padding-top:34px;height:100%}
 .stage:has(#nbody)>.col{width:auto;flex:1 1 auto;max-width:none;margin:0 auto;padding:26px 36px 18px}
-.stage:has(#nbody)>.col>#nbody>.chat,.stage:has(#nbody)>.col>#nbody>.cvbox{max-width:1100px;margin:0 auto;width:100%}
 .mgn{width:260px;margin:0 auto 0 8px;padding:46px 14px 60px 20px;border-left:1px solid #f0f0f3;font-size:12.5px;color:#7a7f8e;position:sticky;top:0;min-height:100vh;align-self:stretch}
 .idline{display:flex;align-items:center;gap:4px;font-size:12px;color:#a9aebb;min-height:24px}
 
@@ -212,24 +210,12 @@ button.danger{color:var(--red);border-color:#efc9c4}
 #clist .item .ci{margin-right:0;flex:none}
 #clist .item b{flex:1;min-width:0;margin-right:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere}
 #clist .item small{float:none;flex:none;margin-left:auto}#clist .dtop{padding:8px 10px;border-bottom:1px solid var(--line)}
-.chat{display:flex;flex-direction:column;flex:1;min-height:0;max-width:820px;margin:0 auto;width:100%}
-#pane:has(.chat){display:flex;flex-direction:column;overflow:hidden}
-.chat-head{flex-shrink:0}
 #c-msgs{flex:1;overflow:auto;padding:6px 2px 36px;min-height:0}
 .bub{max-width:88%;margin:0 0 10px;padding:8px 12px;background:#f1f4fa;border-radius:12px 12px 12px 3px;width:fit-content}
-.chat.memo #c-msgs .bub{margin-left:auto;background:#e3ecfd;border-radius:12px 12px 3px 12px;cursor:pointer}
 /* ノート化: 通常ノートの右パネルを保ち、中央に元のチャットをそのまま表示する */
 #nbody:has(>.memo-note){min-height:0;display:flex;flex-direction:column}
 #nbody>.memo-note{min-height:0;flex:1 1 auto;max-width:900px;margin:0 auto;width:100%;overflow:hidden}
-.memo-note-head{flex-shrink:0;padding:7px 12px 12px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.memo-note-head .sub{font-weight:400;font-size:12px}
-.memo-note-messages{min-height:0;flex:1 1 0;overflow:auto;padding:16px 12px 32px;display:flex;flex-direction:column;align-items:stretch}
-.memo-note-messages .bub{margin:0 0 12px auto;background:#e3ecfd;border-radius:12px 12px 3px 12px;max-width:min(88%,720px);padding:10px 13px;width:fit-content}
-.memo-note-source{border:0;background:none;color:var(--acc);padding:4px 0 0;font:inherit;font-size:11px;cursor:pointer}
-.memo-note-source:hover{text-decoration:underline}
-.memo-note-messages .bub.missing{background:var(--hl);color:var(--sub)}
 
-.chat.memo #c-msgs .bub.open{outline:1.5px solid #9fb3e6}
 .bub .fz{color:var(--acc);font-weight:700;margin-right:4px}
 .binfo{margin-top:8px;padding-top:6px;border-top:1px dashed #b9c4e0;font-size:13px}.binfo .ir{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;margin:3px 0}.binfo .il{color:#6b7080;font-weight:600;min-width:4.5em}
 .vseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.vseg button{border:0;border-radius:0;background:#fff;padding:3px 10px;font-size:13px;color:var(--sub)}.vseg button.on{background:#e3ecfd;color:var(--acc);font-weight:600}
@@ -265,7 +251,6 @@ label.rad{display:flex;gap:8px;align-items:center;font-size:14px}
 .rmsg .rbody{max-width:78%}.rmsg.right .b-meta{text-align:right}
 .rmsg .bub.rb{margin:0;max-width:100%}.rmsg.right .bub.rb{background:#e3ecfd;border-radius:12px 12px 3px 12px;margin-left:auto}
 .rreply{font-size:12.5px;color:#6b7080;border-left:3px solid #b9c4e0;padding:1px 8px;margin-bottom:5px;cursor:pointer;background:rgba(255,255,255,.55);border-radius:3px}.rreply:hover{color:var(--acc)}
-.rpl{cursor:pointer;color:#b0b4c0;opacity:0;margin-left:4px}.rmsg:hover .rpl{opacity:1}.rpl:hover{color:var(--acc)}
 .mention{color:var(--acc);font-weight:600;background:#eef3ff;border-radius:4px;padding:0 3px}
 #rp-quote .qrow{display:flex;align-items:center;gap:8px;font-size:13px;color:#6b7080;padding:2px 0}#rp-quote .qrow b{cursor:pointer;color:#b0b4c0}
 .mnlist{display:none;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:4px;margin-bottom:4px;max-width:260px}.mnlist .mn{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;cursor:pointer;font-size:14px}.mnlist .mn.on,.mnlist .mn:hover{background:#eef3ff}
@@ -273,36 +258,13 @@ label.rad{display:flex;gap:8px;align-items:center;font-size:14px}
 .qcard{border-left:3px solid #9fb3e6;background:#fff;border-radius:6px;padding:4px 10px;margin-bottom:6px;cursor:pointer;font-size:14px}
 .qcard:hover{background:#f7faff}.qcard h1,.qcard h2,.qcard h3{font-size:1.05em;margin:0 0 2px}.qh{font-size:12px;color:var(--sub);margin-bottom:2px}.qcard .md p{margin:0}
 #rp-quote{display:none;justify-content:space-between;align-items:center;background:#eef3ff;border:1px solid #cdd9f5;border-radius:8px;padding:3px 10px;margin-bottom:6px;font-size:13px;flex-shrink:0}#rp-quote b{cursor:pointer;padding:0 6px}
-.rp-speakers{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;flex-shrink:0}
 .spk{display:inline-flex;align-items:center;gap:5px;padding:2px 10px 2px 3px;border:1px solid var(--line);border-radius:16px;cursor:pointer;font-size:14px;color:var(--sub)}
 .spk.on{background:#e3ecfd;border-color:#9fb3e6;color:var(--fg);font-weight:600}
-.rolepick{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow:auto}.rp-opt{display:flex;align-items:center;gap:6px;cursor:pointer}
 .rolerow{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f2f2f2}
 
 #vlist .ci{margin-right:8px}#vlist .item small{float:right;color:var(--sub)}#vlist .dtop{padding:8px 10px;border-bottom:1px solid var(--line)}
-#pane:has(.cvbox),#pane:has(.chat.rp){display:flex;flex-direction:column;overflow:hidden}
 #nbody{flex:1;min-height:0;display:flex;flex-direction:column}#nbody>.chat,#nbody>.cvbox{flex:1;min-height:0}
 .noid-hint{color:var(--sub);font-size:13px;margin:-2px 0 10px}.kind{font-size:18px}
-.cvbox{display:flex;flex-direction:column;height:100%;min-height:0}.cv-bar{flex-shrink:0}
-#cv-wrap{flex:1;position:relative;overflow:hidden;border:1px solid var(--line);border-radius:8px;min-height:0;cursor:grab;user-select:none;
- background-color:#fafbfd;background-image:radial-gradient(#d5dbe8 1px,transparent 1px);background-size:24px 24px}
-#cv-world{position:absolute;left:0;top:0;transform-origin:0 0}#cv-svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
-#cv-svg g{pointer-events:auto}.cv-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer}
-.cv-edge{fill:none;stroke:#6b7a99;stroke-width:2;pointer-events:none}.cv-edge.sel{stroke:#2456c8;stroke-width:3}.cv-edge.tmp{stroke:#2456c8;stroke-dasharray:6 4}
-.cv-label{font-size:13px;fill:#334;paint-order:stroke;stroke:#fafbfd;stroke-width:4px;pointer-events:none}
-.cv-card{position:absolute;background:#fff;border:1.5px solid #aab3c8;border-radius:6px;cursor:default;overflow:visible;user-select:text}
-.cv-card.text{width:max-content;max-width:420px;min-width:28px;min-height:28px}
-.cv-card.sel{border-color:var(--acc);box-shadow:0 0 0 2px #cfdcfb}
-.cv-card .cv-body{height:100%;overflow:hidden;padding:8px 10px;font-size:14px;box-sizing:border-box}.cv-card.text .cv-body{height:auto;overflow:visible;padding:4px 8px;font-size:16px;line-height:1.45;word-break:break-word}.cv-card.note .cv-body{height:calc(100% - 26px)}
-.cv-card .cv-body.md p{margin:0 0 6px}.cv-card.text .cv-body.md p{margin:0}.cv-card.text .cv-body.md p+p{margin-top:.3em}.cv-card .cv-body.md h1,.cv-card .cv-body.md h2,.cv-card .cv-body.md h3{font-size:1.1em;margin:0 0 4px}
-.cv-nh{background:#eef3ff;color:var(--acc);font-size:12px;padding:3px 10px;border-radius:7px 7px 0 0;cursor:pointer;height:26px;box-sizing:border-box}
-.cv-card.image{padding:0;border-radius:6px}.cv-card.image img{width:100%;height:100%;object-fit:contain;border-radius:6px;display:block;pointer-events:none}
-.cv-edit{display:block;border:0;outline:0;resize:none;font:inherit;background:transparent;padding:0;margin:0;overflow:hidden;field-sizing:content;min-width:2em;max-width:400px;width:auto;white-space:pre-wrap}
-.cv-rs{position:absolute;right:-5px;bottom:-5px;width:12px;height:12px;background:#fff;border:2px solid #9fb3e6;border-radius:3px;cursor:nwse-resize;opacity:0}
-.cv-h{display:none;position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--acc);cursor:crosshair;opacity:0;z-index:2}
-.cv-h.top{left:calc(50% - 6px);top:-7px}.cv-h.bottom{left:calc(50% - 6px);bottom:-7px}.cv-h.left{top:calc(50% - 6px);left:-7px}.cv-h.right{top:calc(50% - 6px);right:-7px}
-.cv-card:hover .cv-h,.cv-card:hover .cv-rs,.cv-card.sel .cv-h,.cv-card.sel .cv-rs{opacity:1}
-#cv-hint{position:absolute;left:10px;bottom:6px;font-size:12px;color:#aab;pointer-events:none}
 
 /* ===== 見やすさの調整: 文字を大きく・濃く、部品をはっきり ===== */
 :root{--sub:#6a6f7d;--line:#e1e3e9;--hl:#f0f2f7;--tint:#e6eeff}
@@ -443,20 +405,6 @@ button{font-size:14.5px;padding:5px 13px;border-color:#d6d9e1;color:#3d4150}
 .idex-section-actions select{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:4px 2px}
 .idex-section-actions button{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:4px 7px;cursor:pointer}
 .idex-section-actions button:disabled{opacity:.35;cursor:default}
-/* 通常チャットとノート化のキャラ別左右表示・上位下位フィルター。
-   選択モードではフィルターや各種リンクはメモ内で発火させず、メモ全体を選択する。 */
-.chat.memo #c-msgs .bub.other-speaker,
-.chat.memo .memo-note-messages .bub.other-speaker{margin-left:0;margin-right:auto;background:var(--hl,#f0f2f5);border-radius:12px 12px 12px 3px}
-.chat.memo .bub>.b-meta{color:var(--sub);font-size:11.5px;padding-bottom:2px}
-.chat.memo .c-filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:3px 0}
-.chat.memo .c-filter-row>.sub{min-width:175px;flex:none}
-.chat.memo .c-filter-row>button{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:12px;padding:4px 8px;background:var(--bg);color:var(--fg);cursor:pointer}
-.chat.memo .c-filter-row>button.on{background:var(--acc);border-color:var(--acc);color:white}
-.chat.memo .c-filter-controls{display:flex;gap:8px;align-items:center;justify-content:flex-end;width:100%;padding:3px}
-.chat.memo .c-filter-controls button{cursor:pointer;font-size:12px}
-.chat.memo .c-filter-controls button:disabled{opacity:.4;cursor:default}
-.chat.memo .c-speaker-label{font-size:12px;display:flex;align-items:center;gap:5px}
-.chat.memo .c-speaker-label select,.memo-note-head select{font:inherit;max-width:140px}
 .idex-choose-target{display:flex;gap:7px;flex-wrap:wrap;padding:14px 0}
 .idex-choose-target button{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg);color:var(--fg);cursor:pointer}
 /* 長いタイトルは一覧・カード・本文のいずれでも読めるようにする。
@@ -512,21 +460,16 @@ textarea.ntitle,textarea#f-title{
 .kedit .klabels{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;align-items:center}.kedit .klabels input{border:0;outline:0;background:none;font:inherit;font-size:13px}.kedit .kw{background:rgba(0,0,0,.08);border-radius:10px;padding:1px 9px;font-size:12.5px}.kedit .kw b{cursor:pointer;opacity:.5;font-weight:400}
 .kedit .ktools2{display:flex;gap:6px;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,.08)}.kedit .ktools2 span{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer}.kedit .mi{fill:#202124;opacity:.72}.kedit .ktools2 span:hover{background:rgba(0,0,0,.08)}
 .kedit .kpal[hidden]{display:none}.kedit .kpal{display:flex;gap:6px;padding:8px 0}.kedit .kpal i{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.15);cursor:pointer}.kedit .kpal i.on{outline:2px solid var(--acc)}
-.similar{max-width:900px;margin:0 auto;padding:6px 8px 40px}.smbar{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0 12px;background:#fafbfe}.smrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:3px 0}.smrow>b{font-size:12px;color:var(--sub);min-width:62px}
 .smck{display:inline-flex;gap:4px;align-items:center;font-size:13px;cursor:pointer}.smbar select,.smbar input[type=date]{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:1px 4px}
-.smrow2{display:block!important;padding:9px 12px!important;border-bottom:1px solid #f0f1f6!important;white-space:normal!important;cursor:pointer}.smrow2:hover{background:var(--hl)}.smtop{display:flex;gap:8px;align-items:baseline}.smt{flex:1;font-weight:500}.smp{color:var(--acc);font-weight:700}
 .smmeter{height:4px;background:#eef1fa;border-radius:3px;margin:5px 0}.smmeter i{display:block;height:100%;background:var(--acc);border-radius:3px}.smre{font-size:12px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}.smb{border-radius:9px;padding:0 8px;background:var(--acc-bg);color:var(--acc)}.smb-kw{background:#fdecea;color:#c0392b}.smb-link{background:#e6f6ea;color:#2f9e44}.smb-topic{background:#fff3d6;color:#b7791f}
 .dsep{text-align:center;font-size:12px;color:var(--sub);margin:14px 0 8px;position:relative}.dsep:before,.dsep:after{content:'';position:absolute;top:50%;width:calc(50% - 70px);height:1px;background:#e3e6ef}.dsep:before{left:0}.dsep:after{right:0}
 .ntag{background:#fff3d6;color:#b7791f;border-radius:9px;padding:0 7px;cursor:pointer;font-size:11.5px}.bub.picked{outline:2px solid var(--acc)}.bub.flash{outline:2px solid #f0b429}.bub .bck{vertical-align:-2px}
 #c-selbar{display:none;gap:8px;align-items:center;padding:6px 10px;background:#eef2ff;border-top:1px solid #d5ddf7;font-size:13px}#c-selbar .grow{flex:1}.c-compose{position:relative}
 #c-mention{position:absolute;bottom:100%;left:44px;right:70px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(30,40,80,.15);overflow:hidden;z-index:5}#c-mention .mn{padding:6px 12px;cursor:pointer;font-size:13.5px}#c-mention .mn.on,#c-mention .mn:hover{background:var(--acc-bg)}#c-mention small{color:var(--sub);margin-left:6px}
-.chat.c-topic-graph{max-width:none}
-#c-topic-graph-view{display:flex;flex-direction:column;flex:1;min-height:0}
 .ctg-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--line)}
 .ctg-canvas{position:relative;flex:1;min-height:180px;overflow:hidden}
 .c-children{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
 .c-children[hidden]{display:none}
-.chat-tools{position:relative}.chat-tools summary{list-style:none;cursor:pointer;font-size:12.5px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}.chat-tools summary::-webkit-details-marker{display:none}.chat-tools-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:flex;flex-direction:column;gap:4px;padding:6px;min-width:170px;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12)}.chat-tools-menu button{text-align:left}.chat-view-menu .chat-tools-menu.wide{min-width:300px;max-width:min(92vw,420px);align-items:stretch}.chat-view-menu .chat-tools-menu.wide>*{max-width:100%}
 /* ボタン・見出しの文字は、途中で折り返さない（「全 部」「コピ ー」のように 2 行にならない）。入りきらないときは、行ごと折り返す */
 button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 #c-selbar{flex-wrap:nowrap;gap:6px;padding:4px 10px;overflow-x:auto;scrollbar-width:none}#c-selbar>span{white-space:nowrap;flex:none}#c-selbar button{flex:none;padding:3px 9px;font-size:12.5px;line-height:1.4}
@@ -536,18 +479,13 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 #dlist .dtop input[type=date]{flex:1;min-width:0;font-size:13px;padding:5px 6px}
 #dlist .dtop button{flex:none;white-space:nowrap}
 /* 「表示・操作」の中: 検索・切り替え・日付を同じ幅にそろえる */
-.chat-view-menu .csearch,.chat-view-menu input[type=date]{width:100%;box-sizing:border-box}
-.chat-view-menu .vseg{display:flex;width:100%}.chat-view-menu .vseg button{flex:1}
 /* 絞り込み: 上位トピックと下位トピックは、横に並べて 1 段に */
-.chat.memo .chat-head .c-filter-row{margin:0}.chat.memo .chat-head .c-filter-row>.sub{min-width:0;flex:none}
-.chat-head .c-filter-body .c-filter-controls{grid-column:1 / -1;padding:6px 0 0}
 .c-compose button.on{background:var(--acc-bg);color:var(--acc);border-color:var(--acc)}
 .c-reply .rq-edit{background:var(--acc-bg)}.c-reply .rq-edit b{color:var(--acc)}
 /* ノート化したメモ: ID・題・件数・キャラを 1 行に */
 .idline .mgtitle{flex:1;min-width:80px;width:auto;font-size:19px;font-weight:700;margin:0 4px;padding:0 4px;line-height:1.3;height:28px;resize:none;overflow:hidden;white-space:nowrap;color:var(--fg)}
 .idline .mgcount{color:var(--sub);font-size:12px;white-space:nowrap}.idline .mgspk{font-size:12.5px;max-width:130px;margin:0 4px}
 .mgmeta{color:var(--sub);font-size:12px;margin:2px 0 6px}
-.memo-note-source{position:absolute;right:8px;bottom:5px;font-size:13px;padding:0 2px}.memo-note-messages .bub{position:relative}.memo-note-messages .b-foot{padding-right:22px}
 .modal .box:has(.fidlg){width:min(800px,94vw);max-height:92vh;padding:0;gap:0;overflow:hidden;border-radius:14px}
 .fidlg{display:flex;flex-direction:column;min-width:0;max-height:92vh}
 .fi-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
@@ -600,14 +538,6 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 #clist .dtop{display:flex;align-items:center;gap:6px}#clist .dtop .ctq{flex:1;min-width:0}#clist .dtop button{flex:none;width:34px;height:34px;padding:0;font-size:16px}
 #clist .c-newrow{gap:6px;padding:0 10px 8px;align-items:center}#clist .c-newrow input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}#clist .c-newrow button{flex:none;padding:6px 12px;white-space:nowrap}
 #clist .csep{height:1px;background:var(--line);margin:6px 12px}
-.chat-head .c-children{position:relative;display:block;padding:0;border:0;flex:none}
-.chat-head .c-filter{width:auto;position:relative}
-.chat-head .c-filter>summary{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--sub);font-size:12.5px;list-style:none;cursor:pointer}
-.chat-head .c-filter>summary::-webkit-details-marker{display:none}
-.chat-head .c-filter>summary::before{display:none}
-.chat-head .c-filter[open]>summary,.chat-head .c-filter>summary:hover{color:var(--fg)}
-.chat-head .c-filter-now{display:none}
-.chat-head .c-filter-body{position:absolute;right:0;top:calc(100% + 4px);z-index:6;width:max-content;min-width:480px;max-width:min(92vw,640px);display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;align-items:start;padding:10px;background:var(--bg);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 .c-filter{width:100%;min-width:0}
 .c-filter>summary{display:flex;align-items:center;gap:8px;min-width:0;list-style:none;cursor:pointer;font-size:12.5px;color:var(--sub);padding:4px 0;user-select:none}
 .c-filter>summary::-webkit-details-marker{display:none}
@@ -621,17 +551,8 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 .c-filter-controls{margin-top:2px}
 .c-children button.on{background:var(--acc-bg);color:var(--acc);border-color:var(--acc)}
 .bub a[data-file^="memo:"]{color:var(--acc);background:var(--acc-bg);border-radius:8px;padding:0 6px;text-decoration:none}
-.mandala{display:flex;flex-direction:column;height:100%;outline:0;min-height:0}.mhead{padding:2px 4px 6px;font-size:15px}.mhead .sub{margin-left:8px}
 .mbar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:0 0 8px}.mbar button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 9px;cursor:pointer}.mbar button.on{background:var(--acc-bg);border-color:#b9c6f7;color:var(--acc)}.mbar kbd,.mhelp kbd{font:11px ui-monospace,monospace;color:#889;margin-right:4px}
 .mbody{flex:1;min-height:0;display:flex;gap:14px}.mboard{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center}
-.mg{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:6px;width:100%;max-width:640px;aspect-ratio:1.15;max-height:100%}
-.mc{position:relative;border:1px solid #d9deeb;border-radius:12px;background:#fff;padding:6px 8px;display:flex;flex-direction:column;justify-content:center;gap:2px;cursor:pointer;overflow:hidden;text-align:center;min-width:0}
-.mc:hover{background:#f5f7ff}.mc.ctr{background:var(--acc-bg);border-color:#8da2f0;font-weight:600}.mc.sel{outline:3px solid var(--acc);outline-offset:-2px}.mc b{color:var(--acc);font-size:15px}.mc .mt{font-size:13px;color:#2b2d33;line-height:1.35}.mc i{font-style:normal;font-size:10.5px;color:#8b909c}.mc .mn{position:absolute;left:6px;top:3px;font-size:10px;color:#b0b4c0}
-.mc.empty{border-style:dashed;background:#fafbfd;color:#c4c8d2;align-items:center}.mc.empty:hover{background:#f0f4ff;color:var(--acc)}.mc .plus{font-size:20px}
-.mc.k-p{border-left:4px solid var(--acc)}.mc.k-c{border-left:4px solid #2f9e44}.mc.k-l{border-left:4px solid #e8a317}.mc.k-b{border-left:4px solid #d9480f}.mc.k-k{border-left:4px solid #c0392b}
-.mbig{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:10px;width:100%;height:100%;max-height:100%}.mbig>.mg{max-width:none;gap:2px;aspect-ratio:auto;height:100%}.mbig>.mg.selb{outline:3px solid var(--acc);outline-offset:2px;border-radius:12px}
-.mc.sm{padding:2px 3px;border-radius:6px}.mc.sm b{font-size:11px}.mc.sm .mt{font-size:10px;line-height:1.2}.mc.sm i,.mc.sm .mn{display:none}.mc.sm.empty .plus{font-size:12px}
-.mg.none-b{border:1px dashed #e4e7f0;border-radius:12px;background:none}
 .mprev{flex:0 0 340px;overflow:auto;border-left:1px solid #f0f0f3;padding:6px 14px 20px;font-size:14px;line-height:1.7;white-space:pre-wrap;color:#33363f}.mprev h3{margin:4px 0 8px}
 .mhelp{position:absolute;right:20px;bottom:20px;background:#fff;border:1px solid #cfd5e3;border-radius:10px;box-shadow:0 6px 24px rgba(30,40,80,.18);padding:12px 16px;font-size:13px;line-height:1.8;max-width:560px}
 #tabs{flex-wrap:nowrap;gap:2px;padding-left:10px;padding-right:6px}#tabs button{white-space:nowrap;padding:5px 8px}.sortbar button,.sortbar select,.ixbar button{white-space:nowrap;flex:none}
@@ -664,7 +585,6 @@ body{-webkit-user-select:none;user-select:none}
 .mermaid-diagram[data-mermaid-status="error"] .mermaid-output{color:var(--red,#b33);text-align:left;white-space:pre-wrap}
 .mermaid-diagram[data-mermaid-status="queued"] .mermaid-output,.mermaid-diagram[data-mermaid-status="loading"] .mermaid-output{color:var(--sub)}
 .cm-editor .mermaid-diagram{max-width:100%;margin:10px 0}
-.chat .bub .mermaid-diagram,.memo-note .mermaid-diagram{width:100%;box-sizing:border-box}
 .url-preview-off{border:0!important;border-radius:0;margin:3px 0}.url-preview-off .url-preview-link{display:inline;color:var(--link);padding:0;text-decoration:underline}
 /* Linked content uses the surrounding prose typography, with only a thin rule. */
 .linked-expansion{font:inherit;line-height:inherit;color:inherit;background:transparent;border:0;border-left:1px solid var(--line);padding:0 0 0 12px;margin:8px 0;min-width:0}
@@ -686,7 +606,7 @@ body{-webkit-user-select:none;user-select:none}
 </head>
 <body>
 <main>
-  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button data-mode="chat" title="チャットメモ">💬</button><button data-mode="pindex" title="紙のIndex（並べ替え）">🗂</button><button data-mode="graph" title="グラフ">🕸</button><button data-mode="mandala" title="曼荼羅">❖</button><button data-mode="cards" title="カード（Google Keep 風・画面いっぱい）">🗒️</button><button id="settings-btn" title="設定">⚙️</button></nav>
+  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button data-mode="pindex" title="紙のIndex（並べ替え）">🗂</button><button data-mode="cards" title="カード（Google Keep 風・画面いっぱい）">🗒️</button><button id="settings-btn" title="設定">⚙️</button></nav>
   <aside>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button><button data-tab="0" title="0 Index（親IDの索引）" aria-label="0 Index"><span class="te">0</span></button></div>
     <div id="selbar"></div>

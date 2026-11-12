@@ -186,29 +186,13 @@ test('renderer: multi-target link creates an ordinary editable note with live pr
   }finally{c.close();f.cleanup();}
 });
 
-test('renderer: circular expansion stops; memo timestamps default off and toggle above the prose',async()=>{
+test('renderer: circular expansion stops',async()=>{
   const f=fixture();f.store.saveNote({s:'d',id:'1',body:'![循環](link:loop)'});const one=f.store.state().notes.find(n=>n.id==='1');
-  f.store.saveDoc('C_チャット',{messages:[{id:'m1',topic:'哲学',text:'チャットの原文',t:1730000000000}],topics:[{name:'哲学',type:'bubble'}]});
   f.store.saveDoc('K_links',{items:[{id:'loop',title:'循環',targets:[{kind:'note',s:'d',stem:one.stem,id:'1'},{kind:'memo',id:'m1'}],order:'newest'}]});
   f.store.saveNote({s:'d',id:'2',body:'![参照](link:loop)'});const c=await client(f.store);
   try{
     c.open('2');await tick();assert.match(c.w.document.querySelector('#pane .linked-prose').textContent,/循環参照/);assert.ok(c.w.document.querySelectorAll('#pane .linked-expansion').length<6);
-    assert.equal(c.w.document.querySelector('#pane .linked-source time'),null);
-    const toggle=c.w.document.querySelector('#pane .linked-time');toggle.checked=true;toggle.dispatchEvent(new c.w.Event('change',{bubbles:true}));
-    assert.ok(c.w.document.querySelector('#pane .linked-head'));assert.ok(c.w.document.querySelector('#pane .linked-source time'));await c.callbacks.onFlush();assert.deepEqual(c.errors,[]);
-  }finally{c.close();f.cleanup();}
-});
-
-test('renderer: colon keyboard completion inserts postfix memo references, while Esc leaves typed text intact',async()=>{
-  const f=fixture();f.store.saveDoc('C_チャット',{topics:[],messages:[{id:'m1',text:'参照先メモ',t:Date.now()}]});const c=await client(f.store);
-  try{
-    c.open('1');const v=c.w.__pkm.view;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:':'},selection:{anchor:1}});v.dispatch({changes:{from:1,insert:'参照先メモ'},selection:{anchor:1+'参照先メモ'.length}});
-    assert.ok(c.w.document.querySelector('.reference-picker'));
-    v.contentDOM.dispatchEvent(new c.w.KeyboardEvent('keydown',{key:'Enter',code:'Enter',shiftKey:true,bubbles:true,cancelable:true}));
-    assert.match(c.text(),/\[参照先メモ\]\(memo:m1\):/);
-    v.dispatch({changes:{from:0,to:v.state.doc.length,insert:':'},selection:{anchor:1}});v.dispatch({changes:{from:1,insert:'参照'},selection:{anchor:3}});
-    v.contentDOM.dispatchEvent(new c.w.KeyboardEvent('keydown',{key:'Escape',code:'Escape',bubbles:true,cancelable:true}));assert.equal(c.text(),':参照');assert.equal(c.w.document.querySelector('.reference-picker'),null);
-    v.dispatch({changes:{from:3,insert:'続き'},selection:{anchor:5}});assert.equal(c.w.document.querySelector('.reference-picker'),null);await c.callbacks.onFlush();assert.deepEqual(c.errors,[]);
+    await c.callbacks.onFlush();assert.deepEqual(c.errors,[]);
   }finally{c.close();f.cleanup();}
 });
 
@@ -221,22 +205,6 @@ test('renderer: standalone URL previews hydrate controls, keep inline URLs as te
     assert.equal(c.text(),original);assert.ok(c.w.document.querySelector('#pane .url-preview-off'));await c.callbacks.onFlush();
     c.edit('文章中の '+url+' はテキスト');await tick();assert.equal(c.w.document.querySelector('#pane .url-preview'),null);
     await c.callbacks.onFlush();assert.deepEqual(c.errors,[]);
-  }finally{c.close();f.cleanup();}
-});
-
-test('renderer: bulk topics expose partial assignments, default to addition, and cancel without changing the source',async()=>{
-  const f=fixture();f.store.saveDoc('C_チャット',{topics:[{name:'哲学',type:'bubble'},{name:'歴史',type:'bubble'},{name:'認識論',type:'bubble'}],messages:[{id:'m1',text:'一つ目',topic:'哲学',t:Date.now()},{id:'m2',text:'二つ目',topic:'歴史',t:Date.now()+1}]});const c=await client(f.store);
-  try{
-    c.click('#rail [data-mode="chat"]');c.click('#list [data-chat="*"]');
-    assert.ok(c.w.document.querySelector('[data-c="select"]'),JSON.stringify({errors:c.errors,html:c.w.document.querySelector('#pane').innerHTML.slice(0,500)}));
-    c.click('[data-c="select"]');c.click('[data-c="selall"]');c.click('[data-c="selmove"]');
-    assert.equal(c.w.document.querySelector('[name=sd-mode][value=add]').checked,true);
-    assert.equal(c.w.document.querySelector('[data-u="哲学"]').indeterminate,true);
-    const option=c.w.document.querySelector('[data-u="認識論"]');option.checked=true;option.dispatchEvent(new c.w.Event('change',{bubbles:true}));c.click('#sd-no');
-    assert.deepEqual(f.store.state().docs.C_チャット.messages.map(m=>m.ups),[undefined,undefined]);
-    c.click('[data-c="selmove"]');const next=c.w.document.querySelector('[data-u="認識論"]');next.checked=true;next.dispatchEvent(new c.w.Event('change',{bubbles:true}));c.click('#sd-ok');await tick();await c.callbacks.onFlush();
-    const ms=f.store.state().docs.C_チャット.messages;assert.equal(ms[0].topic,'哲学');assert.equal(ms[1].topic,'歴史');assert.deepEqual(ms.map(m=>m.ups),[['認識論'],['認識論']]);
-    assert.equal(c.w.document.querySelector('[data-add-topic-filter]'),null);assert.deepEqual(c.errors,[]);
   }finally{c.close();f.cleanup();}
 });
 
@@ -258,37 +226,12 @@ test('renderer: range adjustment and explicit manual order preserve the immutabl
   }finally{c.close();f.cleanup();}
 });
 
-test('renderer: normal note mentions and replies are distinct and appear in the original memo backlinks',async()=>{
-  const f=fixture();f.store.saveDoc('C_チャット',{topics:[],messages:[{id:'m1',text:'返信先のメモ',t:Date.now()}]});const c=await client(f.store);
-  const choose=label=>{c.click('[data-act="nmenu"]');[...c.w.document.querySelectorAll('.popmenu>div')].find(e=>e.textContent.includes(label)).click();c.click('#ln-memo-results button');};
-  try{
-    c.open('1');choose('メンション');assert.match(c.text(),/\(memo:m1\)/);choose('リプライ');assert.match(c.text(),/\(reply:m1\)/);await c.callbacks.onFlush();
-    c.click('#rail [data-mode="chat"]');c.click('#list [data-chat="*"]');
-    const back=c.w.document.querySelector('[data-m="m1"] .memo-reference-backlinks');assert.match(back.textContent,/メンション/);assert.match(back.textContent,/リプライ/);
-    assert.equal(f.store.state().docs.C_チャット.messages.length,1);assert.deepEqual(c.errors,[]);
-  }finally{c.close();f.cleanup();}
-});
-
 test('renderer: URL preview controls are isolated per occurrence and survive restart',async()=>{
   const f=fixture(),url='https://example.com/article';f.store.saveNote({s:'d',id:'1',body:url+'\n\n'+url});f.store.saveDoc('K_urlCache',{items:{[url]:{title:'既存URLの題'}}});let c=await client(f.store);
   try{
     c.open('1');assert.equal(c.w.document.querySelectorAll('#pane .url-preview').length,2);c.click('#pane .url-menu');[...c.w.document.querySelectorAll('.popmenu>div')].find(b=>b.textContent.includes('非表示')).click();await c.callbacks.onFlush();await tick();
     assert.equal(c.w.document.querySelectorAll('#pane .url-preview-off').length,1);const storage=c.storage();c.close();c=await client(openVault(f.dir),storage);
     assert.equal(c.w.document.querySelectorAll('#pane .url-preview-off').length,1);assert.equal(c.text(),url+'\n\n'+url);assert.deepEqual(c.errors,[]);
-  }finally{c.close();f.cleanup();}
-});
-
-test('renderer: textarea colon search does not send a message; child creation assigns parent to subsequent memos',async()=>{
-  const f=fixture();f.store.saveDoc('C_チャット',{topics:[{name:'哲学',type:'bubble'}],messages:[{id:'m1',text:'検索対象メモ',topic:'哲学',t:Date.now()}]});const c=await client(f.store),$=s=>c.w.document.querySelector(s);
-  try{
-    c.click('#rail [data-mode="chat"]');c.click('#list [data-chat="哲学"]');const input=$('#c-in');
-    input.value=':';input.setSelectionRange(1,1);input.dispatchEvent(new c.w.InputEvent('input',{data:':',inputType:'insertText',bubbles:true}));
-    input.value=':検索対象';input.setSelectionRange(5,5);input.dispatchEvent(new c.w.InputEvent('input',{data:'検索対象',inputType:'insertText',bubbles:true}));
-    assert.ok($('.reference-picker'));input.dispatchEvent(new c.w.KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true,cancelable:true}));assert.match(input.value,/\(memo:m1\):/);assert.equal(f.store.state().docs.C_チャット.messages.length,1);
-    c.click('[data-tg="up"]');[...c.w.document.querySelectorAll('.popmenu>div')].find(b=>b.textContent.includes('下位')).click();$('#child-name').value='認識論';c.click('#child-ok');await tick();
-    assert.equal(c.w.__pkm.cur.topic,'認識論');assert.deepEqual(f.store.state().docs.C_チャット.upperByTopic['認識論'],['哲学']);
-    const field=$('#c-in');field.value='下位のメモ';field.dispatchEvent(new c.w.InputEvent('input',{data:'下位のメモ',bubbles:true}));field.dispatchEvent(new c.w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await c.callbacks.onFlush();
-    const added=f.store.state().docs.C_チャット.messages.find(m=>m.text==='下位のメモ');assert.equal(added.topic,'認識論');assert.deepEqual(added.ups,['哲学']);assert.deepEqual(c.errors,[]);
   }finally{c.close();f.cleanup();}
 });
 
@@ -362,4 +305,14 @@ test('renderer: 0 Index handles an empty vault and updates when existing Topic I
     assert.match($('#list .none').textContent, /親ID/);
     assert.deepEqual(c.errors, []);
   } finally { c.close(); f.cleanup(); }
+});
+
+test('renderer: 旧なりきり・キャンバス・メモのノートは、落ちずに読み取り専用で開く',async()=>{
+  const f=fixture();
+  for(const [kind,id] of [['rp','7a'],['canvas','7b'],['memo-group','7c']]) f.store.createNote({kind,id,title:'旧'+kind,created:'2026-01-01 00:00',data:{title:'旧'+kind,memoIds:[]}});
+  const c=await client(f.store);
+  try{
+    for(const id of ['7a','7b','7c']){c.open(id);await tick();assert.ok(c.w.document.querySelector('#pane .legacy-body'),id);}
+    await c.callbacks.onFlush();assert.deepEqual(c.errors,[]);
+  }finally{c.close();f.cleanup();}
 });
