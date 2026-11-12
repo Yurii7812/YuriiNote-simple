@@ -94,7 +94,7 @@
     const seen = new Set(), out = [];
     for (const match of String(body || '').matchAll(re)) {
       const ref = parseRef(match[1]);
-      if (!ref || seen.has(match[1])) continue;
+      if (!ref || seen.has(match[1]) || (match.index > 0 && body[match.index - 1] === '(' && body[match.index + match[0].length] === ')')) continue;
       seen.add(match[1]);
       out.push({ ...ref, label: match[1] });
     }
@@ -105,13 +105,19 @@
   }
   function normalize(data) {
     const d = data && typeof data === 'object' ? data : {};
-    const notes = (Array.isArray(d.notes) ? d.notes : []).filter(n => n && validNote(n.id)).map(n => ({
-      id: String(n.id), title: String(n.title || ''), body: String(n.body || ''),
+    const notes = (Array.isArray(d.notes) ? d.notes : []).filter(n => n && (validNote(n.id) || !n.id)).map((n, i) => ({
+      uid: String(n.uid || ('legacy-' + String(n.id || i))),
+      id: validNote(n.id) ? String(n.id) : '',
+      title: String(n.title || ''), body: String(n.body || ''),
       keywords: keywordList(Array.isArray(n.keywords) ? n.keywords.join(',') : n.keywords || ''),
       createdAt: String(n.createdAt || ''), updatedAt: String(n.updatedAt || '')
     }));
-    const seen = new Set();
-    const uniqueNotes = notes.filter(n => { if (seen.has(n.id)) return false; seen.add(n.id); return true; });
+    const seen = new Set(), seenUids = new Set();
+    const uniqueNotes = notes.filter(n => {
+      if (seenUids.has(n.uid) || (n.id && seen.has(n.id))) return false;
+      seenUids.add(n.uid); if (n.id) seen.add(n.id);
+      return true;
+    });
     const indexed = new Set();
     const topics = (Array.isArray(d.topics) ? d.topics : []).filter(t => t && validTopic(t.id) && seen.has(ownerOf(t.id))).map(t => ({
       id: String(t.id), ownerId: ownerOf(t.id), title: String(t.title || ''),
@@ -128,6 +134,7 @@
       map.get(word).set(target.kind + ':' + target.id, target);
     }
     for (const n of data.notes) {
+      if (!n.id) continue;
       add(n.title, { kind: 'note', id: n.id });
       for (const kw of n.keywords) add(kw, { kind: 'note', id: n.id });
     }
