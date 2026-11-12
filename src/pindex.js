@@ -32,7 +32,7 @@ function editEntry(kw) {
   dialog(`<div class="dlg-a"><h3>✏️ 紙のIndex を直す</h3>
     <div class="da-lab">🏷️ キーワード</div><input id="pe-kw" value="${esc(kw)}" autocomplete="off">
     <div class="da-lab">🔤 よみ（ふりがな）</div><input id="pe-rd" value="${esc(e0.reading || '')}" autocomplete="off">
-    <div class="da-lab">🔢 番号（空白で区切る）</div><input id="pe-ids" value="${esc(all.join(' '))}" autocomplete="off">
+    <div class="da-lab">ID（空白で区切る）</div><input id="pe-ids" value="${esc(all.join(' '))}" autocomplete="off">
     <div class="da-bar"><span class="grow"></span><button id="pe-no">やめる</button><button class="p" id="pe-ok">✅ 決定</button></div></div>`, close => {
     $('#pe-kw').focus(); $('#pe-no').onclick = close;
     const ok = async () => {
