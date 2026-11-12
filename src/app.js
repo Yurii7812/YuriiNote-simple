@@ -785,10 +785,10 @@ function openNote(s, id, n, keep, mid) {
     <div class="stage"><div class="col${s === 'p' || !text ? ' wide' : ''}">
       <div class="idline">
         ${noid ? '<span class="idin" id="f-id">IDなし</span>' : `<button class="idin" id="f-id" data-act="copyid" data-user title="IDをコピー" aria-label="ID ${esc(id)} をコピー">${esc(id)}</button>`}
-        ${s === 'd' && noid ? '<button class="gid" data-act="giveid">IDを付ける</button>' : ''}
+        ${s === 'd' && noid ? '<button class="gid" data-act="giveid" title="IDをつける" aria-label="IDをつける">🔢</button>' : ''}
         ${s === 'p' ? '<span class="dt">紙</span>' : ''}${L.KINDS[kind] ? `<span class="dt">${L.KINDS[kind]}</span>` : ''}
         ${s === 'd' ? `<span class="dt">${esc(note.created)}</span>` : ''}
-        ${'<span class="grow"></span>'}${noid ? (s === 'd' && text ? '<button class="nb" data-act="sib" title="IDなしのまま、並列のノートを作る（親にIDが付くと、IDも決まる）">＋ 並列</button><button class="nb" data-act="chi" title="IDなしのまま、分岐のノートを作る（このノートにIDが付くと、IDも決まる）">＋ 分岐</button>' : '') : `<button class="nb" data-act="sib" title="並列のノートを作る（同じ階層の次: ${esc(free(s, L.sibling(id)))}）">＋ 並列 <small>${esc(free(s, L.sibling(id)))}</small></button><button class="nb" data-act="chi" title="分岐のノートを作る（一つ下: ${esc(free(s, L.child(id)))}）">＋ 分岐 <small>${esc(free(s, L.child(id)))}</small></button>`}<button class="ic nm" data-act="mgn" title="右の欄を隠す・出す (Ctrl+\\)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button><button class="ic nm" data-act="nmenu" title="このノートのメニュー">${'<svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>'}</button>
+        ${'<span class="grow"></span>'}${noid ? (s === 'd' && text ? '<button class="nb" data-act="sib" title="IDなしのまま、並列のノートを作る（親にIDが付くと、IDも決まる）" aria-label="並列">↔️</button><button class="nb" data-act="chi" title="IDなしのまま、分岐のノートを作る（このノートにIDが付くと、IDも決まる）" aria-label="分岐">🌱</button>' : '') : `<button class="nb" data-act="sib" title="並列のノートを作る（同じ階層の次: ${esc(free(s, L.sibling(id)))}）" aria-label="並列">↔️ <small>${esc(free(s, L.sibling(id)))}</small></button><button class="nb" data-act="chi" title="分岐のノートを作る（一つ下: ${esc(free(s, L.child(id)))}）" aria-label="分岐">🌱 <small>${esc(free(s, L.child(id)))}</small></button>`}<button class="ic nm" data-act="mgn" title="右の欄を隠す・出す (Ctrl+\\)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button><button class="ic nm" data-act="nmenu" title="このノートのメニュー">${'<svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>'}</button>
       </div>
       <textarea class="ntitle" id="f-title" rows="1" placeholder="タイトル" spellcheck="false">${esc(note.title || '')}</textarea>
       ${!text ? '<div id="nbody"></div>' : s === 'p' ? `<div class="paper"><div class="pic">${note.image ? `<img src="${note.image}">` : '<button data-act="img">画像を入れる</button>'}</div><div class="ed" id="ed"></div></div>` : '<div class="ed" id="ed"></div>'}
@@ -894,10 +894,10 @@ function drawIdBar() {
   const child = ok ? X.suggest(notes, base, 'child') : '', sib = ok ? X.suggest(notes, base, 'sibling') : '';
   bar.hidden = false;
   bar.innerHTML = `<span class="idb-t">🔢 <b>${esc(titleOf(subject) || '（無題）')}</b> のIDを選んでいます</span>`
-    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="ノートに関係なく、新しい系統（次の空き番号）にする">🆕 新規 <b>${esc(X.nextRoot(notes))}</b></button>`
+    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="ノートに関係なく、新しい系統（次の空き番号）にする">🆕 <b>${esc(X.nextRoot(notes))}</b></button>`
     + (ok ? `<span class="idb-base">基準 <b>${esc(base.id)}</b> ${esc(limit(titleOf(base), 14))}</span>`
-      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐（子）する">🌱 分岐 <b>${esc(child)}</b></button>`
-      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列（次）にする">↔️ 並列 <b>${esc(sib)}</b></button>`
+      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐（子）する">🌱 <b>${esc(child)}</b></button>`
+      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列（次）にする">↔️ <b>${esc(sib)}</b></button>`
       : '<span class="idb-hint">ノートを開くと、🌱分岐／↔️並列が選べます</span>')
     + '<span class="grow"></span><button class="idb" data-idcancel title="やめる（Esc）">✖️</button>';
 }
