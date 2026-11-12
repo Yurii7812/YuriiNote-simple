@@ -435,7 +435,7 @@ function openVault(vault) {
         out.push(`| ${esc(r.kw)} | ${[dotted('d', r.d), dotted('p', r.p)].filter(Boolean).join(' ')} |`);
       }
     }
-    if (ups.length) out.push('', ...ups.map(k => `↑ ${esc(k)}  `));
+    if (ups.length) out.push('', ...ups.map(u => `↑ ${esc(u.kw)} ${u.ids.map(x => '[' + label(x.s, x.id) + '](' + noteHref(x.s, x.id) + ')').join(' ')}  `));
     if (marks.length) out.push('', ...marks.map(k => `◯ ${esc(k)}  `));
     if (stars.length) out.push('', ...stars.map(s => `★ [${esc(s)}](${topicHref(s)})  `));
     if (chats.length) out.push('', ...chats.map(c => `💬 ${esc(c)}  `));   // チャットメモのトピック（案内だけ。メモは、C_YYYY-MM-DD.md に）

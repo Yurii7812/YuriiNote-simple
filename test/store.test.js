@@ -296,7 +296,9 @@ test('トピックIndexの + は星、^ は上位トピック、* は ◯', () =
   const r = L.topicLine('PKM 1 1a');
   assert.strictEqual(r.kw, 'PKM'); assert.deepStrictEqual(r.ids.map(x => x.id), ['1', '1a']);
   const m = L.mergeTopic({ d: '', p: '', text: '^上\n*進捗\nPKM 1 1a' });
-  assert.deepStrictEqual([m.ups, m.marks, m.rows.length], [['上'], ['進捗'], 1]);
+  assert.deepStrictEqual([m.ups, m.marks, m.rows.length], [[{ kw: '上', ids: [] }], ['進捗'], 1]);
+  const u = L.mergeTopic({ text: '^aaa 1a' }).ups[0];
+  assert.deepStrictEqual([u.kw, u.ids.map(x => x.id)], ['aaa', ['1a']]);
 });
 
 test('昔の名前（D_<ID>.md / P_<ID>.md / D_u….md）を、日時の名前と YAML に移す（バックアップつき）', () => {

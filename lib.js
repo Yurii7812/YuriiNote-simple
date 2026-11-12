@@ -175,7 +175,7 @@ function topicLine(line) {
   const c = line.match(/^(\s*[@＠]\s*)(.+?)\s*$/);   // @夢 → チャットメモのトピック「夢」への案内（メモ自体は書かない）
   if (c) return { chat: c[2], from: c[1].length, to: c[1].length + c[2].length, ids: [] };
   const u = line.match(/^(\s*[\^＾]\s*)(.+?)\s*$/);   // ^キーワード → 上位トピック（↑）
-  if (u) return { up: u[2], from: u[1].length, to: u[1].length + u[2].length, ids: [] };
+  if (u) { const r = rowOf(u[2], u[1].length); return { up: r.kw, ids: r.ids, from: u[1].length, to: u[1].length + u[2].length }; }   // ^キーワード ID …（IDは書かなくてもよい）
   const mk = line.match(/^(\s*[*＊]\s*)(.+?)\s*$/);   // *まとめ → ◯ の見出し
   if (mk) return { mark: mk[2], from: mk[1].length, to: mk[1].length + mk[2].length, ids: [] };
   const s = line.match(/^(\s*[★☆+＋]\s*)(.*?)\s*$/);
@@ -188,11 +188,15 @@ function topicLine(line) {
     }
     return { star: s[2], from: s[1].length, to: s[1].length + s[2].length, ids: [] };
   }
+  return rowOf(line, 0);
+}
+// 「キーワード ID ID …」の 1 行（base は、行の先頭からの位置）
+function rowOf(line, base) {
   const parts = [...line.matchAll(/[^\s,、，]+/g)], ids = [];
   let i = parts.length - 1, pt;
   while (i >= 0 && (pt = parseIdTok(parts[i][0]))) {
     const t = parts[i][0];
-    ids.unshift({ ...pt, from: parts[i].index, to: parts[i].index + t.length }); i--;
+    ids.unshift({ ...pt, from: base + parts[i].index, to: base + parts[i].index + t.length }); i--;
   }
   const kw = i >= 0 ? line.slice(0, parts[i].index + parts[i][0].length).trim() : '';
   return { kw, ids };
@@ -216,7 +220,7 @@ function mergeTopic(t) {
     const r = topicLine(line);
     if (r.chat) { if (!chats.includes(r.chat)) chats.push(r.chat); continue; }
     if (r.ref) { const s = r.ref.sp || def; if (!refs.some(x => x.s === s && x.id === r.ref.id && x.label === r.ref.label)) refs.push({ s, label: r.ref.label, id: r.ref.id }); continue; }
-    if (r.up !== undefined) { if (!ups.includes(r.up)) ups.push(r.up); continue; }
+    if (r.up !== undefined) { if (!ups.some(x => x.kw === r.up && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) ups.push({ kw: r.up, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })) }); continue; }
     if (r.mark !== undefined) { marks.push(r.mark); continue; }
     if (r.star !== undefined) { if (r.star && !stars.includes(r.star)) stars.push(r.star); continue; }
     if (!r.kw && !r.ids.length) continue;
