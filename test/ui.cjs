@@ -95,11 +95,11 @@ test('ID dialog, branch and sibling creation, keywords, and native text undo', a
   await page.getByRole('button', { name: 'IDを付ける', exact: true }).click();
   await submitDialog(page, '1');
   await page.getByRole('button', { name: '分岐 1a', exact: true }).click();
-  await page.locator('#noteBody').pressSequentially('abc');
+  await page.locator('#noteBody').pressSequentially('a');
   await page.keyboard.press('Control+z');
   assert.equal(await page.locator('#noteBody').inputValue(), '');
   await page.keyboard.press('Control+Shift+z');
-  assert.equal(await page.locator('#noteBody').inputValue(), 'abc');
+  assert.equal(await page.locator('#noteBody').inputValue(), 'a');
   await page.locator('#noteBody').fill('分岐の本文');
   await page.getByText('キーワード・その他', { exact: true }).click();
   await page.locator('#noteKeywords').fill('読書、考える');
