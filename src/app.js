@@ -436,7 +436,8 @@ function sortNotes(list, tab) {
 function renderList() {
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
-  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.id === 'paperonly' ? paperOnly : b.dataset.mode === mode));
+  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  $('#paperonly').classList.toggle('on', paperOnly);
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
@@ -533,7 +534,8 @@ function onOpenClick(e) {
   }
 }
 document.addEventListener('click', onOpenClick);
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'paperonly') { paperOnly = !paperOnly; savePrefs(); toast(paperOnly ? '紙だけ表示' : 'すべて表示'); if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode, true); else renderList(); return; } if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+$('#paperonly').onclick = () => { paperOnly = !paperOnly; savePrefs(); toast(paperOnly ? '紙だけ表示' : 'すべて表示'); if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode, true); else renderList(); };
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
@@ -1375,7 +1377,7 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const chips = v => [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
+  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙</span>';
   return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${sortBar(true)}${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 $('#list').addEventListener('click', e => {
