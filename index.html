@@ -63,7 +63,7 @@ button:disabled{opacity:.4;cursor:default}
 
 .grpbar{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:6px 10px}.grpbar .tbtn{height:34px;min-height:34px;padding:0;font-size:16px}.grpbar #ix-mode{flex:1 1 auto;min-width:0}.grpbar #ix-add{flex:none;width:34px}.chip.g.on{background:var(--acc-bg);color:var(--acc);border-color:transparent}
 #searchbox{padding:8px 10px 2px;flex:none;display:flex;align-items:center;gap:4px}#searchbox #q{flex:1 1 auto;min-width:0}#searchbox .ic{flex:none;width:32px;height:32px;font-size:15px;background:#f4f5f8;border-radius:8px;color:var(--sub);padding:0}#searchbox .ic:hover{background:var(--hl)}#searchbox #q{margin:0;box-sizing:border-box;padding:6px 12px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:14px;background:#f4f5f8;outline:none}#searchbox #q:focus{background:#fff;border-color:var(--line)}
-#paperonly{font-size:15px}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
+#paperonly,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
 .ix .mk-topic{margin-right:6px}
@@ -592,10 +592,10 @@ body{-webkit-user-select:none;user-select:none}
   </aside>
   <section id="right">
     <div class="top">
-      <button id="nav-back" class="ic" title="戻る (Alt+←)" disabled><svg class="ico" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button id="nav-fwd" class="ic" title="進む (Alt+→)" disabled><svg class="ico" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button id="nav-back" class="ic" title="戻る (Alt+←)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Alt+→)" disabled>➡️</button>
       <span class="sp"></span>
-      <button id="save-status" class="tbtn" aria-live="polite" title="保存状況">保存済み</button>
-      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><button id="more" class="ic" title="メニュー"><svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
+      <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
+      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="more" class="ic" title="メニュー">🧰</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
     <div id="tabbar"></div><div id="pane"></div>

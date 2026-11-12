@@ -59,7 +59,7 @@ test('renderer: rapid switching, mounted editor refresh, save failure/retry and 
     assert.equal(f.store.state().notes.find(n => n.id === '1').body, '再読み込み後の追記');
     c.flags.fail = true; c.edit('失敗しても保持する'); await assert.rejects(c.callbacks.onFlush());
     c.open('2'); c.open('1'); assert.equal(c.text(), '失敗しても保持する');
-    assert.match(c.w.document.querySelector('#save-status').textContent, /保存エラー/);
+    assert.match(c.w.document.querySelector('#save-status').title, /保存エラー/);
     c.flags.fail = false; await c.callbacks.onFlush();
     assert.equal(f.store.state().notes.find(n => n.id === '1').body, '失敗しても保持する');
     c.click('[data-act="tadd"]');

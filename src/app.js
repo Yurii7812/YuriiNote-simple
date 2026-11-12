@@ -74,8 +74,9 @@ const diaryKey = d => 'dy' + (d.kind || '日記') + d.date;
 function saveStatus(q) {
   const el = $('#save-status'); if (!el) return;
   const failed = recoveryError || [...q.jobs.values()].some(j => j.error);
-  el.textContent = failed ? '保存エラー・クリックして再試行' : q.jobs.size ? '保存中…' : '保存済み';
-  el.style.color = failed ? '#c0392b' : ''; el.title = failed ? '入力内容は保持しています。保存先の空き容量やアクセス権を確認してください。' : '';
+  el.hidden = !failed;   // ふだんは出さない。保存に失敗したときだけ ⚠️ を出す
+  el.textContent = '⚠️';
+  el.title = failed ? '保存エラー・クリックして再試行（入力内容は保持しています。保存先の空き容量やアクセス権を確認してください）' : q.jobs.size ? '保存中…' : '保存済み';
 }
 const saves = new Persistence.SaveQueue({ onChange: saveStatus, onError: () => saveStatus(saves) });
 const later = (k, f) => saves.later(k, f);
@@ -435,7 +436,7 @@ const SORT_ICON = { fz: '🔢', created: '🕒', updated: '✏️' }, SORT_NAME 
 function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→作成→更新）と、昇順・降順
   const k = $('#sort-key'), d = $('#sort-dir'); if (!k || !d) return;
   k.textContent = SORT_ICON[sortBy] || '🔢'; k.title = `並び順: ${SORT_NAME[sortBy] || ''}（押すと切り替え）`;
-  d.textContent = sortDir === 'asc' ? '↑' : '↓'; d.title = sortDir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）';
+  d.textContent = sortDir === 'asc' ? '⬆️' : '⬇️'; d.title = sortDir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）';
 }
 $('#sort-key').onclick = () => { const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
 $('#sort-dir').onclick = () => { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; diarySortDir = sortDir; savePrefs(); renderList(); };
