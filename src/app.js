@@ -959,9 +959,9 @@ function renderMeta(note) {
   const tops = topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[note.s].some(x => L.splitAnchor(x).id === note.id)).map(r => r.kw) })).filter(x => x.kws.length); // 自分のキーワードがあるものだけ
   const bl = backlinks(note);
   el.innerHTML =
-    `<div class="sec">${metaLabel('🏷️', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwchips">${note.keywords.map(k => `<span class="chip kwc" title="${esc(readings[k] || '')}">${esc(k)}<b data-kwdel="${esc(k)}" title="外す">×</b></span>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
-    (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(o.name)}">${esc(topicLabel(o))}</a></div>`).join('')}</div>` : '') +
-    `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(x.t.name)}">${esc(topicLabel(x.t))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
+    `<div class="sec">${metaLabel('🏷️', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwlist">${note.keywords.map(k => `<div class="kwrow" data-kw="${esc(k)}" title="${esc(readings[k] || '')}">${esc(k)}</div>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
+    (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry" data-town="${esc(o.name)}"><a class="tl" data-topic="${esc(o.name)}">${esc(topicLabel(o))}</a></div>`).join('')}</div>` : '') +
+    `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry" data-tin="${esc(x.t.name)}"><a class="tl" data-topic="${esc(x.t.name)}">${esc(topicLabel(x.t))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
     parentHtml(note) +
     childrenHtml(note) +
     (bl.length || bundles.length ? `<div class="sec">${metaLabel('🔗', 'バックリンク', bl.length + bundles.length)}${bl.map(x => x.m
@@ -1017,12 +1017,6 @@ async function refreshDiaries() {
 }
 $('#pane').addEventListener('click', async e => {
   const objectLink = e.target.closest('[data-link-object]'); if (objectLink) return LC.detail(objectLink.dataset.linkObject);
-  const del = e.target.closest('[data-kwdel]');
-  if (del && cur && cur.k === 'note') {
-    if (!confirm(`キーワード「${del.dataset.kwdel}」をこのノートから外しますか？`)) return;
-    const note = get(cur.s, cur.id); note.keywords = note.keywords.filter(k => k !== del.dataset.kwdel);
-    saveNote(note); renderMeta(note); return renderList();
-  }
   const a = e.target.closest('[data-act]'); if (!a || !cur) return;
   const act = a.dataset.act;
   if (cur.k === 'topic') return topicAct(act);
@@ -1427,18 +1421,44 @@ function openTopic(name, tmode = 'view', keep) {
   if (tmode === 'conf') $('#t-id').focus();
   renderTabs(); renderList(); if (!$('#q').value) centerOn();   // 開いた索引 の行が、一覧の真ん中に（青い枠）
 }
+async function deleteTopicNamed(name) {
+  const t = topics.find(x => x.name === name); if (!t) return;
+  if (!confirm(`索引「${t.name}」を削除しますか？（ファイルは .trash に移ります）`)) return;
+  await flush(); await api.deleteTopic(t.name);
+  topics = topics.filter(x => x !== t);
+  for (let i = tabs.length - 1; i >= 0; i--) if (tabs[i].k === 'topic' && tabs[i].name === t.name) { tabs.splice(i, 1); if (active >= i) active--; }
+  show(Math.max(0, active));
+}
+// 右パネルの右クリック: キーワード（このノートから外す）・トピック（このノートを外す／トピックを削除）
+document.addEventListener('contextmenu', e => {
+  if (!cur || cur.k !== 'note') return;
+  const note = get(cur.s, cur.id); if (!note) return;
+  const kw = e.target.closest('.kwrow'), tin = e.target.closest('[data-tin]'), town = e.target.closest('[data-town]');
+  if (kw) {
+    e.preventDefault(); const k = kw.dataset.kw;
+    return popMenu(e, [
+      ['🔎 このキーワードで検索', () => { $('#q').value = k; $('#q').dispatchEvent(new Event('input', { bubbles: true })); }],
+      ['🗑 このノートから外す', () => { note.keywords = note.keywords.filter(x => x !== k); saveNote(note); renderMeta(note); renderList(); }, true]
+    ]);
+  }
+  if (tin) {
+    e.preventDefault(); const t = topics.find(x => x.name === tin.dataset.tin); if (!t) return;
+    return popMenu(e, [
+      ['📑 開く', () => openTopic(t.name)],
+      ['🗑 このトピックから外す', () => { t.text = L.removeFromTopic(L.topicText(t), [{ s: note.s, id: note.id }], L.defOf(t)); saveTopic(t); renderMeta(note); renderList(); }, true]
+    ]);
+  }
+  if (town) {
+    e.preventDefault(); const t = topics.find(x => x.name === town.dataset.town); if (!t) return;
+    return popMenu(e, [['📑 開く', () => openTopic(t.name)], ['🗑 このトピックを削除', () => deleteTopicNamed(t.name), true]]);
+  }
+});
 async function topicAct(act) {
   const t = topics.find(x => x.name === cur.name); if (!t) return;
   if (act === 'tedit') return openTopic(t.name, cur.mode === 'edit' ? 'view' : 'edit', true);
   if (act === 'tconf') return openTopic(t.name, 'conf', true);
   if (act === 'tcancel') return openTopic(t.name, 'view', true);
-  if (act === 'tdel') {
-    if (!confirm(`索引「${t.name}」を削除しますか？（ファイルは .trash に移ります）`)) return;
-    await flush(); await api.deleteTopic(t.name);
-    topics = topics.filter(x => x !== t);
-    for (let i = tabs.length - 1; i >= 0; i--) if (tabs[i].k === 'topic' && tabs[i].name === t.name) { tabs.splice(i, 1); if (active >= i) active--; }
-    return show(Math.max(0, active));
-  }
+  if (act === 'tdel') return deleteTopicNamed(t.name);
   if (act === 'tsave') {
     const name = $('#t-name').value.trim(), s = $('#t-s').value, id = $('#t-id').value.trim().toLowerCase();
     if (!name) return alert('名前を入れてください');

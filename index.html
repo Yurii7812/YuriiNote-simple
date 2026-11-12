@@ -66,6 +66,7 @@ button:disabled{opacity:.4;cursor:default}
 #idbar[hidden]{display:none}#idbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:var(--acc-bg);border-bottom:1px solid var(--line);font-size:13.5px}#idbar .idb-t{font-weight:600}#idbar .idb-hint,#idbar .idb-base{color:var(--sub)}#idbar .grow{flex:1}#idbar button.idb{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);cursor:pointer;font:inherit;font-size:13.5px}#idbar button.idb.on{border-color:var(--acc);color:var(--acc);font-weight:600}#idbar button.idb:hover{background:var(--hl)}#idbar b{font-family:ui-monospace,monospace}
 .similar{padding:18px 24px;max-width:860px}.sm-head{display:flex;align-items:center;gap:6px}.sm-head h2{margin:0;font-size:20px}.sm-b{height:34px;min-width:34px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:16px;cursor:pointer;opacity:.45}.sm-b.on{opacity:1;background:var(--acc-bg);border-color:var(--acc)}.sm-b.wide{font-size:13px;opacity:1}.sm-base{margin:12px 0;font-size:13px;color:var(--sub)}.similar .sm-list .sm-row{display:block;padding:10px 12px;margin:0 0 8px;border:1px solid var(--line);border-radius:10px}.sm-top{display:flex;align-items:baseline;gap:10px}.sm-top b{font-family:ui-monospace,monospace;font-size:13px;color:var(--sub)}.sm-t{flex:1;font-weight:600;min-width:0}.sm-p{font-size:13px;color:var(--acc);font-weight:700}.similar .sm-meter{display:block;height:4px;border-radius:2px;background:var(--hl);margin:6px 0}.sm-meter i{display:block;height:100%;border-radius:2px;background:var(--acc)}.sm-re{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
 #idbar button.idb{font-size:16px}#idbar button.idb b{font-size:14px}.idline .gid{font-size:18px!important;line-height:1}
+.kwlist{display:flex;flex-direction:column;gap:2px}.kwrow{padding:4px 8px;margin:0 -8px;border-radius:7px;font-size:14px;color:var(--acc);cursor:default}.kwrow:hover{background:var(--hl)}
 #paperonly,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#save-status[hidden]{display:none}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
@@ -425,9 +426,6 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 .mh .me{font-size:14px}.mh .mc{background:var(--hl);border-radius:999px;padding:0 7px;font-weight:400;font-size:11.5px}
 .mh .mplus{margin-left:auto;width:24px;height:24px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--sub);cursor:pointer;padding:0;line-height:1;font-size:15px}
 .mh .mplus:hover{color:var(--acc);border-color:var(--acc)}
-.kwchips{display:flex;flex-wrap:wrap;gap:6px}
-.chip.kwc{display:inline-flex;align-items:center;gap:5px;background:var(--acc-bg);color:var(--acc);border-radius:999px;padding:1px 9px;font-size:13px}
-.chip.kwc b{font-weight:400;opacity:.5;cursor:pointer}.chip.kwc b:hover{opacity:1}
 .msub{color:var(--sub);font-size:12.5px}
 /* 小さな窓（キーワード・索引に入れる・索引を作る）: 見やすい余白・大きめのボタン */
 .modal .box:has(.dlg-a){width:min(460px,94vw);padding:18px 20px}
