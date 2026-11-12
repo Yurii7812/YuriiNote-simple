@@ -112,3 +112,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible { outline:2px so
  .editor-shell { padding:24px 16px; }
  .title-input { font-size:23px; }
 }
+
+/* Settings stay inside the Index view; no extra screens. */
+.simple-settings { margin:42px 0 0; border-top:1px solid var(--border); padding-top:20px; color:var(--muted); }
+.simple-settings summary { cursor:pointer; font-size:12px; color:#69796f; width:max-content; }
+.simple-settings[open] summary { margin-bottom:15px; }
+.setting-line { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text); }
+.setting-line input { width:16px; height:16px; accent-color:var(--accent); }
+.simple-settings p { max-width:560px; }
+.sidebar-empty { padding:0 14px; }
+.toolbar .danger:hover { background:#fcf2ef; border-color:#e9c3bb; }
