@@ -19,17 +19,17 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
   const root = document.createElement('div');
   root.className = 'idex-cover';
   root.innerHTML = '<section class="idex-dialog" role="dialog" aria-modal="true" aria-label="IDを探して付ける">' +
-    '<header class="idex-head"><div><h2>IDを探して付ける</h2><small>索引をたどって本文を確認し、関連・発展させる位置を決めます</small></div>' +
+    '<header class="idex-head"><div><h2>🔢 IDをつける</h2></div>' +
     '<button type="button" data-ix-close aria-label="閉じる">×</button></header>' +
     '<div class="idex-main"><aside class="idex-sidebar">' +
     '<input id="idex-query" type="search" placeholder="本文・ID・Index・索引を検索" aria-label="知識を検索">' +
-    '<div class="idex-scopes"><button data-ix-scope="all" class="on">全部</button><button data-ix-scope="keywords">Index</button><button data-ix-scope="topics">Topic</button><button data-ix-scope="notes">ノート</button></div>' +
+    '<div class="idex-scopes"><button data-ix-scope="all" class="on" title="全部">🔎</button><button data-ix-scope="keywords" title="Index（キーワード）">🔖</button><button data-ix-scope="topics" title="トピックIndex">📑</button><button data-ix-scope="notes" title="ノート">📝</button></div>' +
     '<div class="idex-results"></div></aside>' +
-    '<div class="idex-detail"><div class="idex-trail"><button type="button" data-ix-back disabled>← 戻る</button><span class="idex-path">検索結果から選択</span></div>' +
+    '<div class="idex-detail"><div class="idex-trail"><button type="button" data-ix-back disabled title="戻る">⬅️</button><span class="idex-path"></span></div>' +
     '<div class="idex-preview"></div></div></div>' +
-    '<footer class="idex-footer"><div class="idex-method"><button type="button" data-ix-method="child">分岐（子）</button><button type="button" data-ix-method="sibling">並列</button><button type="button" data-ix-method="direct" class="on">直接指定</button></div>' +
-    '<div class="idex-decision"><label>付けるID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
-    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary">このIDに決定</button><button type="button" data-ix-close>やめる</button></div></footer></section>';
+    '<footer class="idex-footer"><div class="idex-method"><button type="button" data-ix-method="child" title="分岐（子）にする">🌱 子</button><button type="button" data-ix-method="sibling" title="並列（きょうだい）にする">↔️ 並列</button><button type="button" data-ix-method="direct" class="on" title="IDを直接指定">✍️ 直接</button></div>' +
+    '<div class="idex-decision"><label>ID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
+    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">✅ 決定</button><button type="button" data-ix-close title="やめる">✖️</button></div></footer></section>';
   document.body.append(root);
   const $ = sel => root.querySelector(sel);
   const byNote = new Map(notes.map(n => [nkey(n), n]));
@@ -111,10 +111,7 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     return t.entry ? '親 ' + (t.entry.s === 'p' ? '紙 ' : '') + t.entry.id : '索引';
   }
   function displayView(view) {
-    if (!view) return '<div class="idex-welcome"><h3>知識を探索してIDを決定する</h3>' +
-      '<p>左でキーワード、索引、ノート本文を検索します。Index → 索引 → ノートと進み、本文や関連ノートを見ながら位置を決められます。</p>' +
-      '<p>関連するノートが決まったら「分岐（子）」または「並列」を選びます。新しい系統なら「直接指定」を使います。</p>' +
-      '<p>探索中は元のノートを移動・編集しません。</p></div>';
+    if (!view) return '<div class="idex-welcome"><p>左で探して、近い場所を選びます。</p></div>';
     if (view.kind === 'keyword') {
       const k = byKeyword.get(view.key);
       if (!k) return '<p>このキーワードは見つかりません</p>';
