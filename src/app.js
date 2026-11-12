@@ -33,11 +33,13 @@ const topicOf = (s, id) => topicsOf(s, id)[0];
 const topicsOf = (s, id) => topics.filter(t => t.entry && t.entry.s === s && t.entry.id === id).sort((a, b) => (a.num || 1) - (b.num || 1));   // 同じ番号に複数（1-1, 1-2）
 const topicsWith = n => topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[n.s].some(x => L.splitAnchor(x).id === n.id)).map(r => r.kw) })).filter(x => x.kws.length);
 const allKeywords = () => [...new Set(notes.flatMap(n => n.keywords))].sort(L.byReading(k => readings[k]));
-const yomi = k => readings[k] && readings[k] !== k ? `<small class="yomi">${esc(readings[k])}</small>` : '';
+const readingOf = k => readings[k] || (PI.pendingEntries().find(e => e.kw === k) || {}).reading || '';   // 取り込み前の紙のキーワードの読みも
+const yomi = k => readingOf(k) && readingOf(k) !== k ? `<small class="yomi">${esc(readingOf(k))}</small>` : '';
 const kwTopic = k => topics.find(t => t.keyword === k);
 // そのキーワードの索引 があれば赤い点（押すと開く）。IDが2つ以上でまだ無ければ「作る」
 // 左の一覧の並べ替えと表示。ノート（デジタル・紙・未整理）と日記は、並び順をそれぞれ別に覚える
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
+let ixFilter = 'all';   // Index タブのフィルター（all | paper）
 let groupSel = '';   // 0 Index で選んでいるグループIndex の名前（'' = 全体）
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
@@ -56,6 +58,7 @@ async function ensureKeyword(sp, id, kw) {
 }
 
 // ID の横の 📑: そのIDのトピック Index を開く。複数あるときは一覧から選ぶ
+document.addEventListener('change', e => { if (e.target.id === 'ix-filter') { ixFilter = e.target.value; renderList(); } });
 document.addEventListener('click', e => {
   const x = e.target.closest('.tix'); if (!x) return;
   e.preventDefault(); e.stopPropagation();
@@ -311,8 +314,12 @@ function globalIndex() {
     if (!m.has(k)) m.set(k, { d: [], p: [] });
     m.get(k)[n.s].push(n.id);
   }
+  for (const e of PI.pendingEntries()) {   // まだ取り込んでいない紙のID
+    if (!m.has(e.kw)) m.set(e.kw, { d: [], p: [] });
+    for (const id of e.ids) if (!m.get(e.kw).p.includes(id)) m.get(e.kw).p.push(id);
+  }
   for (const v of m.values()) { v.d.sort(L.cmpId); v.p.sort(L.cmpId); }
-  return [...m].sort((a, b) => L.byReading(k => readings[k])(a[0], b[0]));
+  return [...m].sort((a, b) => L.byReading(readingOf)(a[0], b[0]));
 }
 // id は 1a のほか 1a(1) も（(番号) は、ノートの中のその場所へ）
 const chip = (s, raw) => {
@@ -427,7 +434,6 @@ function renderList() {
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
-  if (!q && mode === 'pindex') { if (!$('#pi')) $('#list').innerHTML = PI.html(); PI.draw(); renderSelbar(); return; } // 入力中の欄は、描き直さない
   if (q) {
     // 1. Index  2. 索引  3. ノート
     const rank = k => (k.toLowerCase() === q ? 0 : k.toLowerCase().startsWith(q) ? 1 : 2);
@@ -472,14 +478,14 @@ function renderList() {
       if (!roots.length) out.push('<div class="none">親ID（1、2…）のトピックIndexが、ここに並びます</div>');
     }
   } else if (tab === 'i') {
-    
+    out.push(PI.form(ixFilter));
     let row = null;
-    for (const e of globalIndex()) {
-      const r = L.kanaRow(readings[e[0]] || e[0]);
+    for (const e of globalIndex().filter(([, v]) => ixFilter !== 'paper' || v.p.length)) {   // 「紙のキーワードだけ」: 紙のIDがあるキーワード
+      const r = L.kanaRow(readingOf(e[0]));
       if (r !== row) { out.push(`<h4>${r}</h4>`); row = r; }
       out.push(ixRow(e));
     }
-    if (out.length === 1) out.push('<div class="none">ノートにキーワードを書くと、ここに並びます</div>');
+    if (out.length === 1) out.push(`<div class="none">${ixFilter === 'paper' ? '紙のキーワードはまだありません。上の欄から追加できます' : 'ノートにキーワードを書くと、ここに並びます'}</div>`);
   } else {
     const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
     out.push(sortBar(false));
@@ -491,7 +497,9 @@ function renderList() {
     }
     if (!list.length) out.push(`<div class="none">${tab === 'p' ? '「📷 スキャン取り込み」で紙を入れます' : tab === 'u' ? 'IDなしで書いたノートが、ここに並びます。あとでIDを付けて整理します' : '「＋ 新規」で書き始めます'}</div>`);
   }
+  const keep = tab === 'i' && $('#pi') ? ['pi-kw', 'pi-rd', 'pi-ids'].map(i => [i, $('#' + i).value, document.activeElement && document.activeElement.id === i]) : [];
   $('#list').innerHTML = out.join('');
+  for (const [i, v, f] of keep) { const el = $('#' + i); if (el) { el.value = v; if (v) el.dataset.touched = i === 'pi-rd' ? '1' : ''; if (f) el.focus(); } }
   renderSelbar();
 }
 // Ctrl+クリック・中クリックは新しいタブで開く
