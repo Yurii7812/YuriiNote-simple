@@ -37,9 +37,9 @@ const kwTopic = k => topics.find(t => t.keyword === k);
 // そのキーワードの索引 があれば赤い点（押すと開く）。IDが2つ以上でまだ無ければ「作る」
 // 左の一覧の並べ替えと表示。ノート（デジタル・紙・未整理）と日記は、並び順をそれぞれ別に覚える
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
-let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc', listView = prefs.view || 'list';
+let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
-const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, view: listView, diaryDir: diarySortDir })); } catch { } };
+const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir })); } catch { } };
 let ixEdit = false;   // グローバルIndexの編集モード（赤い点を付けるIDを選ぶ）
 const pickChips = (k, v, t) => { const dd = t && dotOf(t, k); return [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(id => { const on = dd && dd.s === s && dd.id === id; return `<span class="chip ${s} pick${on ? ' on' : ''}" data-pk="${esc(k)}" data-ps="${s}" data-pid="${esc(id)}" title="${on ? '点を外す' : 'ここに赤い点を付ける'}">${on ? '<i class="dotabove">●</i>' : ''}${s === 'p' ? '紙' : ''}${esc(id)}</span>`; }).join('')).join(''); };
 // 「キーワード ID ID(p) …」の 1 行。親の側と違う ID には、(p) か (d) を付ける
@@ -392,7 +392,7 @@ const noteRow = (n, label = false, q = '') =>
   `<div class="nt">${label && n.s === 'p' ? `<span class="sp ${n.s}">${SP[n.s]}</span>` : ''}${icon(n) ? icon(n) + ' ' : ''}${n.image ? '📷 ' : ''}${mk(titleOf(n), q)}</div>` +
   `<div class="ns">${n.noid ? `IDなし · ${shortTime(n.created)}` : `${n.s === 'p' ? '紙 ' : ''}${mk(n.id, q)}`}${n.keywords.length ? ` · ${n.keywords.map(k => mk(k, q)).join('・')}` : ''}</div>${q && snippet(n.body, q) ? `<div class="sn">${snippet(n.body, q)}</div>` : ''}</div></div>`;
 // 索引 の行（その親のノートの手前に出す）
-const topicRow = (t, zero = false) => `<div class="item topicrow${listView === 'card' ? ' tc' : ''}${cur && cur.k === 'topic' && cur.name === t.name ? ' on' : ''}${decided && decided.k === 'topic' && decided.name === t.name ? ' decided' : ''}" data-topic="${esc(t.name)}"><div class="nrow"><div class="nt">${esc(topicLabel(t))}</div><div class="ns">${zero ? `${SP[t.entry.s]} ${esc(t.entry.id)}` : '索引'}</div></div></div>`;
+const topicRow = (t, zero = false) => `<div class="item topicrow${cur && cur.k === 'topic' && cur.name === t.name ? ' on' : ''}${decided && decided.k === 'topic' && decided.name === t.name ? ' decided' : ''}" data-topic="${esc(t.name)}"><div class="nrow"><div class="nt">${esc(topicLabel(t))}</div><div class="ns">${zero ? `${SP[t.entry.s]} ${esc(t.entry.id)}` : '索引'}</div></div></div>`;
 
 // ===== 取り込んだファイル（画像・html・csv など）。タイトルと説明を付けて、探せるようにする =====
 let filesCache = [], fileFilter = 'all', filesBusy = false;
@@ -466,17 +466,6 @@ function sortNotes(list, tab) {
   const key = n => by === 'fz' ? null : by === 'updated' ? (n.updated || n.created || '') : (n.created || '');
   return list.slice().sort((a, b) => sg * (by === 'fz' ? L.cmpId(a.id, b.id) : key(a).localeCompare(key(b)) || L.cmpId(a.id, b.id)));
 }
-// Google Keep 風のカード: 題・本文（長いときは途中まで。「続きを見る」で、その場で全部）・ID・キーワード。押すと開いて編集できる
-const cardOpen = new Set();
-const cardRow = n => {
-  const body = (n.body || '').split('\n').filter(x => x.trim() && x.trim() !== (n.title || '')).map(x => x.replace(/^#+\s*/, '')), text = body.join('\n'), long = text.length > 160 || body.length > 6, open = cardOpen.has(n.s + ':' + n.id);
-  const shown = open || !long ? text : body.slice(0, 6).join('\n').slice(0, 160);
-  return `<div class="item note card${cur && cur.k === 'note' && cur.s === n.s && cur.id === n.id ? ' on' : ''}" draggable="true" data-s="${n.s}" data-id="${esc(n.id)}">${selMode ? `<input type="checkbox" class="ck" ${picked.has(n.s + ':' + n.id) ? 'checked' : ''}>` : ''}<div class="nrow">` +
-    `<div class="nt">${icon(n) ? icon(n) + ' ' : ''}${n.image ? '📷 ' : ''}${esc(titleOf(n))}</div><div class="cbody${open ? ' open' : ''}">${shown ? esc(shown) + (long && !open ? '…' : '') : '<span class="sub">（本文なし）</span>'}</div>` +
-    `${long ? `<a class="cmore" data-more="${n.s}:${esc(n.id)}">${open ? '閉じる ▴' : '続きを見る ▾'}</a>` : ''}` +
-    `<div class="ns">${n.noid ? 'IDなし' : (n.s === 'p' ? '紙 ' : '') + esc(n.id)} · ${esc(shortTime(sortBy === 'updated' ? (n.updated || n.created) : n.created))}${n.keywords.length ? ' · ' + n.keywords.map(esc).join('・') : ''}</div></div></div>`;
-};
-
 function renderList() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
@@ -531,7 +520,7 @@ function renderList() {
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
     for (const n of list) {
       const t = byFz && topicOf(n.s, n.id); if (t) out.push(topicRow(t)); // 「1-PKM」は、ノート 1 の手前
-      out.push(listView === 'card' ? cardRow(n) : noteRow(n));
+      out.push(noteRow(n));
     }
     if (!list.length) out.push(`<div class="none">${tab === 'p' ? '「📷 スキャン取り込み」で紙を入れます' : tab === 'u' ? 'IDなしで書いたノートが、ここに並びます。あとでIDを付けて整理します' : '「＋ 新規」で書き始めます'}</div>`);
   }
@@ -562,11 +551,10 @@ function onOpenClick(e) {
   }
 }
 document.addEventListener('click', onOpenClick);
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.dataset.mode === 'cards') return openCards(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
-  const mo = e.target.closest('[data-more]'); if (mo) { e.stopPropagation(); e.preventDefault(); cardOpen.has(mo.dataset.more) ? cardOpen.delete(mo.dataset.more) : cardOpen.add(mo.dataset.more); return renderList(); }
   const fr = e.target.closest('[data-file]'); if (fr) return fileDialog(fr.dataset.file);
   if (e.target.closest('#ff-add')) return pick(true, f => attach(null, f), '*');
   if (e.target.closest('#sb-loc')) return locateCur();
@@ -577,8 +565,6 @@ $('#list').addEventListener('click', e => {
 $('#list').addEventListener('dragstart', e => { const n = e.target.closest('[data-id]'); if (n) e.dataTransfer.setData('text/plain', n.dataset.id); });
 $('#list').addEventListener('change', e => { if (e.target.id === 'ff-sel') { fileFilter = e.target.value; renderList(); } });
 $('#list').addEventListener('change', e => { if (e.target.id === 'sb-by') { sortBy = e.target.value; savePrefs(); renderList(); } });
-$('#cardtoggle').onclick = () => { listView = listView === 'card' ? 'list' : 'card'; savePrefs(); $('#cardtoggle').classList.toggle('on', listView === 'card'); if (mode === 'notes') renderList(); };
-$('#cardtoggle').classList.toggle('on', listView === 'card');
 $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) { tab = b.dataset.tab; $('#q').value = ''; renderList(); } };
 $('#q').oninput = renderList;
 $('#q').onkeydown = e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').blur(); renderList(); if (lastView && cur && cur.k === 'note') lastView.focus(); searchMark(); } };
@@ -760,7 +746,7 @@ function show(i) {
   active = Math.max(-1, Math.min(i, tabs.length - 1));
   const t = tabs[active];
   if (!t || t.k === 'empty') { cur = t || null; $('#pane').innerHTML = '<div class="none">左から選ぶか、「＋ 新規」で書き始めます。<br>Ctrl+クリックで新しいタブに開きます。</div>'; renderTabs(); return renderList(); }
-  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'cards') openCards(true); else if (t.k === 'export') openExport(t, true); else openTopic(t.name, t.mode, true);
+  if (t.k === 'note') openNote(t.s, t.id, null, true); else if (t.k === 'diary') openDiary(t.date, true, t.kind); else if (t.k === 'export') openExport(t, true); else openTopic(t.name, t.mode, true);
 }
 function closeTab(i) {
   if (i < 0 || i >= tabs.length) return;
@@ -1302,149 +1288,6 @@ function openExport(t, keep) {
   $('#ex-copy2').onclick = async () => { await navigator.clipboard.writeText(cur.text); toast('コピーしました'); };
   renderTabs(); renderList();
 }
-// ===== カードビュー（Google Keep 風。画面いっぱいにカードだけ。保存ボタンは無く、書くたびに自動保存）=====
-const keepPrefs = { f: 'all', q: '' };
-const KCOL = { '': '#ffffff', red: '#F28B82', orange: '#FBBC04', yellow: '#FFF475', green: '#CCFF90', teal: '#A7FFEB', blue: '#CBF0F8', darkblue: '#AECBFA', purple: '#D7AEFB', pink: '#FDCFE8', brown: '#E6C9A8', gray: '#E8EAED' };   // Google Keep と同じ色
-// Material の線画アイコン（Google Keep のクローンと同じ種類）
-const MI = { palette: 'M12 3a9 9 0 0 0 0 18c1.1 0 1.5-.9 1.5-1.5 0-.4-.2-.8-.4-1-.2-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z',
-  check: 'M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z',
-  label: 'M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16zM16 17H5V7h11l3.55 5L16 17z',
-  copy: 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z',
-  del: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4z',
-  arch: 'M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z',
-  pin: 'M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3zM8.5 12c.64-.74 1.5-1.82 1.5-3V4h4v5c0 1.18.86 2.26 1.5 3h-7z',
-  open: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
-  img: 'M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4.86 8.86l-3 3.87L9 13.14 6 17h12l-3.86-5.14z' };
-const mi = n => `<svg class="mi" viewBox="0 0 24 24" width="18" height="18"><path d="${MI[n]}"/></svg>`;
-let trashCache = [];
-function openCards(keep) { cur = place({ k: 'cards' }, keep); mode = 'notes'; drawCards(true); }
-const kImg = n => { try { return `${vault.replace(/\/$/, '')}/${decodeURIComponent(n)}`.split('/').map(encodeURIComponent).join('/').replace(/^%2F/, '/'); } catch { return ''; } };
-// 本文のカード用の表示: 画像・チェックリスト（押して切り替え）・ふつうの行
-function kBody(n, limit) {
-  const lines = (n.body || '').split('\n'); const out = []; let cnt = 0, imgs = 0;
-  lines.forEach((ln, i) => {
-    if (!ln.trim() || ln.trim() === (n.title || '')) return;
-    if (limit && cnt >= limit) return;
-    const im = ln.match(/^!\[[^\]]*\]\(([^)\s]+)\)/), ck = ln.match(/^(\s*)[-*]\s+\[([ xX])\]\s+(.*)$/);
-    if (im && /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(im[1])) { if (imgs++ < 2) out.push(`<img class="kimg" src="file://${esc(kImg(im[1]))}">`); return; }
-    cnt++;
-    if (ck) out.push(`<label class="kck${/[xX]/.test(ck[2]) ? ' done' : ''}"><input type="checkbox" data-kck="${i}"${/[xX]/.test(ck[2]) ? ' checked' : ''}> <span>${esc(ck[3])}</span></label>`);
-    else out.push(`<div class="kl">${esc(ln.replace(/^#+\s*/, ''))}</div>`);
-  });
-  return out.join('') || '<span class="sub">（本文なし）</span>';
-}
-function drawCards(full) {
-  const q = keepPrefs.q.trim().toLowerCase(), f = keepPrefs.f;
-  if (f === 'trash') { api.trashList().then(l => { trashCache = l; if (cur && cur.k === 'cards' && keepPrefs.f === 'trash') drawBoard(); }); }
-  if (full || !$('.keep')) {
-    $('#pane').innerHTML = `<div class="keep"><div class="ktop"><input class="ksearch" id="k-q" placeholder="カードを探す" value="${esc(keepPrefs.q)}">
-      ${[['all', '🗒 すべて'], ['d', '💻'], ['p', '📜'], ['u', '📥'], ['arch', '🗄'], ['trash', '🗑']].map(([k, l]) => `<span class="kchip" data-kf="${k}" title="${{ all: 'すべて', d: 'デジタル', p: '紙', u: 'IDなし', arch: 'アーカイブ', trash: 'ごみ箱' }[k]}">${l}</span>`).join('')}
-      <select id="k-sort"><option value="fz"${sortBy === 'fz' ? ' selected' : ''}>番号順</option><option value="created"${sortBy === 'created' ? ' selected' : ''}>作成順</option><option value="updated"${sortBy === 'updated' ? ' selected' : ''}>更新順</option></select><span class="kchip" id="k-dir"></span></div>
-      <div class="kadd" id="k-add"><input class="kt" id="k-t" placeholder="タイトル"><input id="k-b1" placeholder="メモを入力…"><textarea id="k-b" placeholder="メモを入力…"></textarea><div class="ktools"><span data-ka="check" title="チェックリスト">${mi('check')}</span><span data-ka="img" title="画像">${mi('img')}</span><span class="grow"></span><button class="kclose" data-ka="close">閉じる</button></div></div>
-      <div class="kscroll"><div class="kboard" id="k-board"></div></div><div id="kover" hidden></div></div>`;
-    renderTabs(); renderList();
-  }
-  document.querySelectorAll('.keep [data-kf]').forEach(c => c.classList.toggle('on', c.dataset.kf === f));
-  $('#k-dir').textContent = sortDir === 'asc' ? '↑' : '↓';
-  drawBoard();
-}
-// Keep と同じ: カードの幅は 232px で、窓の幅に入るだけの列を、まん中に並べる
-function fitBoard() { const b = $('#k-board'); if (!b || !b.parentElement) return; b.style.width = '100%'; b.style.maxWidth = 'none'; const avail = b.parentElement.clientWidth - 16, n = Math.max(1, Math.min(8, Math.floor(avail / 240))); b.style.width = n * 240 + 16 + 'px'; b.style.columnCount = String(n); b.style.columnWidth = '232px'; }
-window.addEventListener('resize', () => { if (cur && cur.k === 'cards') fitBoard(); });
-function drawBoard() {
-  const q = keepPrefs.q.trim().toLowerCase(), f = keepPrefs.f;
-  if (f === 'trash') {
-    const l = trashCache.filter(t => !q || [t.title, t.body, t.id].join('\n').toLowerCase().includes(q));
-    $('#k-board').innerHTML = l.map(t => `<div class="kcard" style="background:#f6f6f8"><div class="kh">${esc(t.title || t.body.split('\n')[0] || '（無題）')}</div><div class="kb"><div class="kl">${esc(t.body.slice(0, 160))}</div></div><div class="km"><span>${esc(t.deleted)}</span><button class="mini" data-krestore="${esc(t.file)}">戻す</button></div></div>`).join('') || '<div class="none">ごみ箱は空です</div>';
-    return;
-  }
-  let list = notes.filter(n => f === 'arch' ? n.archived : !n.archived && (f === 'all' || (f === 'd' ? n.s === 'd' && !n.noid : f === 'p' ? n.s === 'p' && !n.noid : n.noid)));
-  if (q) list = list.filter(n => [n.id, n.title || '', n.body, n.keywords.join(' ')].join('\n').toLowerCase().includes(q));
-  list = sortNotes(list, f === 'u' ? 'u' : 'd');
-  const pinned = list.filter(n => n.pinned), rest = list.filter(n => !n.pinned);
-  const card = n => {
-    const long = (n.body || '').length > 260 || (n.body || '').split('\n').length > 10;
-    return `<div class="kcard" data-s="${n.s}" data-id="${esc(n.id)}" style="background:${KCOL[n.color] || '#fff'}">
-      <span class="kpin${n.pinned ? ' on' : ''}" data-kpin title="固定">${mi('pin')}</span>
-      ${(n.title || firstLine(n)) ? `<div class="kh">${icon(n) ? icon(n) + ' ' : ''}${esc(titleOf(n))}</div>` : ''}<div class="kb">${kBody(n, 9)}</div>${long ? '<span class="kmore">…</span>' : ''}
-      <div class="km"><span>${n.noid ? '📥' : n.s === 'p' ? '📜 ' + esc(n.id) : '💻 ' + esc(n.id)}</span>${n.keywords.map(k => `<span class="kw">${esc(k)}</span>`).join('')}</div>
-      <div class="kact"><span data-kcolor title="色">${mi('palette')}</span><span data-karch title="${n.archived ? 'アーカイブから戻す' : 'アーカイブ'}">${mi('arch')}</span><span data-kopen title="ノートの画面で開く">${mi('open')}</span><span data-kdel title="削除">${mi('del')}</span></div></div>`;
-  };
-  $('#k-board').innerHTML = (pinned.length ? `<div class="ksec">📌 固定</div>${pinned.map(card).join('')}${rest.length ? '<div class="ksec">その他</div>' : ''}` : '') + rest.map(card).join('') || '<div class="none">カードがありません。上の欄から、すぐ書けます</div>';
-  fitBoard();
-}
-// カードをその場でふくらませて編集（保存ボタンは無い。書くたびに自動保存。外を押す・Esc で閉じる）
-function kExpand(n, fromEl) {
-  const ov = $('#kover'), r = fromEl.getBoundingClientRect(), box = $('#pane').getBoundingClientRect();
-  ov.hidden = false; ov.innerHTML = `<div class="kback"></div><div class="kedit" style="background:${KCOL[n.color] || '#fff'};transform-origin:${r.left + r.width / 2 - box.left}px ${r.top - box.top}px">
-    <input class="kt" id="ke-t" placeholder="タイトル" value="${esc(n.title || '')}" ${n.kind && n.kind !== 'text' ? 'disabled' : ''}>
-    <textarea id="ke-b" placeholder="メモ…" ${n.kind && n.kind !== 'text' ? 'readonly' : ''}>${esc(n.body || '')}</textarea>
-    <div class="klabels" id="ke-l"></div>
-    <div class="ktools2"><span data-ke="pin" title="固定">${mi('pin')}</span><span data-ke="color" title="色">${mi('palette')}</span><span data-ke="check" title="チェックリスト">${mi('check')}</span><span data-ke="img" title="画像">${mi('img')}</span><span data-ke="arch" title="アーカイブ">${mi('arch')}</span><span data-ke="copy" title="コピー">${mi('copy')}</span><span data-ke="open" title="ノートの画面で開く">↗</span><span data-ke="del" title="削除">🗑</span><span class="grow"></span><small class="sub">${n.noid ? 'IDなし' : esc(n.id)}</small></div>
-    <div class="kpal" id="ke-pal" hidden>${Object.entries(KCOL).map(([k, c]) => `<i data-kc="${k}" style="background:${c}" class="${n.color === k ? 'on' : ''}"></i>`).join('')}</div></div>`;
-  const ed = ov.querySelector('.kedit'), t = $('#ke-t'), b = $('#ke-b'), text = !(n.kind && n.kind !== 'text');
-  const fit = () => { b.style.height = 'auto'; b.style.height = Math.min(b.scrollHeight + 4, innerHeight * 0.55) + 'px'; };
-  const labels = () => { $('#ke-l').innerHTML = n.keywords.map(k => `<span class="kw">${esc(k)}${text ? `<b data-klx="${esc(k)}"> ×</b>` : ''}</span>`).join('') + (text ? '<input id="ke-kw" placeholder="＋ ラベル" size="8">' : ''); };
-  const save = () => { if (text) { n.title = t.value.trim(); n.body = b.value; saveNote(n); } };
-  t.oninput = save; b.oninput = () => { save(); fit(); }; fit(); labels(); (b.value ? b : t).focus();
-  const close = async () => { ov.hidden = true; ov.innerHTML = ''; document.removeEventListener('keydown', onKey, true); await flush(); if (cur && cur.k === 'cards') drawBoard(); };
-  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
-  document.addEventListener('keydown', onKey, true);
-  ov.onclick = async e => {
-    const x = e.target; if (x.classList.contains('kback')) return close();
-    const k = x.dataset.klx; if (k) { n.keywords = n.keywords.filter(y => y !== k); saveNote(n); return labels(); }
-    if (x.dataset.kc !== undefined) { n.color = x.dataset.kc; saveNote(n); ed.style.background = KCOL[n.color] || '#fff'; $('#ke-pal').hidden = true; return; }
-    const a = x.dataset.ke; if (!a) return;
-    if (a === 'color') $('#ke-pal').hidden = !$('#ke-pal').hidden;
-    if (a === 'pin') { n.pinned = !n.pinned; saveNote(n); toast(n.pinned ? '固定しました' : '固定を外しました'); }
-    if (a === 'arch') { n.archived = !n.archived; saveNote(n); toast(n.archived ? 'アーカイブしました' : 'アーカイブから戻しました'); close(); }
-    if (a === 'copy') { navigator.clipboard.writeText([n.title, n.body].filter(Boolean).join('\n\n')); toast('コピーしました'); }
-    if (a === 'open') { await close(); openNote(n.s, n.id); }
-    if (a === 'del') { await close(); await deleteNotes([{ s: n.s, id: n.id }]); if (cur && cur.k === 'cards') drawBoard(); }
-    if (a === 'check' && text) { const p = b.selectionStart, at = b.value.lastIndexOf('\n', p - 1) + 1; b.value = b.value.slice(0, at) + '- [ ] ' + b.value.slice(at); b.setSelectionRange(p + 6, p + 6); save(); fit(); b.focus(); }
-    if (a === 'img' && text) pick(false, async f => { const [nm] = await api.addFiles([{ name: f[0].name || 'image.png', bytes: await (await shrinkBlob(f[0])).arrayBuffer() }]); b.value += (b.value && !b.value.endsWith('\n') ? '\n' : '') + `![](${encRel(nm)})\n`; save(); fit(); });
-  };
-  ov.onkeydown = e => { if (e.target.id === 'ke-kw' && e.key === 'Enter' && !e.isComposing) { const v = e.target.value.trim(); if (v && !n.keywords.includes(v)) { n.keywords.push(v); saveNote(n); } labels(); $('#ke-kw').focus(); } };
-  ov.addEventListener('paste', async e => { const f = [...(e.clipboardData && e.clipboardData.files || [])].find(x => x.type.startsWith('image/')); if (f && text) { e.preventDefault(); const [nm] = await api.addFiles([{ name: 'image.png', bytes: await (await shrinkBlob(f)).arrayBuffer() }]); b.value += `\n![](${encRel(nm)})\n`; save(); fit(); } });
-}
-const shrinkBlob = async f => f;   // 画像は、そのまま取り込む
-document.addEventListener('click', async e => {
-  if (!cur || cur.k !== 'cards' || !e.target.closest('.keep, #kover')) return;
-  if (e.target.closest('#kover')) return;   // ふくらんだカードの中は、上の処理
-  const kf = e.target.closest('[data-kf]'); if (kf) { keepPrefs.f = kf.dataset.kf; return drawCards(false); }
-  if (e.target.closest('#k-dir')) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); return drawCards(false); }
-  const rs = e.target.closest('[data-krestore]'); if (rs) { const st = await api.trashRestore(rs.dataset.krestore); if (st) { applyState(st); toast('戻しました'); trashCache = await api.trashList(); drawBoard(); } return; }
-  const add = $('#k-add');
-  if (e.target.closest('#k-b1')) { add.classList.add('open'); $('#k-b').focus(); return; }
-  if (add.classList.contains('open') && e.target.closest('[data-ka]')) {
-    const a = e.target.closest('[data-ka]').dataset.ka, b = $('#k-b');
-    if (a === 'close') { await commitAdd(); return; }
-    if (a === 'check') { b.value += (b.value && !b.value.endsWith('\n') ? '\n' : '') + '- [ ] '; b.focus(); }
-    if (a === 'img') pick(false, async f => { const [nm] = await api.addFiles([{ name: f[0].name || 'image.png', bytes: await f[0].arrayBuffer() }]); b.value += (b.value && !b.value.endsWith('\n') ? '\n' : '') + `![](${encRel(nm)})\n`; });
-    return;
-  }
-  // 新しいメモの欄の外を押したら、書いてあれば自動で保存して閉じる（Keep と同じ。ボタンは無い）
-  if (add.classList.contains('open') && !e.target.closest('#k-add')) await commitAdd();
-  const c = e.target.closest('.kcard'); if (!c || !c.dataset.id) return;
-  const n = get(c.dataset.s, c.dataset.id); if (!n) return;
-  e.stopImmediatePropagation();
-  if (e.target.closest('[data-kpin]')) { n.pinned = !n.pinned; saveNote(n); return drawBoard(); }
-  if (e.target.closest('[data-karch]')) { n.archived = !n.archived; saveNote(n); toast(n.archived ? 'アーカイブしました' : 'アーカイブから戻しました'); return drawBoard(); }
-  if (e.target.closest('[data-kcolor]')) { const keys = Object.keys(KCOL); n.color = keys[(keys.indexOf(n.color || '') + 1) % keys.length]; saveNote(n); return drawBoard(); }
-  if (e.target.closest('[data-kdel]')) { await deleteNotes([{ s: n.s, id: n.id }]); if (cur && cur.k === 'cards') drawBoard(); return; }
-  if (e.target.closest('[data-kopen]')) return openNote(n.s, n.id);
-  const ck = e.target.closest('[data-kck]'); if (ck) { const ls = n.body.split('\n'), i = +ck.dataset.kck; ls[i] = ls[i].replace(/\[( |x|X)\]/, m => m === '[ ]' ? '[x]' : '[ ]'); n.body = ls.join('\n'); saveNote(n); return drawBoard(); }
-  kExpand(n, c);
-}, true);
-async function commitAdd() {
-  const add = $('#k-add'); if (!add) return; const t = $('#k-t').value.trim(), b = $('#k-b').value;
-  add.classList.remove('open'); $('#k-t').value = ''; $('#k-b').value = '';
-  if (!t && !b.trim()) return;
-  const n = await api.createNote({ kind: 'text', body: b, title: t, created: L.now() }); notes.push(n); await refreshDiaries(); drawBoard();
-}
-document.addEventListener('input', e => { if (e.target.id === 'k-q') { keepPrefs.q = e.target.value; drawBoard(); } });
-document.addEventListener('change', e => { if (e.target.id === 'k-sort') { sortBy = e.target.value; savePrefs(); drawBoard(); } });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur && cur.k === 'cards' && $('#k-add') && $('#k-add').classList.contains('open') && $('#kover').hidden) { e.preventDefault(); commitAdd(); } });
 
 function openTopic(name, tmode = 'view', keep) {
   const t = topics.find(x => x.name === name); if (!t) return;
@@ -1722,7 +1565,7 @@ function loaded(st) {
   try {
     const saved = JSON.parse(localStorage.getItem('pkm-tabs:' + vault) || 'null');
     if (saved) {
-      tabs = saved.tabs.filter(t => t.k === 'empty' || (t.k === 'note' && get(t.s, t.id)) || (t.k === 'topic' && topics.find(x => x.name === t.name)) || (t.k === 'diary' && getDiary(t.date, t.kind)) || t.k === 'cards');
+      tabs = saved.tabs.filter(t => t.k === 'empty' || (t.k === 'note' && get(t.s, t.id)) || (t.k === 'topic' && topics.find(x => x.name === t.name)) || (t.k === 'diary' && getDiary(t.date, t.kind)));
       tabs.forEach(t => { if (t.k === 'topic') t.mode = 'view'; });
       active = Math.min(saved.active, tabs.length - 1);
     }
@@ -1876,8 +1719,7 @@ async function copySelection() {
 }
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || !selMode || e.isComposing || e.keyCode === 229) return;
-  const cardEditor = $('#kover');
-  if ($('#modal').style.display === 'flex' || document.querySelector('.idex-cover, #idpop, .reference-picker') || (cardEditor && !cardEditor.hidden)) return;
+  if ($('#modal').style.display === 'flex' || document.querySelector('.idex-cover, #idpop, .reference-picker')) return;
   e.preventDefault(); e.stopImmediatePropagation(); endSelection();
 }, true);
 $('#selbar').addEventListener('click', e => {

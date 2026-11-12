@@ -423,8 +423,6 @@ textarea.ntitle,textarea#f-title{
 }
 #idpop{position:fixed;z-index:60;background:#fff;border:1px solid #cfd5e3;border-radius:10px;box-shadow:0 6px 24px rgba(30,40,80,.18);padding:4px;min-width:150px;font-size:14px}#idpop div{padding:6px 10px;border-radius:7px;cursor:pointer}#idpop div.on{background:var(--acc-bg)}#idpop kbd{background:#eef0f5;border-radius:4px;padding:0 5px;font:12px ui-monospace,monospace;color:#667}#idpop b{color:var(--acc);margin-left:4px}
 .sortbar{display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid #f2f2f2;position:sticky;top:0;background:var(--bg,#fff);z-index:2}.sortbar select{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 4px;background:#fff}
-.item.card{display:block;margin:6px 10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff}.item.card:hover,.item.card.on{background:var(--hl)}
-.item.card .nt{font-weight:600}.item.card .cbody{color:#555;font-size:12.5px;line-height:1.5;margin:4px 0;max-height:6em;overflow:hidden;white-space:normal}.item.card .ns{font-size:11px;color:var(--sub)}
 /* 本文は、ページの真ん中。右の欄は右に置き、本文とは別にスクロール（ページの高さに合わせて固定） */
 .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,var(--colw,720px)) minmax(290px,1fr);align-items:start}
 .stage:has(.col.wide){--colw:1000px}
@@ -433,28 +431,6 @@ textarea.ntitle,textarea#f-title{
 .stage>.mgn{grid-column:3;position:sticky;top:0;height:var(--ph,100vh);min-height:0;overflow:auto;margin:0;width:290px;align-self:start}
 .stage.nomgn{grid-template-columns:minmax(0,1fr) minmax(0,var(--colw,720px)) minmax(0,1fr)}.stage.nomgn>.mgn{display:none}
 
-.keep{display:flex;flex-direction:column;height:100%;min-height:0;position:relative;font-family:Roboto,Arial,"Hiragino Sans","Noto Sans JP",sans-serif}
-.keep .ktop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 8px 4px;justify-content:center}
-.keep .ktop input.ksearch{flex:1 1 360px;max-width:720px;min-width:180px;border:0;border-radius:8px;padding:12px 16px;font:inherit;font-size:15px;background:#f1f3f4;color:#202124}.keep .ktop input.ksearch:focus{background:#fff;box-shadow:0 1px 1px 0 rgba(65,69,73,.3),0 1px 3px 1px rgba(65,69,73,.15)}
-.keep .kchip{border:0;background:none;border-radius:25px;padding:6px 12px;cursor:pointer;font-size:14px;color:#5f6368}.keep .kchip:hover{background:#f1f3f4}.keep .kchip.on{background:#feefc3;color:#202124}
-.keep .kadd{max-width:600px;margin:18px auto 22px;width:calc(100% - 16px);border:1px solid #ddd;border-radius:8px;background:#fff;box-shadow:0 3px 1px -2px rgba(0,0,0,.2),0 2px 2px 0 rgba(0,0,0,.14),0 1px 5px 0 rgba(0,0,0,.12);padding:0}
-.keep .kadd input,.keep .kadd textarea{width:100%;border:0;outline:0;font:inherit;background:none;resize:none;color:#202124}
-.keep .kadd #k-b1{padding:10px 16px;font-size:14px;font-weight:500;height:2.7rem}.keep .kadd .kt{font-weight:500;font-size:1rem;display:none;padding:10px 16px}.keep .kadd.open .kt{display:block}.keep .kadd textarea{display:none;min-height:70px;padding:6px 16px;font-size:.9rem;line-height:1.5}.keep .kadd.open textarea{display:block}.keep .kadd.open #k-b1{display:none}
-.keep .kadd .ktools{display:none;align-items:center;gap:4px;padding:6px 10px 8px;color:#202124}.keep .kadd.open .ktools{display:flex}.keep .kadd .ktools span{display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;cursor:pointer;border-radius:50%}.keep .kadd .ktools span:hover{background:rgba(95,99,104,.157)}
-.keep .kclose{border:0;background:none;font:inherit;font-size:14px;font-weight:500;padding:6px 14px;border-radius:4px;cursor:pointer;color:#202124}.keep .kclose:hover{background:rgba(95,99,104,.1)}
-.keep .mi{fill:#202124;opacity:.72;display:block}
-.keep .kscroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}.keep .kboard{column-width:232px;column-gap:8px;padding:4px 8px 40px;margin:0 auto;width:100%;box-sizing:border-box}.keep .kcard{width:232px}
-.keep .ksec{column-span:all;font-size:.7rem;font-weight:500;letter-spacing:.1em;color:#5f6368;margin:10px 8px 4px;text-transform:uppercase}
-.keep .kcard{break-inside:avoid;margin:.5rem 0;border:1px solid #ddd;border-radius:8px;padding:0;cursor:default;position:relative;transition:box-shadow .2s;background-clip:padding-box}
-.keep .kcard:hover{box-shadow:0 3px 1px -2px rgba(0,0,0,.2),0 2px 2px 0 rgba(0,0,0,.14),0 1px 5px 0 rgba(0,0,0,.12)}
-.keep .kcard .kh{font-weight:500;font-size:1rem;letter-spacing:.015rem;padding:12px 40px 0 16px;color:#202124;line-height:1.4}
-.keep .kcard .kb{font-size:.85rem;line-height:1.55;color:#202124;word-break:break-word;padding:8px 16px 4px;font-weight:400}.keep .kl{white-space:pre-wrap}
-.keep .kimg{display:block;max-width:100%;border-radius:4px;margin:2px 0 6px}.keep .kck{display:flex;gap:6px;align-items:flex-start;line-height:1.5}.keep .kck.done span{text-decoration:line-through;color:#80868b}.keep .kck input{margin-top:5px}
-.keep .kcard .kmore{color:#5f6368;padding:0 16px}.keep .kcard .km{margin:4px 12px 4px;font-size:.72rem;color:#5f6368;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}.keep .kw{background:rgba(0,0,0,.133);border-radius:12px;padding:1px 10px;color:#202124}
-.keep .kpin{position:absolute;right:6px;top:6px;opacity:0;cursor:pointer;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:opacity .15s}.keep .kpin:hover{background:rgba(95,99,104,.157)}.keep .kcard:hover .kpin,.keep .kpin.on{opacity:1}.keep .kpin.on .mi{opacity:1}
-.keep .kact{display:flex;gap:2px;padding:4px 10px 8px;height:42px;opacity:0;transition:opacity .15s;align-items:center}.keep .kcard:hover .kact{opacity:1}.keep .kact span{width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:50%}.keep .kact span:hover{background:rgba(95,99,104,.157)}
-#kover{position:absolute;inset:0;z-index:30}#kover .kback{position:absolute;inset:0;background:rgba(255,255,255,.75)}
-#kover .kedit{position:absolute;left:50%;top:12%;transform:translateX(-50%);width:min(600px,92%);max-height:78%;overflow:auto;border-radius:8px;box-shadow:0 1px 2px 0 rgba(60,64,67,.3),0 2px 6px 2px rgba(60,64,67,.15);padding:16px 18px 10px;animation:kpop .16s ease-out}
 @keyframes kpop{from{opacity:0;transform:translateX(-50%) scale(.92)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .kedit .kt{width:100%;font:inherit;font-size:20px;font-weight:700;border:0;outline:0;padding:4px 0;background:none}.kedit textarea{width:100%;min-height:120px;border:0;outline:0;font:inherit;line-height:1.7;resize:none;background:none}
 .kedit .klabels{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;align-items:center}.kedit .klabels input{border:0;outline:0;background:none;font:inherit;font-size:13px}.kedit .kw{background:rgba(0,0,0,.08);border-radius:10px;padding:1px 9px;font-size:12.5px}.kedit .kw b{cursor:pointer;opacity:.5;font-weight:400}
@@ -558,8 +534,6 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 #tabs{flex-wrap:nowrap;gap:2px;padding-left:10px;padding-right:6px}#tabs button{white-space:nowrap;padding:5px 8px}.sortbar button,.sortbar select,.ixbar button{white-space:nowrap;flex:none}
 .sortbar{flex-wrap:nowrap;overflow:hidden}.sortbar select{max-width:100%}
 #tabs button .te{font-size:19px;line-height:1}#tabs button .tl{display:none;margin-left:5px}#tabs button.on .tl{display:none}#tabs button{display:flex;align-items:center;padding:4px 9px}
-#cardtoggle.on{background:var(--acc-bg);color:var(--acc)}
-.item.card .cbody{white-space:pre-wrap;max-height:none}.item.card .cmore{display:inline-block;font-size:12px;color:var(--acc);margin:0 0 4px;cursor:pointer}.item.card{box-shadow:0 1px 2px rgba(30,40,80,.08)}.item.card:hover{box-shadow:0 3px 10px rgba(30,40,80,.14)}
 #dlist .kinds{display:flex;flex-wrap:wrap;gap:5px;padding:8px 12px 2px}#dlist .kchip{border:1px solid var(--line);border-radius:14px;padding:2px 10px;cursor:pointer;font-size:13px;background:#fff}#dlist .kchip.on{background:var(--acc-bg);border-color:#b9c6f7;color:var(--acc)}
 .item.decided{border-radius:0;box-shadow:inset 0 0 0 2px #f0b429}.item.decided.on,.item.on.decided{box-shadow:inset 0 0 0 2px #f0b429,inset 5px 0 0 var(--acc)}
 .item.topicrow.on{background:var(--acc-bg);border-radius:0;box-shadow:inset 5px 0 0 var(--acc)}.item.topicrow.decided{box-shadow:inset 0 0 0 2px #f0b429}.ix.on{background:var(--hl);border-radius:0;box-shadow:inset 5px 0 0 var(--acc)}
@@ -618,7 +592,7 @@ body{-webkit-user-select:none;user-select:none}
       <span class="sp"></span>
       <button id="save-status" class="tbtn" aria-live="polite" title="保存状況">保存済み</button>
       <input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）">
-      <button id="cardtoggle" class="ic" title="一覧・カードの表示を切り替え"><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button><button id="new" class="ic" title="新規"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><button id="more" class="ic" title="メニュー"><svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
+      <button id="new" class="ic" title="新規"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button><button id="more" class="ic" title="メニュー"><svg class="ico" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
     <div id="tabbar"></div><div id="pane"></div>
