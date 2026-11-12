@@ -27,7 +27,7 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     '<div class="idex-results"></div></aside>' +
     '<div class="idex-detail"><div class="idex-trail"><button type="button" data-ix-back disabled title="戻る">⬅️</button><span class="idex-path"></span></div>' +
     '<div class="idex-preview"></div></div></div>' +
-    '<footer class="idex-footer"><div class="idex-method"><button type="button" data-ix-method="child" title="分岐（子）にする">🌱 子</button><button type="button" data-ix-method="sibling" title="並列（きょうだい）にする">↔️ 並列</button><button type="button" data-ix-method="direct" class="on" title="IDを直接指定">✍️ 直接</button></div>' +
+    '<footer class="idex-footer"><div id="idex-pos" class="idex-pos"></div><div class="idex-method"><button type="button" data-ix-method="child" title="分岐（子）にする">🌱 子</button><button type="button" data-ix-method="sibling" title="並列（きょうだい）にする">↔️ 並列</button><button type="button" data-ix-method="direct" class="on" title="IDを直接指定">✍️ 直接</button></div>' +
     '<div class="idex-decision"><label>ID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
     '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">🆗 決定</button><button type="button" data-ix-close title="やめる">✖️</button></div></footer></section>';
   document.body.append(root);
@@ -199,7 +199,26 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     const el = $('#idex-status'); el.textContent = ok ? '✅' : '❌'; el.title = text; el.className = ok ? 'good' : 'bad';
     $('#idex-candidate').classList.toggle('good', ok); $('#idex-candidate').classList.toggle('bad', !ok);
   }
+  // 付ける位置: 番号順に並べたとき、候補のIDがどこに入るか（前後2件と、親の下のインデント）
+  function drawPosition() {
+    const box = $('#idex-pos'); if (!box) return;
+    const id = st.typed.trim().toLowerCase();
+    if (!id || !L.isId(id)) { box.innerHTML = '<div class="idex-pos-none">IDを入れると、ここに並ぶ位置が出ます</div>'; return; }
+    const list = notes.filter(n => n.s === 'd' && !n.noid && n !== subject).sort((a, b) => L.cmpId(a.id, b.id));
+    const has = new Set(list.map(n => n.id)), exists = has.has(id);
+    const depth = x => { let d = 0, p = L.parentIn(x, y => has.has(y) || y === id); while (p && d < 8) { d++; p = L.parentIn(p, y => has.has(y) || y === id); } return d; };
+    let at = list.findIndex(n => L.cmpId(n.id, id) >= 0); if (at < 0) at = list.length;
+    const row = (x, label, cls) => '<div class="idex-pos-row ' + cls + '" style="padding-left:' + (depth(x) * 16) + 'px"><b>' + esc(x) + '</b> <span>' + esc(limit(label, 24)) + '</span></div>';
+    const parent = L.parentIn(id, y => has.has(y));
+    const rows = [];
+    if (parent) rows.push('<div class="idex-pos-parent">🌳 親 <b>' + esc(parent) + '</b> ' + esc(limit(titleOf(notes.find(n => n.s === 'd' && n.id === parent) || {}), 24)) + '</div>');
+    list.slice(Math.max(0, at - 2), at).forEach(n => rows.push(row(n.id, titleOf(n), 'near')));
+    rows.push(row(id, exists ? '⚠️ すでに使われています' : (subject ? titleOf(subject) : '新しいノート'), exists ? 'me bad' : 'me'));
+    list.slice(exists ? at + 1 : at, (exists ? at + 1 : at) + 2).forEach(n => rows.push(row(n.id, titleOf(n), 'near')));
+    box.innerHTML = rows.join('');
+  }
   function updateStatus() {
+    drawPosition();
     const result = valid();
     setStatus(result.ok, result.text);
     $('[data-ix-confirm]').disabled = st.busy || !result.ok;
