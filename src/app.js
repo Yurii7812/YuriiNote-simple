@@ -515,7 +515,7 @@ function onOpenClick(e) {
   const dd = e.target.closest('[data-diary]'); if (dd && !e.target.closest('.cm-editor')) return openDiary(dd.dataset.diary, undefined, dd.dataset.kind || '日記');
   const row = e.target.closest('#list .item');
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
-  const gc = e.target.closest('#grp-cycle'); if (gc) { const names = ['', ...topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1)).map(t => t.name)]; groupSel = names[(names.indexOf(groupSel) + 1) % names.length]; return renderList(); }
+  const gc = e.target.closest('#grp-cycle'); if (gc) { const names = ['', ...topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1)).map(t => t.name)]; if (names.length === 1) { toast('グループIndex がまだありません。作ります'); return topicNewDialog('', true); } groupSel = names[(names.indexOf(groupSel) + 1) % names.length]; return renderList(); }
   const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic);
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
