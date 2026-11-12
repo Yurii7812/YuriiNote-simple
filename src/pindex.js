@@ -23,14 +23,14 @@ document.addEventListener('contextmenu', e => {
   const row = e.target.closest('#list .ix[data-ixk]'); if (!row || !isPending(row.dataset.ixk)) return;
   e.preventDefault();
   const kw = row.dataset.ixk;
-  popMenu(e, [['✏️ 紙のキーワードを直す', () => editEntry(kw)], ['🗑 この紙のキーワードを削除', () => delEntry(kw), true]]);
+  popMenu(e, [['✏️ 紙のキーワードを直す', () => editEntry(kw)], ['🗑️ この紙のキーワードを削除', () => delEntry(kw), true]]);
 });
 const entryIds = kw => pend.filter(e => e.kw === kw).flatMap(e => e.ids || []);
 function editEntry(kw) {
   const e0 = pend.find(e => e.kw === kw); if (!e0) return;
   const all = entryIds(kw);
   dialog(`<div class="dlg-a"><h3>✏️ 紙のIndex を直す</h3>
-    <div class="da-lab">🏷 キーワード</div><input id="pe-kw" value="${esc(kw)}" autocomplete="off">
+    <div class="da-lab">🏷️ キーワード</div><input id="pe-kw" value="${esc(kw)}" autocomplete="off">
     <div class="da-lab">🔤 よみ（ふりがな）</div><input id="pe-rd" value="${esc(e0.reading || '')}" autocomplete="off">
     <div class="da-lab">🔢 番号（空白で区切る）</div><input id="pe-ids" value="${esc(all.join(' '))}" autocomplete="off">
     <div class="da-bar"><span class="grow"></span><button id="pe-no">やめる</button><button class="p" id="pe-ok">✅ 決定</button></div></div>`, close => {

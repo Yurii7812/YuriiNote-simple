@@ -383,7 +383,7 @@ function fileDialog(name) {
       <div class="fi-pvbox"><div class="fi-lab">中身</div><div id="fi-pv">${isImg ? `<img class="fi-img" src="file://${esc(vault + '/' + name)}">` : `<div class="fi-none">${fileIcon(f.ext)}<br>読み込んでいます…</div>`}</div></div>
       <div class="fi-side"><div id="fi-use"></div><div class="fi-lab">説明（探すときに使います）</div><textarea id="fi-d" rows="3" placeholder="例: 本の表紙の画像">${esc(f.desc)}</textarea></div>
     </div>
-    <div class="fi-bar"><button id="fi-open" class="p" title="パソコンの標準のアプリで開く">📂 開く</button><button id="fi-ins" title="いま開いているノートのカーソルに、リンクを書き込む">📌 貼る</button><span class="grow"></span><button id="fi-del" class="danger" title="ごみ箱（.trash）へ移す">🗑 削除</button></div>
+    <div class="fi-bar"><button id="fi-open" class="p" title="パソコンの標準のアプリで開く">📂 開く</button><button id="fi-ins" title="いま開いているノートのカーソルに、リンクを書き込む">📌 貼る</button><span class="grow"></span><button id="fi-del" class="danger" title="ごみ箱（.trash）へ移す">🗑️ 削除</button></div>
   </div>`;
   if (!isImg) api.filePreview(name).then(p => {   // 文字のファイルは、アプリの中で中身を見られる
     const box = $('#fi-pv'); if (!box) return;
@@ -416,7 +416,7 @@ function fileDialog(name) {
   }
   $('#fi-del').onclick = async () => {
     const used = fileUsedCount(name);
-    if (!confirm(`「${f.orig}」を削除しますか？\n（ごみ箱の .trash に移ります。${used ? `⚠ ${used} 件のノート・日記・メモで使われていて、そのリンクは見つからなくなります` : 'どこからも使われていません'}）`)) return;
+    if (!confirm(`「${f.orig}」を削除しますか？\n（ごみ箱の .trash に移ります。${used ? `⚠️ ${used} 件のノート・日記・メモで使われていて、そのリンクは見つからなくなります` : 'どこからも使われていません'}）`)) return;
     const ok = await api.deleteFile(name); close();
     toast(ok ? `「${f.orig}」を削除しました（.trash に移しました）` : '削除できませんでした');
   };
@@ -849,7 +849,7 @@ function openSimilar(baseKeys, keep) {
   cur.st = cur.st || { bases: { text: true, kw: true, link: true, topic: true }, multi: 'avg' };
   drawSimilar();
 }
-const SIM_ICON = { text: '📝', kw: '🏷', link: '🔗', topic: '🗂️' };
+const SIM_ICON = { text: '📝', kw: '🏷️', link: '🔗', topic: '🗂️' };
 const SIM_MULTI = { avg: ['平均', '選んだノートの全体に似ている'], any: ['どれか', 'どれか1つにでも似ている'], all: ['全部', '全部に似ている'] };
 function drawSimilar() {
   const st = cur.st, base = cur.base.map(b => get(b.s, b.id)).filter(Boolean);
@@ -942,7 +942,7 @@ const childNotes = note => {
   return notes.filter(n => n.s === note.s && n !== note && ((!note.noid && !n.noid && L.parentIn(n.id, has) === note.id) || (n.parentStem && n.parentStem === note.stem))).sort((a, b) => note.noid || (a.noid && b.noid) ? (a.created || '').localeCompare(b.created || '') : (a.noid ? 1 : b.noid ? -1 : L.cmpId(a.id, b.id)));
 };
 // 右パネルの見出し: 絵文字・名前・件数・（あれば）右端の「＋」
-const metaLabel = (emoji, label, count = '', act = '', actTitle = '') => `<h3 class="mh"><span class="me" aria-hidden="true">${emoji}</span><span>${label}</span>${count ? `<small class="mc">${count}</small>` : ''}${act ? `<button class="mplus" data-act="${act}" title="${actTitle}">＋</button>` : ''}</h3>`;
+const metaLabel = (emoji, label, count = '', act = '', actTitle = '') => `<h3 class="mh" title="${label}"><span class="me" role="img" aria-label="${label}">${emoji}</span>${count ? `<small class="mc">${count}</small>` : ''}${act ? `<button class="mplus" data-act="${act}" title="${actTitle}">＋</button>` : ''}</h3>`;
 const childrenHtml = note => { const cs = childNotes(note); return cs.length ? `<div class="sec">${metaLabel('🌱', '子', cs.length)}${cs.map(c => `<div class="mt ch" data-s="${c.s}" data-id="${esc(c.id)}"><a class="tl" style="margin-left:0">${esc(titleOf(c) || '（無題）')}</a></div>`).join('')}</div>` : ''; };
 // 右パネルの親ノート（子と同じ書式）。IDなしは親のIDなし（parentStem）をたどる
 const parentNote = note => {
@@ -951,7 +951,7 @@ const parentNote = note => {
   return pid ? get(note.s, pid) || null : null;
 };
 const parentHtml = note => { const p = parentNote(note); return p ? `<div class="sec">${metaLabel('🌳', '親')}<div class="mt ch" data-s="${p.s}" data-id="${esc(p.id)}"><a class="tl" style="margin-left:0">${esc(titleOf(p) || '（無題）')}</a></div></div>` : ''; };
-// 右パネルの順番: 🏷 キーワード → 📑 自トピック → 🗂️ トピック → 🌳 親 → 🌱 子 → 🔗 バックリンク → 💬 チャットメモ
+// 右パネルの順番: 🏷️ キーワード → 📑 自トピック → 🗂️ トピック → 🌳 親 → 🌱 子 → 🔗 バックリンク → 💬 チャットメモ
 function renderMeta(note) {
   const el = $('#margin'); if (!el) return;
   const bundles = LC.allLinks().filter(l => l.targets.some(t => t.kind === 'note' && t.stem === note.stem && t.s === note.s));
@@ -959,7 +959,7 @@ function renderMeta(note) {
   const tops = topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[note.s].some(x => L.splitAnchor(x).id === note.id)).map(r => r.kw) })).filter(x => x.kws.length); // 自分のキーワードがあるものだけ
   const bl = backlinks(note);
   el.innerHTML =
-    `<div class="sec">${metaLabel('🏷', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwchips">${note.keywords.map(k => `<span class="chip kwc" title="${esc(readings[k] || '')}">${esc(k)}<b data-kwdel="${esc(k)}" title="外す">×</b></span>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
+    `<div class="sec">${metaLabel('🏷️', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwchips">${note.keywords.map(k => `<span class="chip kwc" title="${esc(readings[k] || '')}">${esc(k)}<b data-kwdel="${esc(k)}" title="外す">×</b></span>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
     (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(o.name)}">${esc(topicLabel(o))}</a></div>`).join('')}</div>` : '') +
     `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(x.t.name)}">${esc(topicLabel(x.t))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
     parentHtml(note) +
@@ -969,14 +969,14 @@ function renderMeta(note) {
       : `<div class="bl" data-diary="${x.d.date}"><div class="bh"><b>${x.d.date.slice(5)}（${L.weekday(x.d.date)}）</b><em>日記</em></div><p>${x.c}</p></div>`).join('')}${bundles.map(l => `<div class="mt"><a class="tl" data-link-object="${esc(l.id)}">${esc(l.title)}</a></div>`).join('')}</div>` : '') +
     '';
 }
-// 🏷 キーワードを足す窓: 入力・今までのキーワードの候補・読み（自動で入る。違っていれば直す）
+// 🏷️ キーワードを足す窓: 入力・今までのキーワードの候補・読み（自動で入る。違っていれば直す）
 function keywordDialog(note) {
   $('#modal .box').innerHTML = `<div class="dlg-a">
-    <h3>🏷 キーワードを足す</h3>
+    <h3>🏷️ キーワードを足す</h3>
     <input id="kw-in" placeholder="キーワード" autocomplete="off">
     <div class="da-lab">候補（押すと入ります）</div><div id="kw-cands" class="da-chips"></div>
     <div class="da-lab">読み（ふりがな）</div><input id="kw-yomi" placeholder="自動で入ります">
-    <div class="da-bar"><span class="grow"></span><button id="kw-no">やめる</button><button id="kw-ok" class="p">🏷 足す</button></div></div>`;
+    <div class="da-bar"><span class="grow"></span><button id="kw-no">やめる</button><button id="kw-ok" class="p">🏷️ 足す</button></div></div>`;
   $('#modal').style.display = 'flex';
   const kw = $('#kw-in'), rd = $('#kw-yomi'); kw.focus();
   const close = () => { $('#modal').style.display = 'none'; };
@@ -1058,7 +1058,7 @@ function noteMenu(btn, note) {
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
     ...(text ? [['▦ 表を入れる', () => insertTable()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
     ['🔢 IDを変更・解除…', () => idSettingsDialog(note)],
-    ['🗑 削除', () => deleteNotes([{ s, id }]), true]
+    ['🗑️ 削除', () => deleteNotes([{ s, id }]), true]
   ]);
 }
 async function copyNoteId(note) {
@@ -1136,7 +1136,7 @@ async function createNoid(kind) {
 function newIndexDialog() {
   const paper = paperOnly;
   dialog(`<div class="dlg-a"><h3>➕ ${paper ? '紙の' : 'デジタルの'}キーワードを作る</h3>
-    <div class="da-lab">🏷 キーワード</div><input id="ni-kw" autocomplete="off">
+    <div class="da-lab">🏷️ キーワード</div><input id="ni-kw" autocomplete="off">
     <div class="da-lab">🔤 よみ（自動）</div><input id="ni-rd" autocomplete="off">
     <div class="da-lab">🔢 ID（空白で区切る。例: 12 12a）${paper ? '。まだ取り込んでいない紙のIDでもよい' : '。今あるデジタルのノートのID'}</div><input id="ni-ids" autocomplete="off">
     <div class="da-bar"><span class="grow"></span><button id="ni-no">やめる</button><button class="p" id="ni-ok">➕ 作る</button></div></div>`, close => {
@@ -1188,7 +1188,7 @@ function topicAddDialog(note) {
     <div class="da-bar"><input id="ta-q" placeholder="🔎 索引を探す" style="flex:1;min-width:0">${entry ? '' : '<button id="ta-new" title="トピックインデックスを追加" aria-label="トピックインデックスを追加" aria-expanded="false">＋</button>'}</div>
     ${entry ? '' : '<div id="ta-create" hidden><div class="da-lab">新しいトピックインデックスの名前</div><div class="da-bar"><input id="ta-name" placeholder="名前（例: GUI）" style="flex:1;min-width:0"><button id="ta-create-cancel">やめる</button><button id="ta-create-ok" class="p">追加</button></div><div id="ta-create-error" role="alert"></div></div>'}
     <div id="ta-list" class="ta-list"></div>
-    <div class="da-lab">🏷 キーワード（索引の中の行の名前）</div>
+    <div class="da-lab">🏷️ キーワード（索引の中の行の名前）</div>
     <input id="ta-kw" list="ta-kws" placeholder="例: 英雄伝"><datalist id="ta-kws"></datalist>
     <div class="da-bar"><span class="grow"></span><button id="ta-cancel">やめる</button><button id="ta-ok" class="p">🗂️ 入れる</button></div></div>`;
   $('#modal').style.display = 'flex';
@@ -1270,7 +1270,7 @@ function topicNewDialog(kw = '', grp = false) {
   $('#modal .box').innerHTML = `<div class="dlg-a">
     <h3>➕ 索引を作る</h3>
     <label class="rad"><input type="checkbox" id="tn-grp"> グループIndex にする（0番に所属。0-1、0-2 … になります）</label>
-    <div class="da-lab">🏷 キーワード（任意）。同じキーワードのIDが2つ以上あるとき、それらをまとめます</div>
+    <div class="da-lab">🏷️ キーワード（任意）。同じキーワードのIDが2つ以上あるとき、それらをまとめます</div>
     <input id="tn-kw" list="tn-kws" value="${esc(kw)}" placeholder="例: GUI"><datalist id="tn-kws">${globalIndex().filter(([, v]) => v.d.length + v.p.length >= 2).map(([k]) => `<option value="${esc(k)}">`).join('')}</datalist>
     <div class="da-lab">🌳 親のノート。無いIDなら、新しいノートを作ります</div>
     <div class="row"><select id="tn-s"><option value="d">デジタル</option><option value="p">紙</option></select><input id="tn-id" style="width:100px"><span id="tn-note" class="sub"></span></div>
@@ -1398,7 +1398,7 @@ function openTopic(name, tmode = 'view', keep) {
       <div class="tc-row"><span class="tc-l">🌳 親</span><select id="t-s"><option value="d"${e && e.s === 'd' ? ' selected' : ''}>デジタル</option><option value="p"${e && e.s === 'p' ? ' selected' : ''}>紙</option></select>
         <input id="t-id" value="${e ? esc(e.id) : ''}" style="width:110px" placeholder="番号"><span class="sub">この索引の親になるノートの番号</span></div>
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
-        <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑 この索引を削除</button></div></div>`;
+        <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
   else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
       ${marks.map(x => `<tr class="tmark"><td colspan="2">◯ ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
   // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
@@ -1477,7 +1477,7 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙</span>';
+  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙️</span>';
   return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 $('#list').addEventListener('click', e => {
@@ -1535,7 +1535,7 @@ async function openDiary(date, keep, kind) {
       <button data-act="attach" title="ファイルを添付（ドラッグや貼り付けでも）">📎 添付</button>
       <button data-act="ddel" class="danger">削除</button>
     </div>
-    ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}<span class="sub">この日だけの上位（いくつでも）。なしなら日記の下。これから作る日の初期値は、記録の種類（＋ ⚙）で決めます</span></div>` : ''}
+    ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}<span class="sub">この日だけの上位（いくつでも）。なしなら日記の下。これから作る日の初期値は、記録の種類（＋ ⚙️）で決めます</span></div>` : ''}
     ${lower ? `<div class="row"><span class="sub">DailyNotes</span>${lower}</div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
@@ -1702,7 +1702,7 @@ const saveSettings = () => { applySettings(); api.saveDoc('K_settings', settings
 function loadSettings(st) { settings = { ...DEFAULT_SETTINGS, ...((st.docs || {})['K_settings'] || {}) }; applySettings(); }
 function settingsDialog() {
   const sw = settings;
-  dialog(`<div class="sdlg"><h3>⚙ 設定</h3>
+  dialog(`<div class="sdlg"><h3>⚙️ 設定</h3>
     <div class="sec"><b>言語・保存先</b>
       <div class="srow"><span>言語</span><select id="s-lang"><option value="en"${sw.lang === 'en' ? ' selected' : ''}>English</option><option value="ja"${sw.lang === 'ja' ? ' selected' : ''}>日本語</option></select></div>
       <div class="srow"><span>保存先（vault）</span><code style="flex:1;word-break:break-all">${esc(vault)}</code><button id="s-vault">変える…</button></div>
@@ -1838,19 +1838,19 @@ document.addEventListener('contextmenu', e => {
     if (!picked.has(key)) { picked.add(key); lastPick = key; renderList(); }
     const sel = [...picked].map(k => get(k[0], k.slice(2))).filter(Boolean), c = sel.length;
     return popMenu(e, [
-      [`🗑 ${c}件を削除`, () => deleteNotes(sel.map(x => ({ s: x.s, id: x.id }))), true],
+      [`🗑️ ${c}件を削除`, () => deleteNotes(sel.map(x => ({ s: x.s, id: x.id }))), true],
       [`🔍 ${c}件から類似検索`, () => openSimilar(sel.map(x => ({ s: x.s, id: x.id })))],
       [`📋 ${c}件をコピー`, () => copyNotes(sel)],
       [`📤 ${c}件をエクスポート`, () => exportDialog([...picked])],
-      ['✖ 複数選択をやめる', () => endSelection()]
+      ['✖️ 複数選択をやめる', () => endSelection()]
     ]);
   }
   popMenu(e, [
     ['📂 開く', () => openNote(n.s, n.id)],
     ['🔍 類似検索', () => openSimilar([{ s: n.s, id: n.id }])],
-    ['☑ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
+    ['☑️ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
     ['📋 コピー', () => copyNotes([n])],
-    ['🗑 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
+    ['🗑️ 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
   ]);
 });
 async function deleteNotes(items) {
