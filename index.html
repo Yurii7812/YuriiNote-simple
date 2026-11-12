@@ -225,6 +225,7 @@ i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacit
 .ed .cm-content{padding:6px 2px 45vh}
 /* リンクは、よくある水色。:ID だけ赤 */
 .lk{color:var(--link);text-decoration:underline;text-decoration-color:rgba(47,155,224,.4);text-underline-offset:3px;cursor:pointer}
+.lk.selfref{color:inherit;text-decoration-style:dotted;text-decoration-color:rgba(120,125,140,.55)}
 .lk.ref{color:var(--red);text-decoration-color:#e8b4ae}
 .mk{color:var(--red)}
 .lk.miss{color:#999;text-decoration-style:dotted}
@@ -549,7 +550,7 @@ body{-webkit-user-select:none;user-select:none}
 </head>
 <body>
 <main>
-  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="settings-btn" title="設定">⚙️</button></nav>
+  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="settings-btn" title="設定">⚙️</button></nav>
   <aside>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>

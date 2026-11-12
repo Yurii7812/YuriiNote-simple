@@ -1,5 +1,5 @@
 import { EditorView, Decoration, ViewPlugin, WidgetType, keymap, placeholder } from '@codemirror/view';
-import { EditorState, RangeSetBuilder, StateField } from '@codemirror/state';
+import { EditorState, RangeSetBuilder, StateField, Prec } from '@codemirror/state';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import L from '../lib.js';
 import LinkCore from '../link-core.js';
@@ -150,7 +150,7 @@ function links(mode, space) {
           const nt = /^\s*-\s+:[0-9a-z]+\s*$/.test(line) && get(d.s, d.id);
           if (nt) { rs.push(Decoration.replace({ widget: new TitleWidget(titleOf(nt), d) }).range(f, t)); continue; }
         }
-        rs.push(Decoration.mark({ class: 'lk' + (cls ? ' ' + cls : '') + (d && d.t === 'ref' ? ' ref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(d) } }).range(f, t));
+        rs.push(Decoration.mark({ class: 'lk' + (cls ? ' ' + cls : '') + (d && d.t === 'ref' ? ' ref' : '') + (d && d.t === 'self' ? ' selfref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(d) } }).range(f, t));
         if (cls === 'file' && !(sel.from <= t && sel.to >= f)) {
           const open = text[f] === '!' ? 2 : 1, close = text.lastIndexOf('](', t);
           if (close === f + open) { // ![](ファイル名): 説明文が空なので、ファイル名を見せる
@@ -273,11 +273,30 @@ function syncEditors() {
     }
   }
 }
-function editor(parent, doc, mode, space, onChange, ph, read) {
+// ===== 時刻の記録と、新しい (n) =====
+// 日記・メモ帳: Ctrl+Enter（または Ctrl+;）で、いまの時刻（例: 09:15）の行を、書いた文章の最後（「今日のノート」の手前）に足して、その下から書く
+function insertStamp(view) {
+  if (!view) return false;
+  const doc = view.state.doc.toString(), now = new Date(), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const mk = ['## 今日のノート', '## 紙の日記'].map(h => doc.split('\n').findIndex(l => l.trim() === h)).filter(i => i >= 0).sort((a, b) => a - b)[0];
+  let at = doc.length; if (mk !== undefined) at = doc.split('\n').slice(0, mk).join('\n').length + (mk > 0 ? 1 : 0);
+  const head = doc.slice(0, at).replace(/\s+$/, ''), tailStart = head.length, rest = doc.slice(at);
+  const ins = (head ? '\n\n' : '') + hhmm + '\n', end = tailStart + ins.length, gap = rest && !/^\n/.test(rest) ? '\n\n' : (rest ? '' : '');
+  view.dispatch({ changes: { from: tailStart, to: at, insert: ins + gap }, selection: { anchor: end }, effects: EditorView.scrollIntoView(end, { y: 'center' }) });
+  view.focus(); return true;
+}
+// Alt+N: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
+function insertNextAnchor(view) {
+  if (!view) return false;
+  const nums = L.tokens(view.state.doc.toString()).filter(t => t.k === 'self' && t.bare).map(t => +t.n);
+  const text = `(${(nums.length ? Math.max(...nums) : 0) + 1})`, at = view.state.selection.main.head;
+  view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } }); view.focus(); return true;
+}
+function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
     parent, state: EditorState.create({
-      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-Enter', run: v => insertStamp(v) }, { key: 'Mod-;', run: v => insertStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -536,7 +555,14 @@ function onOpenClick(e) {
 }
 document.addEventListener('click', onOpenClick);
 $('#paperonly').onclick = () => { paperOnly = !paperOnly; savePrefs(); toast(paperOnly ? '紙だけ表示' : 'すべて表示'); if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode, true); else renderList(); };
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+// 🗒️ メモ帳: 日記と同じ、1日ごとの記録。ボタンを押すと、今日のメモ帳がすぐ開く
+async function openMemoPad() {
+  const NAME = 'メモ帳';
+  if (!records.some(r => r.name === NAME)) { const r = await api.recordOp('addRecord', NAME); if (r) records = r; }
+  setKind(NAME); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, NAME);
+  setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
+}
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'memopad') return openMemoPad(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
@@ -1555,11 +1581,11 @@ async function openDiary(date, keep, kind) {
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
-    ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}<span class="sub">この日だけの上位（いくつでも）。なしなら日記の下。これから作る日の初期値は、記録の種類（＋ ⚙️）で決めます</span></div>` : ''}
+    ${kind !== '日記' && kind !== 'メモ帳' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}</div>` : ''}
     ${lower ? `<div class="row"><span class="sub">DailyNotes</span>${lower}</div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
-    kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body);
+    kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
   $('#d-title').oninput = e => { d.title = e.target.value; saveDiary(d); renderList(); };
   document.querySelectorAll('[data-dpar]').forEach(c => c.onclick = async () => { const cur0 = d.parents || (d.parent ? [d.parent] : []), u = c.dataset.dpar, next = cur0.includes(u) ? cur0.filter(x => x !== u) : [...cur0, u]; await flush(); const r = await api.recordOp('setDayParent', kind, date, next); if (r) { upsertDiary(r); const st = await api.state(); applyState(st); openDiary(date, true, kind); } else alert('その上位にはできません（輪になります）'); });
   renderTabs(); renderList();
