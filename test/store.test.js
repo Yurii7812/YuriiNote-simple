@@ -136,16 +136,16 @@ test('日記: ノートを作ると作った日の日記に載り、紙の日記
   v.saveNote({ s: 'd', id: '2', created: '2026-11-08 02:10', keywords: [], body: 'y' }); // 5時前 → 前の日
   v.saveNote({ s: 'd', id: '3', created: '2026-11-09 10:00', keywords: [], body: 'z' });
   assert.deepStrictEqual(v.state().diaries.map(d => d.date).sort(), ['2026-11-07', '2026-11-09']);
-  assert.strictEqual(v.state().diaries.find(d => d.date === '2026-11-07').body, '## 今日のノート\n\n:1\n:2');
+  assert.match(v.state().diaries.find(d => d.date === '2026-11-07').body, /^## 今日のノート\n\n\[x\]\(\d{14}\.md\)\n\[y\]\(\d{14}\.md\)$/);   // [題](ファイル名.md)
   // 過去の日記を開くと、その日のノートが足される。タイトルも付けられる
-  v.saveDiary({ date: '2026-11-07', title: '旅の話', body: '朝は晴れ\n\n## 今日のノート\n\n:1\n:2' });
+  v.saveDiary({ date: '2026-11-07', title: '旅の話', body: '朝は晴れ\n\n## 今日のノート\n\n:1\n:2' });   // 昔の「:ID」の行は、リンクに直る
   assert.ok(fs.existsSync(path.join(dir, dfile(v, '2026-11-07'))) && /title: "旅の話"/.test(r(dfile(v, '2026-11-07'))) && /record: "日記"/.test(r(dfile(v, '2026-11-07'))));   // 日時の名前＋YAML
   // 紙の日記（スキャン）: 日記の最後に入る。2枚目は _2
   v.addDiaryScan('2026-11-07', Buffer.from([0xff, 0xd8]));
   const d = v.addDiaryScan('2026-11-07', Buffer.from([0xff, 0xd8, 1]));
   assert.deepStrictEqual(d.pages, ['P_2026-11-07.jpg', 'P_2026-11-07_2.jpg']);
   assert.match(d.body, /## 今日のノート[\s\S]*## 紙の日記\n\n!\[\]\(P_2026-11-07\.jpg\)\n!\[\]\(P_2026-11-07_2\.jpg\)$/);
-  assert.match(r(dfile(v, '2026-11-07')), /\[:1\]/);
+  assert.match(r(dfile(v, '2026-11-07')), /\[x\]\(\d{14}\.md\)/);
   assert.match(r(dfile(v, '2026-11-07')), /!\[\]\(P_2026-11-07\.jpg\)/);
   assert.ok(r('日記.md').includes(`[2026-11-09（月）](${dfile(v, '2026-11-09')})`) && r('日記.md').includes(`[2026-11-07（土） 旅の話](${dfile(v, '2026-11-07')})`) && /## 2026-11/.test(r('日記.md')));
   // 読み直し（タイトルと本文と紙のページ）
@@ -177,16 +177,16 @@ test('IDなしのノート・なりきり・キャンバスもノート。ID は
   assert.match(r('未整理.md'), new RegExp(a.id));   // IDなしは「未整理」に出る（キーワードの表には出ない）
   assert.doesNotMatch(r('キーワード.md'), new RegExp(a.id));
   assert.match(r('未整理.md'), /とりあえず書いた/);
-  assert.match(r(dfile(v, '2026-11-07')), /\[未整理 11:00\]\(\d{14}\.md\)/);   // 日記には日時のリンク
+  assert.match(r(dfile(v, '2026-11-07')), /\[(未整理 11:00|とりあえず書いた[^\]]*)\]\(\d{14}\.md\)/);   // 日記には題（無ければ日時）のリンク
   // 読み直し: 種類・データ・IDなしのまま
   v = openVault(dir); const st = v.state(), rp2 = st.notes.find(n => n.id === rp.id);
   assert.strictEqual(rp2.kind, 'rp'); assert.strictEqual(rp2.data.messages[0].text, '学ぶとは'); assert.ok(rp2.noid);
-  // ID を付ける（ファイル名が変わり、日記のリンクは :ID になる。種類とデータは残る）
+  // ID を付ける（ファイル名は日時のまま。日記のリンクは、ファイル名なので変わらない。種類とデータは残る）
   const b = v.rename('d', rp.id, '2');
   assert.ok(b && b.id === '2' && !b.noid && b.kind === 'rp' && b.data.title === '論語');
   assert.ok(fs.existsSync(path.join(dir, `${rp.id}.md`)) && /folgezettel: "2"/.test(r(`${rp.id}.md`)));   // ファイル名は日時のまま
-  assert.ok(r(dfile(v, '2026-11-07')).includes(`[:2](${rp.id}.md)`));   // 日記のリンクは :2 になる（ファイル上はリンク表記）
-  assert.ok(v.state().diaries[0].body.includes(':2'));
+  assert.ok(r(dfile(v, '2026-11-07')).includes(`](${rp.id}.md)`));   // 日記のリンクは、ファイル名なので、ID を付けても同じ
+  assert.ok(v.state().diaries[0].body.includes(`](${rp.id}.md)`));
   assert.match(r('Index.md'), /./);
   assert.ok(!v.rename('d', a.id, 'abc'));   // ID の形でないものは付けられない
   // ほかのノートのファイルへのリンクは、ID を付けても動かない（ファイル名が日時で変わらないため）
@@ -243,7 +243,7 @@ test('IDを消してIDなしに。このノートを指すリンクは、ファ�
   assert.strictEqual(b2, `参照 [PKMとは](${n.id}.md) と [PKMとは](${n.id}.md) と、:1a`); // :1a は別のノートなのでそのまま
   assert.ok(st.notes.find(x => x.id === '1a'));                                                   // 子はそのまま
   assert.strictEqual(st.topics[0].entry, null); assert.strictEqual(st.topics[0].text, '基本 1a');      // 入口なし・索引の行から外れる
-  assert.ok(st.diaries[0].body.includes(`[PKMとは](${n.id}.md)`) && st.diaries[0].body.includes(':1a')); // 日記のリンクも直る
+  assert.ok(st.diaries[0].body.includes(`](${n.id}.md)`)); // 日記のリンクは、ファイル名なので、そのまま
   assert.ok(!v.clearId('d', n.id));                                                                // すでにIDなしなら何もしない
   fs.rmSync(dir, { recursive: true });
 });
@@ -279,12 +279,12 @@ test('日記の「今日のノート」から、消したノート・空のノ�
   v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12', keywords: [], body: 'あ' });
   v.saveNote({ s: 'd', id: '2', created: '2026-10-10 11:13', keywords: [], body: '' });   // 空: 載せない
   let d = v.diaryState().find(x => x.date === '2026-10-10');
-  assert.match(d.body, /:1/); assert.doesNotMatch(d.body, /:2/);
+  assert.match(d.body, /\[あ\]\(\d{14}\.md\)/); assert.doesNotMatch(d.body, /\[い\]/);
   v.saveNote({ s: 'd', id: '2', created: '2026-10-10 11:13', keywords: [], body: 'い' }); // 書いたら載る
-  assert.match(v.diaryState().find(x => x.date === '2026-10-10').body, /:2/);
+  assert.match(v.diaryState().find(x => x.date === '2026-10-10').body, /\[い\]\(\d{14}\.md\)/);
   v.deleteNotes([{ s: 'd', id: '1' }]);                                                    // 消したら外れる
   d = v.diaryState().find(x => x.date === '2026-10-10');
-  assert.doesNotMatch(d.body, /:1\b/); assert.match(d.body, /:2/);
+  assert.doesNotMatch(d.body, /\[あ\]/); assert.match(d.body, /\[い\]/);
 });
 
 test('トピックIndexの + は星、^ は上位トピック、* は ◯', () => {
@@ -368,7 +368,7 @@ test('日記の「今日のノート」: 無いノート（IDなしの日時の�
   assert.match(v.diaryState().find(x => x.date === '2026-10-10').body, new RegExp(n.id + '\\.md'));
   v.deleteNotes([{ s: 'd', id: n.id }]);
   const d = openVault(dir).diaryState().find(x => x.date === '2026-10-10');
-  assert.doesNotMatch(d.body, new RegExp(n.id)); assert.match(d.body, /:1/);
+  assert.doesNotMatch(d.body, new RegExp(n.id)); assert.match(d.body, /\[あ\]/);
   // ファイルを直接消されたとき（同期で消えたとき）も、開き直すと外れる
   const m = v.createNote({ created: '2026-10-10 11:14:00', body: 'もう1つ' });
   fs.rmSync(path.join(dir, m.id + '.md'));
@@ -464,7 +464,7 @@ test('日のノート: 同じ時刻でも別々の行。時刻が違っても空
   v.saveDiary({ date: '2026-11-08', body: '09:00 朝の記録\n\n## 今日のノート\n\n:1' });
   v.appendToDay('日記', '2026-11-08', '10:30 午前の記録');
   v.appendToDay('日記', '2026-11-08', '10:30 午前の追加');
-  assert.strictEqual(v.openDiary('2026-11-08').body.trim(), '09:00 朝の記録\n10:30 午前の記録\n10:30 午前の追加\n\n## 今日のノート\n\n:1');
+  assert.strictEqual(v.openDiary('2026-11-08').body.trim(), '09:00 朝の記録\n10:30 午前の記録\n10:30 午前の追加\n\n## 今日のノート\n\n[今日のノート](' + v.state().notes.find(n => n.id === '1').stem + '.md)');
 });
 
 test('IDなしの分岐: 親にIDが付いた時に、子（と孫）のIDも順に決まる', () => {
