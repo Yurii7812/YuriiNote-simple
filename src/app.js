@@ -452,7 +452,7 @@ function renderList() {
     }
     if (ti.length) out.push('<h4>索引</h4>', ...ti.sort((a, b) => a[0] - b[0]).map(x => x[1]));
     const hit = sortNotes(notes.filter(n => isVisS(n.s) && [n.id, n.title || '', n.body, n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
-    if (hit.length) out.push('<h4>ノート</h4>', sortBar(false), ...hit.map(n => noteRow(n, true, q)));
+    if (hit.length) out.push('<h4>ノート</h4>', ...hit.map(n => noteRow(n, true, q)));
     const fh = filesCache.filter(f => [f.title, f.desc, f.orig, f.name].join('\n').toLowerCase().includes(q));
     if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, q)));
     const dh = diaries.filter(d => [d.date, d.title, d.body].join('\n').toLowerCase().includes(q)).sort((a, b) => b.date.localeCompare(a.date));
@@ -485,7 +485,6 @@ function renderList() {
     }
   } else {
     const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
-    out.push(sortBar(false));
     const byFz = sortBy === 'fz' && tab !== 'u';
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
     for (const n of list) {
@@ -1403,7 +1402,7 @@ function diaryList() {
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
   const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙</span>';
-  return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${sortBar(true)}${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
+  return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 $('#list').addEventListener('click', e => {
   if (e.target.id === 'd-today') openDiary(L.todayStr());
@@ -1598,6 +1597,10 @@ function loaded(st) {
 $('#more').onclick = () => {   // 「⋯」: USB での取り込みと、設定だけ。ほかは、全部、設定に
   const r = $('#more').getBoundingClientRect();
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
+    [`${sortBy === 'fz' ? '✔ ' : ''}並び: 番号順`, () => { sortBy = 'fz'; savePrefs(); renderList(); }],
+    [`${sortBy === 'created' ? '✔ ' : ''}並び: 作成順`, () => { sortBy = 'created'; savePrefs(); renderList(); }],
+    [`${sortBy === 'updated' ? '✔ ' : ''}並び: 更新順`, () => { sortBy = 'updated'; savePrefs(); renderList(); }],
+    [sortDir === 'asc' ? '↑ 昇順（押すと降順）' : '↓ 降順（押すと昇順）', () => { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; diarySortDir = sortDir; savePrefs(); renderList(); }],
     ['📱 スマホのメモを取り込む…（USB）', phoneImport],
     ['⚙️ 設定…', settingsDialog]
   ]);
@@ -1727,12 +1730,12 @@ function renderSelbar() {
   bar.innerHTML = selMode
     ? `<div class="sel-head"><span>${picked.size}件を選択</span><button id="sel-end" title="複数選択を終了（Esc）">やめる <small>Esc</small></button></div>
       <div class="sel-actions"><button id="sel-all">全部</button><button id="sel-link" ${picked.size ? '' : 'disabled'}>リンクを作成</button><button id="sel-copy" ${picked.size ? '' : 'disabled'} title="選んだノートのタイトルと本文をコピー">コピー</button><button id="sel-exp" ${picked.size ? '' : 'disabled'} title="選んだノートを、1つの Markdown にまとめる（保存はしない。確認してコピー）">📤 エクスポート</button><button id="sel-del" class="danger" ${picked.size ? '' : 'disabled'}>削除</button></div>`
-    : '<button id="sel-start" title="複数のノートを選んで、まとめて削除します">☑ 選択</button>';
-  bar.style.display = !selMode && (tab === 'i' || tab === 'f' || mode !== 'notes') && !$('#q').value ? 'none' : 'flex';
+    : '';   // 複数選択は、ノートを右クリックして始める
+  bar.style.display = selMode ? 'flex' : 'none';
 }
 function endSelection() { selMode = false; picked.clear(); lastPick = null; renderList(); }
-async function copySelection() {
-  const selected = [...picked].map(k => get(k[0], k.slice(2))).filter(Boolean);
+async function copySelection() { return copyNotes([...picked].map(k => get(k[0], k.slice(2))).filter(Boolean)); }
+async function copyNotes(selected) {
   if (!selected.length) return;
   selected.sort((a, b) => a.s.localeCompare(b.s) || L.cmpId(a.id, b.id));
   const text = L.exportMd(selected.map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid })));
@@ -1747,13 +1750,35 @@ document.addEventListener('keydown', e => {
 $('#selbar').addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button || button.disabled) return;
   const id = button.id;
-  if (id === 'sel-start') { selMode = true; picked.clear(); lastPick = null; renderList(); }
   if (id === 'sel-end') endSelection();
   if (id === 'sel-all') { visibleRows().forEach(r => picked.add(r.dataset.s + ':' + r.dataset.id)); renderList(); }
   if (id === 'sel-copy') copySelection();
   if (id === 'sel-link') LC.edit([...picked].map(k => get(k[0], k.slice(2))).filter(Boolean).map(n => LC.targetNote(n)));
   if (id === 'sel-exp') exportDialog([...picked]);
   if (id === 'sel-del') deleteNotes([...picked].map(k => ({ s: k[0], id: k.slice(2) })));
+});
+// ノートを右クリック: 開く・コピー・削除・複数選択（選択中は、選んだノートまとめて）
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest('#list .note[data-s][data-id]'); if (!row) return;
+  e.preventDefault();
+  const key = row.dataset.s + ':' + row.dataset.id, n = get(row.dataset.s, row.dataset.id); if (!n) return;
+  if (selMode) {
+    if (!picked.has(key)) { picked.add(key); lastPick = key; renderList(); }
+    const sel = [...picked].map(k => get(k[0], k.slice(2))).filter(Boolean), c = sel.length;
+    return popMenu(e, [
+      [`🗑 ${c}件を削除`, () => deleteNotes(sel.map(x => ({ s: x.s, id: x.id }))), true],
+      [`📋 ${c}件をコピー`, () => copyNotes(sel)],
+      [`🔗 ${c}件でリンクを作成`, () => LC.edit(sel.map(x => LC.targetNote(x)))],
+      [`📤 ${c}件をエクスポート`, () => exportDialog([...picked])],
+      ['✖ 複数選択をやめる', () => endSelection()]
+    ]);
+  }
+  popMenu(e, [
+    ['📂 開く', () => openNote(n.s, n.id)],
+    ['☑ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
+    ['📋 コピー', () => copyNotes([n])],
+    ['🗑 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
+  ]);
 });
 async function deleteNotes(items) {
   items = items.filter(x => get(x.s, x.id));

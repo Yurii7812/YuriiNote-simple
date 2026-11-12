@@ -139,27 +139,28 @@ test('renderer: ID copies on click; changing and clearing require the note menu 
 test('renderer: bulk selection buttons copy, cancel, wrap and exclude topic rows; Esc exits without clearing search', async () => {
   const f = fixture(); f.store.saveTopic({ name: '索引', entry: { s: 'd', id: '1' }, text: '項目 1 2' });
   const c = await client(f.store), $ = selector => c.w.document.querySelector(selector);
+  const startSel = () => { const row = $('#list .note[data-id]'); row.dispatchEvent(new c.w.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 })); [...c.w.document.querySelectorAll('.popmenu div')].find(d => d.textContent.includes('複数選択')).click(); };   // 複数選択は、ノートの右クリックで始める
   const escape = target => target.dispatchEvent(new c.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   try {
-    c.open('1'); c.click('#sel-start');
-    assert.equal($('#sel-copy').disabled, true);
-    c.click('#list .topicrow'); assert.match($('.sel-head').textContent, /0件/);
+    c.open('1'); startSel();
+    assert.match($('.sel-head').textContent, /1件/);
+    c.click('#list .topicrow'); assert.match($('.sel-head').textContent, /1件/);   // 索引の行は選べない
     c.click('#sel-all'); assert.equal(c.w.document.querySelectorAll('#list .ck:checked').length, 2);
     assert.match($('.sel-head').textContent, /2件/);
     assert.equal(c.w.getComputedStyle($('.sel-actions')).flexWrap, 'wrap');
     assert.equal(c.w.getComputedStyle($('#selbar')).flexDirection, 'column');
     c.click('#sel-copy'); await tick();
     assert.match(c.flags.clipboard.at(-1), /最初の文章/); assert.match(c.flags.clipboard.at(-1), /別のノート/);
-    c.click('#sel-end small'); assert.ok($('#sel-start')); assert.equal($('#list .ck'), null);
-    c.click('#sel-start'); c.click('#sel-all'); c.click('#sel-exp');
+    c.click('#sel-end small'); assert.equal($('#selbar').style.display, 'none'); assert.equal($('#list .ck'), null);
+    startSel(); c.click('#sel-all'); c.click('#sel-exp');
     assert.equal($('#modal').style.display, 'flex');
     escape($('#modal')); assert.equal($('#modal').style.display, 'none'); assert.ok($('#sel-end'));
     $('#q').value = '残す検索語'; escape($('#q'));
-    assert.ok($('#sel-start')); assert.equal($('#q').value, '残す検索語');
+    assert.equal($('#selbar').style.display, 'none'); assert.equal($('#q').value, '残す検索語');
     $('#q').value = ''; $('#q').dispatchEvent(new c.w.Event('input', { bubbles: true }));
-    c.click('#sel-start'); c.open('1');
+    startSel(); c.open('1');
     c.w.document.body.dispatchEvent(new c.w.KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true }));
-    assert.ok($('#sel-end')); escape(c.w.document.body); assert.ok($('#sel-start'));
+    assert.ok($('#sel-end')); escape(c.w.document.body); assert.equal($('#selbar').style.display, 'none');
     await c.callbacks.onFlush(); assert.deepEqual(c.errors, []);
   } finally { c.close(); f.cleanup(); }
 });
