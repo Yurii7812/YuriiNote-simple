@@ -1,6 +1,5 @@
 // 紙のIndex の追加・直す・削除。上の Index タブ（🔖）の中で使う
 //  ・キーワード・よみ・ID を書いて足す。ID はまだ取り込んでいない紙のものでもよい（取り込まれたら本 Index に自動でマージ）
-//  ・フィルター「紙のキーワードだけ」で、紙のものだけを表示できる
 import { ctx, $, esc, dialog, popMenu } from './shared.js';
 import L from '../lib.js';
 
@@ -13,12 +12,12 @@ export const apply = st => { pend = (st.docs && st.docs['K_paperindex'] && st.do
 export const isPending = kw => pend.some(e => e.kw === kw);
 
 // Index タブの上に出す、追加の欄とフィルター
-export function form(filter) {
+export function form() {
   return `<div id="pi"><div class="pi-form">
       <input id="pi-kw" placeholder="紙のキーワード" autocomplete="off"><input id="pi-rd" placeholder="よみ（自動）" autocomplete="off">
       <input id="pi-ids" placeholder="ID　例: 12 12a" autocomplete="off"><button class="p" id="pi-add">追加</button>
     </div>
-    <div class="pi-find"><select id="ix-filter"><option value="all"${filter === 'all' ? ' selected' : ''}>すべてのキーワード</option><option value="paper"${filter === 'paper' ? ' selected' : ''}>紙のキーワードだけ</option></select></div></div>`;
+  </div>`;
 }
 async function add() {
   const kw = $('#pi-kw').value.trim(), ids = $('#pi-ids').value.split(/[\s,、，]+/).map(x => x.trim().toLowerCase()).filter(Boolean);

@@ -41,7 +41,6 @@ const kwTopic = k => topics.find(t => t.keyword === k);
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
 let paperOnly = !!prefs.paperOnly;   // 全体を紙だけにする（ノート・Index・トピックIndex）
 const isVisS = sp => !paperOnly || sp === 'p';
-let ixFilter = 'all';   // Index タブのフィルター（all | paper）
 let groupSel = '';   // 0 Index で選んでいるグループIndex の名前（'' = 全体）
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
@@ -60,7 +59,7 @@ async function ensureKeyword(sp, id, kw) {
 }
 
 // ID の横の 📑: そのIDのトピック Index を開く。複数あるときは一覧から選ぶ
-document.addEventListener('change', e => { if (e.target.id === 'ix-filter') { ixFilter = e.target.value; renderList(); } });
+document.addEventListener('click', e => { if (e.target.closest('#grp-new')) topicNewDialog('', true); });
 document.addEventListener('click', e => {
   const x = e.target.closest('.tix'); if (!x) return;
   e.preventDefault(); e.stopPropagation();
@@ -466,33 +465,26 @@ function renderList() {
     out.push(`<div class="sortbar"><select id="ff-sel"><option value="all"${fileFilter === 'all' ? ' selected' : ''}>すべて（${filesCache.length}）</option><option value="untitled"${fileFilter === 'untitled' ? ' selected' : ''}>タイトルなし（${filesCache.filter(f => !f.title).length}）</option></select><span class="grow"></span><button class="mini" id="ff-add" title="ファイルを取り込む">＋ 取り込む</button></div>`);
     out.push(...fl.map(f => fileRow(f)));   // map にそのまま渡すと、行の番号が検索語の欄に入って落ちる
     if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
-  } else if (tab === '0') {
-    // 0 Index: 全体（親ID 1, 2… のトピックIndex）と、グループIndex（0-1, 0-2 …）を切り替える
+  } else if (tab === 'i') {
+    // Index: グローバルIndex（キーワードの一覧）と、グループIndex（0-1, 0-2 …）をボタンで切り替える
     const groups = topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1));
     if (groupSel && !groups.some(g => g.name === groupSel)) groupSel = '';
-    out.push(`<div class="grpbar"><span class="chip g${groupSel ? '' : ' on'}" data-grp="">全体</span>${groups.map(g => `<span class="chip g${groupSel === g.name ? ' on' : ''}" data-grp="${esc(g.name)}">${esc(topicLabel(g))}</span>`).join('')}</div>`);
+    out.push(`<div class="grpbar"><span class="chip g${groupSel ? '' : ' on'}" data-grp="">グローバル</span>${groups.map(g => `<span class="chip g${groupSel === g.name ? ' on' : ''}" data-grp="${esc(g.name)}">${esc(topicLabel(g))}</span>`).join('')}<span class="chip g" id="grp-new" title="グループIndex を作る">＋</span></div>`);
     const g = groups.find(x => x.name === groupSel);
     if (g) {
-      out.push(`<h4>${esc(topicLabel(g))}</h4>`);
       const m = L.mergeTopic(g);
-      out.push(...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`));
-      out.push(topicRow(g, false));
+      out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
       if (!m.rows.length) out.push('<div class="none">まだ空です。「編集」で、キーワードとIDを書きます</div>');
     } else {
-      const roots = topics.filter(topicVisible).filter(t => t.entry && /^[1-9]\d*$/.test(t.entry.id) && ['d', 'p'].includes(t.entry.s) && !get(t.entry.s, t.entry.id)?.noid)
-        .sort((a, b) => L.cmpId(a.entry.id, b.entry.id) || a.entry.s.localeCompare(b.entry.s) || (a.num || 1) - (b.num || 1));
-      out.push('<h4>0 Index</h4>', ...roots.map(t => topicRow(t, true)));
-      if (!roots.length) out.push('<div class="none">親ID（1、2…）のトピックIndexが、ここに並びます</div>');
+      out.push(PI.form());
+      let row = null;
+      for (const e of globalIndex()) {
+        const r = L.kanaRow(readingOf(e[0]));
+        if (r !== row) { out.push(`<h4>${r}</h4>`); row = r; }
+        out.push(ixRow(e));
+      }
+      if (out.length === 2) out.push('<div class="none">ノートにキーワードを書くと、ここに並びます</div>');
     }
-  } else if (tab === 'i') {
-    out.push(PI.form(ixFilter));
-    let row = null;
-    for (const e of globalIndex().filter(([, v]) => ixFilter !== 'paper' || v.p.length)) {   // 「紙のキーワードだけ」: 紙のIDがあるキーワード
-      const r = L.kanaRow(readingOf(e[0]));
-      if (r !== row) { out.push(`<h4>${r}</h4>`); row = r; }
-      out.push(ixRow(e));
-    }
-    if (out.length === 1) out.push(`<div class="none">${ixFilter === 'paper' ? '紙のキーワードはまだありません。上の欄から追加できます' : 'ノートにキーワードを書くと、ここに並びます'}</div>`);
   } else {
     const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
     out.push(sortBar(false));
@@ -1165,7 +1157,7 @@ function topicAddDialog(note) {
 }
 // 索引を単独で作る。親は新しいノート（新しいID）か、既存のノート
 // キーワードを指定すると、そのキーワードのIDが最初から入り、Index に赤い点が付く（IDが2つ以上のときだけ）
-function topicNewDialog(kw = '') {
+function topicNewDialog(kw = '', grp = false) {
   const rootFree = sp => { const r = notes.filter(n => n.s === sp && /^\d+$/.test(n.id)).map(n => +n.id); return free(sp, String((r.length ? Math.max(...r) : 0) + 1)); };
   const idsOf = k => { const v = globalIndex().find(x => x[0] === k); return v ? v[1] : { d: [], p: [] }; };
   $('#modal .box').innerHTML = `<div class="dlg-a">
@@ -1210,7 +1202,7 @@ function topicNewDialog(kw = '') {
       if (topics.find(t => t.name === name)) return alert('その名前は既にあります');
       const g = { name, entry: { s: 'd', id: '0' }, keyword: '', text: '' }, sv = await api.saveTopic(g);
       if (!sv) return alert('保存できませんでした');
-      g.num = sv === true ? 0 : sv; topics.push(g); close(); tab = '0'; groupSel = g.name; renderList(); newTab = true; return openTopic(name, 'edit');
+      g.num = sv === true ? 0 : sv; topics.push(g); close(); tab = 'i'; groupSel = g.name; renderList(); newTab = true; return openTopic(name, 'edit');
     }
     if (!L.isId(id)) return alert('IDの形が違います（例: 12 や 3a）');
     if (!name) return alert('名前を入れてください');
@@ -1229,6 +1221,7 @@ function topicNewDialog(kw = '') {
   $('#tn-cancel').onclick = close;
   $('#modal').onkeydown = e => { if (e.key === 'Escape') close(); };
   refresh(); $('#tn-kw').focus();
+  if (grp) { $('#tn-grp').checked = true; $('#tn-grp').onchange(); $('#tn-name').focus(); }
 }
 // mode: view（まとめて表示）| edit（デジタル欄・紙欄に書く）| conf（親・名前を変える）
 // ===== エクスポート（仮の出力。ファイルは作らない）=====
@@ -1288,7 +1281,7 @@ function openTopic(name, tmode = 'view', keep) {
   if (bgOpen) { place({ k: 'topic', name, mode: tmode }, false); return; }   // ホイールクリック: 背景の新しいタブで開く。いまのタブは動かない
   cur = place({ k: 'topic', name, mode: tmode }, keep); cur.mode = tmode; mode = 'notes';
   if (!inPreview) decided = { k: 'topic', name };
-  if (!inPreview && !$('#q').value && t.entry && tab !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
+  if (!inPreview && !$('#q').value && t.entry && t.entry.id !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
   const { rows, stars, refs, ups, marks } = L.mergeTopic(t), e = t.entry;
   let body;
   if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード は上位トピック（↑） ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
