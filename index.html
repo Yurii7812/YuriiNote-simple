@@ -16,11 +16,9 @@
       <button type="button" id="newNote" class="primary sidebar-create">＋ ノート</button>
       <label for="search" class="sr-only">ノートを検索</label>
       <input type="search" id="search" class="search" placeholder="検索…  /  ID・本文・キーワード" autocomplete="off">
-      <nav class="nav" aria-label="表示">
-        <button data-view="notes" class="nav-button active">ノート</button>
-        <button data-view="topics" class="nav-button">Topic Index</button>
-        <button data-view="zero" class="nav-button">0 Index</button>
-        <button data-view="global" class="nav-button">Global Index</button>
+      <nav class="nav nav-two" aria-label="表示">
+        <button type="button" data-view="notes" class="nav-button active">ノート</button>
+        <button type="button" data-view="index" class="nav-button">Index</button>
       </nav>
       <div id="sidebarList" class="sidebar-list" aria-label="項目一覧"></div>
       <div class="sidebar-foot">
