@@ -556,13 +556,47 @@ function onOpenClick(e) {
 document.addEventListener('click', onOpenClick);
 $('#paperonly').onclick = () => { paperOnly = !paperOnly; savePrefs(); toast(paperOnly ? '紙だけ表示' : 'すべて表示'); if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode, true); else renderList(); };
 // 🗒️ メモ帳: 日記と同じ、1日ごとの記録。ボタンを押すと、今日のメモ帳がすぐ開く
+// 📔: 今日の日記をすぐ開く
+async function openTodayDiary() {
+  setKind('日記'); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, '日記');
+  setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
+}
+// 🔎: 時系列記録（日記・メモ帳・夢…）を探す。名前で絞って、その記録の今日を開く。題・本文でも探せて、その日を開く
+function recordSearchDialog() {
+  dialog(`<div class="dlg-a"><input id="rs-q" placeholder="🔎" autocomplete="off" aria-label="記録を探す"><div id="rs-list" class="rs-list"></div></div>`, close => {
+    const q = $('#rs-q'), box = $('#rs-list'); let items = [], at = 0;
+    const draw = () => { box.innerHTML = items.map((x, i) => `<div class="rs-row${i === at ? ' on' : ''}" data-i="${i}"><b>${esc(x.label)}</b><small>${esc(x.sub || '')}</small></div>`).join('') || '<div class="none">見つかりません</div>'; const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); };
+    const build = () => {
+      const s = q.value.trim().toLowerCase();
+      const count = n => diaries.filter(d => (d.kind || '日記') === n).length;
+      const kinds = records.map(r => r.name).filter(n => !s || n.toLowerCase().includes(s)).map(n => ({ t: 'kind', kind: n, label: '📔 ' + n, sub: count(n) + '日' }));
+      const plain = d => (d.body || '').replace(/^##.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*-\s+:\S+\s*$/gm, '').trim();
+      const days = s ? diaries.filter(d => [d.date, d.title, plain(d), d.kind].join('\n').toLowerCase().includes(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40).map(d => ({ t: 'day', kind: d.kind || '日記', date: d.date, label: `${d.kind || '日記'}　${d.date}${d.title ? '　' + d.title : ''}`, sub: snippet(plain(d), s).replace(/<[^>]+>/g, '').slice(0, 60) })) : [];
+      items = [...kinds, ...days]; at = 0; draw();
+    };
+    const go = i => {
+      const x = items[i]; if (!x) return; close();
+      setKind(x.kind); mode = 'diary'; $('#q').value = ''; renderList();
+      openDiary(x.t === 'day' ? x.date : L.todayStr(), false, x.kind);
+    };
+    q.oninput = build;
+    q.onkeydown = e => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(items.length - 1, at + 1); draw(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(0, at - 1); draw(); }
+      else if (e.key === 'Enter') { e.preventDefault(); go(at); }
+    };
+    box.onclick = e => { const r = e.target.closest('[data-i]'); if (r) go(+r.dataset.i); };
+    build(); q.focus();
+  });
+}
 async function openMemoPad() {
   const NAME = 'メモ帳';
   if (!records.some(r => r.name === NAME)) { const r = await api.recordOp('addRecord', NAME); if (r) records = r; }
   setKind(NAME); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, NAME);
   setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
 }
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'memopad') return openMemoPad(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'memopad') return openMemoPad(); if (b && b.dataset.mode === 'diary') return openTodayDiary(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
@@ -1523,13 +1557,14 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙️</span>';
+  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindsearch title="記録を探す（名前・題・本文）">🔎</span><span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙️</span>';
   return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">📅 今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 $('#list').addEventListener('change', e => { if (e.target.id === 'd-pick' && L.isDate(e.target.value)) openDiary(e.target.value); });
 $('#list').addEventListener('click', e => {
   if (e.target.id === 'd-today') openDiary(L.todayStr());
   const kp = e.target.closest('[data-kindpick]'); if (kp) { setKind(kp.dataset.kindpick); renderList(); }
+  if (e.target.closest('[data-kindsearch]')) return recordSearchDialog();
   if (e.target.closest('[data-kindmanage]')) recordsDialog();
 });
 // 上位の選び方: 印を押して、入れる・外す（いくつでも）
