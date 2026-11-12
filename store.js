@@ -292,7 +292,7 @@ function openVault(vault) {
     } else if (/^T_.+\.md$/.test(f)) {
       const text = fs.readFileSync(abs(f), 'utf8'); cache.set(f, text);
       const t = meta(text, 'pkm-topic');
-      if (t && t.name) topics.set(t.name, { name: t.name, entry: t.entry || (t.anchors || [])[0] || null, keyword: t.keyword || '', text: t.text !== undefined ? t.text : L.legacyTopicText(t) });
+      if (t && t.name) topics.set(t.name, { name: t.name, entry: t.entry || (t.anchors || [])[0] || null, keyword: t.keyword || '', num: t.num || 0, text: t.text !== undefined ? t.text : L.legacyTopicText(t) });
     }
   }
   for (const r of [...recs.values()].sort((x, y) => x.stem < y.stem ? -1 : 1)) {
@@ -502,7 +502,17 @@ function openVault(vault) {
   }
   const pad2 = x => String(x).padStart(2, '0');
   let fileDups = [];   // 直前の取り込みで、既にあったファイル
+  // トピックIndexの番号: 同じ親ID（グループIndexは 0）の中で 1, 2, … （表示は 1-1, 1-2）。空きは今ある番号の続きから
+  function numberTopics() {
+    const by = new Map();
+    for (const t of topics.values()) { if (!t.entry) continue; const k = t.entry.s + ':' + t.entry.id; if (!by.has(k)) by.set(k, []); by.get(k).push(t); }
+    for (const list of by.values()) {
+      const used = new Set(list.filter(t => t.num > 0).map(t => t.num)); let next = Math.max(0, ...used) + 1;
+      for (const t of list.slice().sort((a, b) => a.name.localeCompare(b.name, 'ja'))) { if (!(t.num > 0) || list.some(o => o !== t && o.num === t.num && o.name.localeCompare(t.name, 'ja') < 0)) t.num = next++; }
+    }
+  }
   function rebuild() {
+    numberTopics();
     mergePaperIndex(); pruneDiaryLinks();
     const chatFiles = chatMdFiles();
     for (const f of fs.readdirSync(vault)) if (/^C_\d{4}-\d{2}-\d{2}\.md$/.test(f) && !chatFiles.has(f)) removeFile(f);   // メモが無くなった日のファイル
@@ -795,15 +805,17 @@ function openVault(vault) {
     },
     // oldName があれば名前の変更
     saveTopic(t, oldName) {
-      if (t.entry && [...topics.values()].some(o => o.name !== (oldName || t.name) && o.entry && o.entry.s === t.entry.s && o.entry.id === t.entry.id)) return false;
+      const prev = topics.get(oldName || t.name);
       if (oldName && oldName !== t.name) {
         topics.delete(oldName);
         if (topicFile(oldName) !== topicFile(t.name)) { if (fs.existsSync(abs(topicFile(oldName)))) fs.unlinkSync(abs(topicFile(oldName))); cache.delete(topicFile(oldName)); }
       }
-      topics.set(t.name, { name: t.name, entry: t.entry || null, keyword: t.keyword || '', text: t.text !== undefined ? t.text : L.legacyTopicText(t) });
+      const same = prev && prev.entry && t.entry && prev.entry.s === t.entry.s && prev.entry.id === t.entry.id;
+      topics.set(t.name, { name: t.name, entry: t.entry || null, keyword: t.keyword || '', num: same && prev.num ? prev.num : (t.num && !prev ? t.num : 0), text: t.text !== undefined ? t.text : L.legacyTopicText(t) });
+      numberTopics(); t.num = topics.get(t.name).num;
       const en = t.keyword && t.entry && get(t.entry.s, t.entry.id); // 点を付けるIDは、そのキーワードの並びに入る
       if (en && !en.keywords.includes(t.keyword)) en.keywords.push(t.keyword);
-      rebuild(); return true;
+      rebuild(); return topics.get(t.name).num || true;
     },
     // ノートを消す（ファイルは .trash へ。添付は残す）。入口だった索引は入口なしに、索引の行からも ID を外す
     deleteNotes(items) {

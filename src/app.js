@@ -29,8 +29,8 @@ let selMode = false, picked = new Set(), lastPick = null; // 一括選択
 let searchQ = ''; // いま検索している語（一覧と、開いたノートの中の印に使う）
 const get = (s, id) => notes.find(n => n.s === s && n.id === id);
 const free = (s, id) => { while (get(s, id)) id = L.sibling(id); return id; };
-const topicOf = (s, id) => topics.find(t => t.entry && t.entry.s === s && t.entry.id === id);
-const topicsOf = (s, id) => topics.filter(t => t.entry && t.entry.s === s && t.entry.id === id);   // 同じ番号に複数（1-1, 1-2）
+const topicOf = (s, id) => topicsOf(s, id)[0];
+const topicsOf = (s, id) => topics.filter(t => t.entry && t.entry.s === s && t.entry.id === id).sort((a, b) => (a.num || 1) - (b.num || 1));   // 同じ番号に複数（1-1, 1-2）
 const topicsWith = n => topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[n.s].some(x => L.splitAnchor(x).id === n.id)).map(r => r.kw) })).filter(x => x.kws.length);
 const allKeywords = () => [...new Set(notes.flatMap(n => n.keywords))].sort(L.byReading(k => readings[k]));
 const yomi = k => readings[k] && readings[k] !== k ? `<small class="yomi">${esc(readings[k])}</small>` : '';
@@ -38,6 +38,7 @@ const kwTopic = k => topics.find(t => t.keyword === k);
 // そのキーワードの索引 があれば赤い点（押すと開く）。IDが2つ以上でまだ無ければ「作る」
 // 左の一覧の並べ替えと表示。ノート（デジタル・紙・未整理）と日記は、並び順をそれぞれ別に覚える
 const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-prefs') || '{}'); } catch { return {}; } })();
+let groupSel = '';   // 0 Index で選んでいるグループIndex の名前（'' = 全体）
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
 const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir })); } catch { } };
@@ -321,7 +322,8 @@ const chip = (s, raw) => {
 const rowChips = r => [['d', r.d], ['p', r.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
 const chips = v => [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
-const topicLabel = t => stripId(t.name);
+const topicNo = t => t.entry ? `${t.entry.id}-${t.num || 1}` : '';   // 1-1, 1-2, … グループIndexは 0-1, 0-2
+const topicLabel = t => (topicNo(t) ? topicNo(t) + ' ' : '') + stripId(t.name);
 const tchip = name => `<span class="chip t" data-topic="${esc(name)}">${esc(stripId(name))}</span>`;
 const firstLine = n => (n.body.split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').trim().slice(0, 40);
 const titleOf = n => (n.title || '').trim() || (firstLine(n) || '（無題）');
@@ -452,13 +454,25 @@ function renderList() {
     out.push(...fl.map(f => fileRow(f)));   // map にそのまま渡すと、行の番号が検索語の欄に入って落ちる
     if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
   } else if (tab === '0') {
-    // 0 Index is a live entrance to root Topic Indexes; names and stored data stay unchanged.
-    const roots = topics.filter(t => t.entry && /^[1-9]\d*$/.test(t.entry.id) && ['d', 'p'].includes(t.entry.s) && !get(t.entry.s, t.entry.id)?.noid)
-      .sort((a, b) => L.cmpId(a.entry.id, b.entry.id) || a.entry.s.localeCompare(b.entry.s) || a.name.localeCompare(b.name, 'ja'));
-    out.push('<h4>0 Index</h4>', ...roots.map(t => topicRow(t, true)));
-    if (!roots.length) out.push('<div class="none">親ID（1、2…）のトピックIndexが、ここに並びます</div>');
+    // 0 Index: 全体（親ID 1, 2… のトピックIndex）と、グループIndex（0-1, 0-2 …）を切り替える
+    const groups = topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1));
+    if (groupSel && !groups.some(g => g.name === groupSel)) groupSel = '';
+    out.push(`<div class="grpbar"><span class="chip g${groupSel ? '' : ' on'}" data-grp="">全体</span>${groups.map(g => `<span class="chip g${groupSel === g.name ? ' on' : ''}" data-grp="${esc(g.name)}">${esc(topicLabel(g))}</span>`).join('')}</div>`);
+    const g = groups.find(x => x.name === groupSel);
+    if (g) {
+      out.push(`<h4>${esc(topicLabel(g))}</h4>`);
+      const m = L.mergeTopic(g);
+      out.push(...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...m.rows.map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`));
+      out.push(topicRow(g, false));
+      if (!m.rows.length) out.push('<div class="none">まだ空です。「編集」で、キーワードとIDを書きます</div>');
+    } else {
+      const roots = topics.filter(t => t.entry && /^[1-9]\d*$/.test(t.entry.id) && ['d', 'p'].includes(t.entry.s) && !get(t.entry.s, t.entry.id)?.noid)
+        .sort((a, b) => L.cmpId(a.entry.id, b.entry.id) || a.entry.s.localeCompare(b.entry.s) || (a.num || 1) - (b.num || 1));
+      out.push('<h4>0 Index</h4>', ...roots.map(t => topicRow(t, true)));
+      if (!roots.length) out.push('<div class="none">親ID（1、2…）のトピックIndexが、ここに並びます</div>');
+    }
   } else if (tab === 'i') {
-    out.push(`<div class="ixbar"><span class="sub">🔴 赤い点は、ID を右クリックで付け外し</span></div>`);
+    
     let row = null;
     for (const e of globalIndex()) {
       const r = L.kanaRow(readings[e[0]] || e[0]);
@@ -472,7 +486,7 @@ function renderList() {
     const byFz = sortBy === 'fz' && tab !== 'u';
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
     for (const n of list) {
-      const t = byFz && topicOf(n.s, n.id); if (t) out.push(topicRow(t)); // 「1-PKM」は、ノート 1 の手前
+      if (byFz) for (const t of topicsOf(n.s, n.id)) out.push(topicRow(t)); // 「1-1」「1-2」は、ノート 1 の手前
       out.push(noteRow(n));
     }
     if (!list.length) out.push(`<div class="none">${tab === 'p' ? '「📷 スキャン取り込み」で紙を入れます' : tab === 'u' ? 'IDなしで書いたノートが、ここに並びます。あとでIDを付けて整理します' : '「＋ 新規」で書き始めます'}</div>`);
@@ -493,6 +507,7 @@ function onOpenClick(e) {
   const dd = e.target.closest('[data-diary]'); if (dd && !e.target.closest('.cm-editor')) return openDiary(dd.dataset.diary, undefined, dd.dataset.kind || '日記');
   const row = e.target.closest('#list .item');
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
+  const gs = e.target.closest('[data-grp]'); if (gs) { groupSel = gs.dataset.grp; return renderList(); }
   const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic);
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
@@ -856,7 +871,7 @@ function renderMeta(note) {
   const bl = backlinks(note);
   el.innerHTML =
     `<div class="sec">${metaLabel('🏷', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwchips">${note.keywords.map(k => `<span class="chip kwc" title="${esc(readings[k] || '')}">${esc(k)}<b data-kwdel="${esc(k)}" title="外す">×</b></span>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
-    (ownTopic(note) ? `<div class="sec">${metaLabel('📑', '自トピック')}<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(ownTopic(note).name)}">${esc(topicLabel(ownTopic(note)))}</a></div></div>` : '') +
+    (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(o.name)}">${esc(topicLabel(o))}</a></div>`).join('')}</div>` : '') +
     `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry"><a class="tl" data-topic="${esc(x.t.name)}">${esc(topicLabel(x.t))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
     parentHtml(note) +
     childrenHtml(note) +
@@ -1139,9 +1154,10 @@ function topicNewDialog(kw = '') {
   const idsOf = k => { const v = globalIndex().find(x => x[0] === k); return v ? v[1] : { d: [], p: [] }; };
   $('#modal .box').innerHTML = `<div class="dlg-a">
     <h3>➕ 索引を作る</h3>
+    <label class="rad"><input type="checkbox" id="tn-grp"> グループIndex にする（0番に所属。0-1、0-2 … になります）</label>
     <div class="da-lab">🏷 キーワード（任意）。同じキーワードのIDが2つ以上あるとき、それらをまとめます</div>
     <input id="tn-kw" list="tn-kws" value="${esc(kw)}" placeholder="例: GUI"><datalist id="tn-kws">${globalIndex().filter(([, v]) => v.d.length + v.p.length >= 2).map(([k]) => `<option value="${esc(k)}">`).join('')}</datalist>
-    <div class="da-lab">🌳 親のノート（赤い点を付けるID）。無いIDなら、新しいノートを作ります</div>
+    <div class="da-lab">🌳 親のノート。無いIDなら、新しいノートを作ります</div>
     <div class="row"><select id="tn-s"><option value="d">デジタル</option><option value="p">紙</option></select><input id="tn-id" style="width:100px"><span id="tn-note" class="sub"></span></div>
     <label class="rad" id="tn-laterw" style="display:none"><input type="checkbox" id="tn-later" checked> 紙のノートは、まだ作らない（取り込む前の番号。取り込んだら、つながります）</label>
     <div class="da-lab">📝 名前</div>
@@ -1164,24 +1180,35 @@ function topicNewDialog(kw = '') {
   $('#tn-s').onchange = () => { $('#tn-id').value = rootFree($('#tn-s').value); refresh(); };
   $('#tn-kw').oninput = refresh; $('#tn-id').oninput = refresh; $('#tn-later').onchange = refresh;
   $('#tn-name').oninput = () => { nameTouched = true; };
+  $('#tn-grp').onchange = () => {
+    const g = $('#tn-grp').checked;
+    for (const x of ['#tn-kw', '#tn-s', '#tn-id']) $(x).disabled = g;
+    if (g) { $('#tn-s').value = 'd'; $('#tn-id').value = '0'; $('#tn-kw').value = ''; $('#tn-laterw').style.display = 'none'; $('#tn-note').textContent = 'グループIndex は、0番に所属します'; }
+    else { $('#tn-id').value = rootFree($('#tn-s').value); refresh(); }
+  };
   $('#tn-ok').onclick = async () => {
+    const grp = $('#tn-grp').checked;
     const k = $('#tn-kw').value.trim(), sp = $('#tn-s').value, id = $('#tn-id').value.trim().toLowerCase(), name = $('#tn-name').value.trim();
+    if (grp) {
+      if (!name) return alert('名前を入れてください');
+      if (topics.find(t => t.name === name)) return alert('その名前は既にあります');
+      const g = { name, entry: { s: 'd', id: '0' }, keyword: '', text: '' }, sv = await api.saveTopic(g);
+      if (!sv) return alert('保存できませんでした');
+      g.num = sv === true ? 0 : sv; topics.push(g); close(); tab = '0'; groupSel = g.name; renderList(); newTab = true; return openTopic(name, 'edit');
+    }
     if (!L.isId(id)) return alert('IDの形が違います（例: 12 や 3a）');
     if (!name) return alert('名前を入れてください');
     if (topics.find(t => t.name === name)) return alert('その名前は既にあります');
-    const other = topicOf(sp, id);
-    if (other) return alert(`${SP[sp]} ${id} は、もう「${other.name}」の親です（1つのノートに索引は1つ）`);
     let v = null;
     if (k) {
       v = idsOf(k);
       if (v.d.length + v.p.length < 2) return alert('キーワードは、IDが2つ以上あるものだけです');
-      if (kwTopic(k)) return alert(`「${k}」の索引は、もう「${kwTopic(k).name}」があります`);
     }
     if (!get(sp, id) && !(sp === 'p' && $('#tn-later').checked)) notes.push(await api.saveNote({ s: sp, id, created: L.now(), keywords: k ? [k] : [], body: '' }));
     else if (get(sp, id)) await ensureKeyword(sp, id, k);
     const t = { name, entry: { s: sp, id }, keyword: k, text: v ? idsText(k, v, sp) : '' };
-    if (!(await api.saveTopic(t))) return alert('保存できませんでした');
-    topics.push(t); close(); renderList(); newTab = true; openTopic(name, 'edit');
+    const sv = await api.saveTopic(t); if (!sv) return alert('保存できませんでした');
+    t.num = sv === true ? 0 : sv; topics.push(t); close(); renderList(); newTab = true; openTopic(name, 'edit');
   };
   $('#tn-cancel').onclick = close;
   $('#modal').onkeydown = e => { if (e.key === 'Escape') close(); };
@@ -1263,7 +1290,7 @@ function openTopic(name, tmode = 'view', keep) {
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
   $('#pane').innerHTML = `
     <div class="row thead">
-      <span class="ti-ic">📑</span><h2>${esc(stripId(name))}</h2>
+      <span class="ti-ic">📑</span><h2>${esc(topicLabel(t))}</h2>
       <span class="grow"></span>
       ${tmode === 'conf' ? '' : `<button class="tbtn" data-act="tconf" title="名前・親・点のキーワードを変える">⚙️ 名前・親</button>
       <button class="tbtn ${tmode === 'edit' ? 'p' : ''}" data-act="tedit">${tmode === 'edit' ? '✅ 完了' : '✏️ 編集'}</button>`}
@@ -1296,14 +1323,12 @@ async function topicAct(act) {
     if (!name) return alert('名前を入れてください');
     if (name !== t.name && topics.find(x => x.name === name)) return alert('その名前は既にあります');
     if (!get(s, id)) return alert(`${SP[s]} ${id} というノートはありません`);
-    const other = topicOf(s, id);
-    if (other && other !== t) return alert(`${SP[s]} ${id} は、もう「${other.name}」の親です（1つのIDに1つの索引）`);
     const kw = t.keyword || '';   // 点のキーワードは、この画面では変えない（赤い点は、右クリックや ID の前の * で付ける）
     await flush();
     t.keyword = kw;
     await ensureKeyword(s, id, kw);
     const old = t.name; t.name = name; t.entry = { s, id };
-    await api.saveTopic(t, old);
+    { const sv = await api.saveTopic(t, old); if (sv && sv !== true) t.num = sv; }
     for (const x of tabs) if (x.k === 'topic' && x.name === old) x.name = name;
     openTopic(name, 'view', true);
   }

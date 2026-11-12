@@ -77,10 +77,9 @@ test('全部が1つのフォルダに平らに置かれ、リンクは同じフ�
   assert.ok(openVault(dir).state().notes.find(n => n.s === 'd' && n.id === '9').body.includes(`![a](${f1})`));
   assert.ok(openVault(dir).state().notes.every(n => n.id.length < 8 || n.noid)); // 添付をノートと取り違えない（14桁の名前の添付は、md が無いのでノートにならない）
 
-  // 入口は1ノートに1つ
+  // 同じ入口に複数作れる（番号は別のテストで）。名前を変える
   v.saveTopic({ name: 'A', entry: { s: 'd', id: '1' }, d: 'x 1 5', p: '' }, '1-PKM'); // 名前の変更
   assert.ok(!fs.existsSync(path.join(dir, 'T_1-PKM.md')) && fs.existsSync(path.join(dir, 'T_A.md')));
-  assert.strictEqual(v.saveTopic({ name: 'B', entry: { s: 'd', id: '1' }, d: '', p: '' }), false);
   // ノートを消す（画像つきの紙も）→ .trash、索引の行からも外れる。添付は残る
   const st2 = v.deleteNotes([{ s: 'd', id: '1' }, { s: 'p', id: '1' }]);
   assert.strictEqual(fs.readdirSync(path.join(dir, '.trash')).length, 3);
@@ -617,4 +616,16 @@ test('metadata-only saves preserve body/keywords; explicit empty body still clea
     v.saveNote({ s: 'd', id: '1', body: '' });
     assert.strictEqual(openVault(dir).state().notes.find(n => n.id === '1').body, '');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('トピックIndexの番号: 同じ親IDに複数（1-1, 1-2）、グループIndex は 0-1, 0-2。名前を変えても番号は変わらない', () => {
+  const v = openVault(tmp());
+  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: [], body: 'x' });
+  assert.strictEqual(v.saveTopic({ name: 'A', entry: { s: 'd', id: '1' }, text: '' }), 1);
+  assert.strictEqual(v.saveTopic({ name: 'B', entry: { s: 'd', id: '1' }, text: '' }), 2);
+  assert.strictEqual(v.saveTopic({ name: 'G', entry: { s: 'd', id: '0' }, text: '' }), 1);
+  assert.strictEqual(v.saveTopic({ name: 'G2', entry: { s: 'd', id: '0' }, text: '' }), 2);
+  assert.strictEqual(v.saveTopic({ name: 'A改', entry: { s: 'd', id: '1' }, text: '' }, 'A'), 1);
+  const w = openVault(v.state().vault);   // 読み直しても同じ番号
+  assert.deepStrictEqual(w.state().topics.map(t => [t.name, t.num]).sort(), [['A改', 1], ['B', 2], ['G', 1], ['G2', 2]]);
 });
