@@ -40,16 +40,16 @@ curl -fsSL https://raw.githubusercontent.com/Yurii7812/YuriiNote-simple/main/ins
 **起動**
 
 ```sh
-~/.local/bin/YuriiNote-simple
+YuriiNote-Simple
 ```
 
 **更新**
 
 ```sh
-~/.local/bin/YuriiNote-simple --update
+YuriiNote-Simple --update
 ```
 
-`~/.local/bin` がPATHに入っている場合は、`YuriiNote-simple` と `YuriiNote-simple --update` でも動きます。同じインストールコマンドをもう一度実行しても更新できます。アプリを終了してから更新してください。保存データは更新対象外です。
+新しいターミナルを開いてから `YuriiNote-Simple` で起動、`YuriiNote-Simple --update` で更新できます。旧コマンド `YuriiNote-simple` も互換性のため利用できます。同じインストールコマンドを再実行しても更新できます。アプリを終了してから更新してください。保存データは更新対象外です。
 
 Linux版のインストールには、`curl`、`tar`、`sha256sum` とインターネット接続が必要です。依存するGUIライブラリはLinux側に必要ですが、一般的なDebian/XFCE環境なら通常備わっています。
 
