@@ -143,12 +143,12 @@ test('紙とデジタルの書き分け: :ID(p)・(d)・(番号) の順は自由
   assert.ok(L.bodyToMd(':1a(p)', (id, sp) => `${sp || 'd'}_${id}.md`).includes('(p_1a.md)'));
 });
 test('トピックIndex: 1 つの文字に、印つきで。入口が紙なら、印なしは紙', () => {
-  const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'デジタルと紙の書き分け 1g(1) 2(p) *3(2)(p)\n+hoge 5(p)' });
-  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p, m.rows[0].dot], [['1g(1)'], ['2', '3(2)'], { s: 'p', id: '3' }]); assert.deepStrictEqual(m.refs, [{ s: 'p', label: 'hoge', id: '5' }]);
+  const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'デジタルと紙の書き分け 1g(1) 2(p) 3(2)(p)\n+hoge 5(p)' });
+  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p], [['1g(1)'], ['2', '3(2)']]); assert.deepStrictEqual(m.refs, [{ s: 'p', label: 'hoge', id: '5' }]);
   const p = L.mergeTopic({ entry: { s: 'p', id: '9' }, text: 'x 1 2(d)' });   // 紙のトピックIndex
   assert.deepStrictEqual([p.rows[0].p, p.rows[0].d], [['1'], ['2']]);
   assert.strictEqual(L.removeFromTopic('x 1 2(p)', [{ s: 'p', id: '2' }], 'd'), 'x 1'); assert.strictEqual(L.addToTopic('x 1', 'x', '2(p)'), 'x 1 2(p)');
-  assert.strictEqual(L.legacyTopicText({ entry: { s: 'd', id: '1' }, d: 'PKM 1', p: 'PKM *2' }), 'PKM 1\nPKM *2(p)');
+  assert.strictEqual(L.legacyTopicText({ entry: { s: 'd', id: '1' }, d: 'PKM 1', p: 'PKM 2' }), 'PKM 1\nPKM 2(p)');
 });
 
 test('日のノート: 書いた文章は「今日のノート」（リンクの並び）の上に', () => {

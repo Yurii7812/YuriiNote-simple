@@ -29,7 +29,8 @@ let selMode = false, picked = new Set(), lastPick = null; // 一括選択
 let searchQ = ''; // いま検索している語（一覧と、開いたノートの中の印に使う）
 const get = (s, id) => notes.find(n => n.s === s && n.id === id);
 const free = (s, id) => { while (get(s, id)) id = L.sibling(id); return id; };
-const topicOf = (s, id) => topics.find(t => t.entry && t.entry.s === s && t.entry.id === id); // 親は1つ
+const topicOf = (s, id) => topics.find(t => t.entry && t.entry.s === s && t.entry.id === id);
+const topicsOf = (s, id) => topics.filter(t => t.entry && t.entry.s === s && t.entry.id === id);   // 同じ番号に複数（1-1, 1-2）
 const topicsWith = n => topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[n.s].some(x => L.splitAnchor(x).id === n.id)).map(r => r.kw) })).filter(x => x.kws.length);
 const allKeywords = () => [...new Set(notes.flatMap(n => n.keywords))].sort(L.byReading(k => readings[k]));
 const yomi = k => readings[k] && readings[k] !== k ? `<small class="yomi">${esc(readings[k])}</small>` : '';
@@ -40,75 +41,27 @@ const prefs = (() => { try { return JSON.parse(localStorage.getItem('pkm-list-pr
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
 let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
 const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir })); } catch { } };
-let ixEdit = false;   // グローバルIndexの編集モード（赤い点を付けるIDを選ぶ）
-const pickChips = (k, v, t) => { const dd = t && dotOf(t, k); return [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(id => { const on = dd && dd.s === s && dd.id === id; return `<span class="chip ${s} pick${on ? ' on' : ''}" data-pk="${esc(k)}" data-ps="${s}" data-pid="${esc(id)}" title="${on ? '点を外す' : 'ここに赤い点を付ける'}">${on ? '<i class="dotabove">●</i>' : ''}${s === 'p' ? '紙' : ''}${esc(id)}</span>`; }).join('')).join(''); };
 // 「キーワード ID ID(p) …」の 1 行。親の側と違う ID には、(p) か (d) を付ける
 const idsText = (k, v, def) => { const toks = [...v.d.map(x => def === 'd' ? x : x + '(d)'), ...v.p.map(x => def === 'p' ? x : x + '(p)')]; return toks.length ? k + ' ' + toks.join(' ') : ''; };
-// 赤い点を k の ID（s, id）に付ける。そのIDに索引があればそれを、無ければ新しく作る
-async function pickDot(k, s, id) {
-  const cur0 = kwTopic(k), dd = cur0 && dotOf(cur0, k);
-  const strip = t => { t.text = L.topicText(t).split('\n').map(l => { const r = L.topicLine(l); return r.star === undefined && r.kw === k ? l.replace(/(^|\s)[*＊](?=\S)/g, '$1') : l; }).join('\n'); };
-  if (cur0 && dd && dd.s === s && dd.id === id) { cur0.keyword = ''; strip(cur0); saveTopic(cur0); return renderList(); }       // 点を外す
-  let t = topicOf(s, id);
-  if (!t) {
-    if (!get(s, id)) return alert('そのノートがまだありません');
-    if (!confirm(`「${k}」の赤い点を ${SP[s]} ${id} に付けるため、索引「${id}-${k}」を新しく作ります。よろしいですか？`)) return;
-    const v = globalIndex().find(x => x[0] === k)[1];
-    let name = `${id}-${k}`; while (topics.some(x => x.name === name)) name += '_';
-    t = { name, entry: { s, id }, keyword: '', text: idsText(k, v, s) };
-    topics.push(t);
-  } else if (t.keyword && t.keyword !== k && !confirm(`${SP[s]} ${id} の索引「${stripId(t.name)}」は、いま「${t.keyword}」の点です。「${k}」に変えますか？`)) return;
-  if (cur0 && cur0 !== t) { cur0.keyword = ''; strip(cur0); saveTopic(cur0); }
-  t.keyword = k; strip(t); await api.saveTopic(t); renderList();
-}
-// 索引の中の、1 つの ID の赤い点（ID の前の * ）を、付ける・外す。状態を返す（その ID が無ければ null）
-function topicDot(t, kw, sp, id, toggle) {
-  const def = L.defOf(t), lines = L.topicText(t).split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const r = L.topicLine(lines[i]); if (r.star !== undefined || r.kw !== kw) continue;
-    const x = r.ids.find(y => (y.sp || def) === sp && y.id === id); if (!x) continue;
-    if (toggle) { lines[i] = x.dot ? lines[i].slice(0, x.from - 1) + lines[i].slice(x.from) : lines[i].slice(0, x.from) + '*' + lines[i].slice(x.from); t.text = lines.join('\n'); saveTopic(t); }
-    return toggle ? !x.dot : !!x.dot;
-  }
-  return null;
-}
-// 右クリックで、赤い点を付ける・外す（Index の ID と、索引の中の ID）
-document.addEventListener('contextmenu', e => {
-  const c = e.target.closest('.chip[data-id]'); if (!c) return;
-  const ix = c.closest('#list .ix[data-ixk]'), tr = c.closest('.ti tr[data-kw]');
-  if (ix) {   // Index（左の一覧）
-    e.preventDefault();
-    const k = ix.dataset.ixk, sp = c.dataset.s, id = c.dataset.id, dd = kwTopic(k) && dotOf(kwTopic(k), k), on = !!(dd && dd.s === sp && dd.id === id);
-    const v = globalIndex().find(x => x[0] === k), n = v ? v[1].d.length + v[1].p.length : 0;
-    // 赤い点: そのIDのノートに索引があって、そのキーワードのIDが2つ以上あるときだけ付けられる（付いているものは、いつでも外せる）
-    if (on) popMenu(e, [['⚪ 赤い点を外す', () => pickDot(k, sp, id)]]);
-    else if (topicOf(sp, id) && n >= 2) popMenu(e, [['🔴 赤い点を付ける', () => pickDot(k, sp, id)]]);
-    else popMenu(e, [[topicOf(sp, id) ? '🔴 赤い点は、キーワードのIDが2つ以上のときだけ' : '🔴 赤い点は、そのIDに索引があるときだけ', () => { }]]);
-  } else if (tr && cur && cur.k === 'topic') {   // 索引の中
-    const t = topics.find(x => x.name === cur.name); if (!t) return;
-    const kw = tr.dataset.kw, sp = c.dataset.s, id = c.dataset.id, on = topicDot(t, kw, sp, id, false);
-    if (on === null) return;
-    e.preventDefault();
-    const row = L.mergeTopic(t).rows.find(r => r.kw === kw), n = row ? row.d.length + row.p.length : 0;
-    const go = () => { topicDot(t, kw, sp, id, true); openTopic(t.name, 'view', true); };
-    if (on) popMenu(e, [['⚪ 赤い点を外す', go]]);   // 付いているものは、いつでも外せる
-    else if (topicOf(sp, id) && n >= 2) popMenu(e, [['🔴 赤い点を付ける', go]]);   // そのIDのノートに索引があって、その行のIDが2つ以上
-    else popMenu(e, [[topicOf(sp, id) ? '🔴 赤い点は、キーワードのIDが2つ以上のときだけ' : '🔴 赤い点は、そのIDに索引があるときだけ', () => { }]]);
-  }
-});
 const ixRow = ([k, v]) => {
-  const t = kwTopic(k), n = v.d.length + v.p.length;
-  const mark = '';
   const on = cur && cur.k === 'topic' && (() => { const o = topics.find(x => x.name === cur.name); return o && ((o.keyword && o.keyword === k) || (o.entry && v[o.entry.s].includes(o.entry.id) && !o.keyword && false)); })();
-  if (ixEdit) return `<div class="ix"><b>${esc(k)}</b>${yomi(k)} ${pickChips(k, v, t)}</div>`;
-  return `<div class="ix${on ? ' on' : ''}" data-ixk="${esc(k)}">${mark}<b>${esc(k)}</b>${yomi(k)} ${chips(v, t)}</div>`;
+  return `<div class="ix${on ? ' on' : ''}" data-ixk="${esc(k)}"><b>${esc(k)}</b>${yomi(k)} ${chips(v)}</div>`;
 };
-// 親のノートに、そのキーワードを付ける（Index の ID の並びに入り、そこに赤い点が付く）
+// 親のノートに、そのキーワードを付ける（Index の ID の並びに入る）
 async function ensureKeyword(sp, id, kw) {
   const n = get(sp, id);
   if (!kw || !n || n.keywords.includes(kw)) return;
   n.keywords.push(kw); await api.saveNote(pubNote(n));
 }
+
+// ID の横の 📑: そのIDのトピック Index を開く。複数あるときは一覧から選ぶ
+document.addEventListener('click', e => {
+  const x = e.target.closest('.tix'); if (!x) return;
+  e.preventDefault(); e.stopPropagation();
+  const [s, id] = x.dataset.tix.split(':'), ts = topicsOf(s, id);
+  if (ts.length === 1) return openTopic(ts[0].name);
+  if (ts.length) popMenu(e, ts.map(t => ['📑 ' + t.name, () => openTopic(t.name)]));
+}, true);
 
 // ===== 保存（少し待ってまとめて）=====
 let recovery = null, recoveryError = false;
@@ -361,12 +314,12 @@ function globalIndex() {
   return [...m].sort((a, b) => L.byReading(k => readings[k])(a[0], b[0]));
 }
 // id は 1a のほか 1a(1) も（(番号) は、ノートの中のその場所へ）
-const chip = (s, raw, topic) => { const { id, n } = L.splitAnchor(raw); return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}${topic ? ' dotted' : ''}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${topic ? (topic.name ? `<i class="dotabove" data-topic="${esc(topic.name)}" title="索引 ${esc(topic.name)}">●</i>` : '<i class="dotabove">●</i>') : ''}${s === 'p' ? '紙' : ''}${esc(raw)}</span>`; };
-// t があれば、その親のIDだけ点を付ける
-const dotOf = (t, kw) => { const r = t && L.mergeTopic(t).rows.find(x => x.kw === (kw !== undefined ? kw : t.keyword) && x.dot); return r ? r.dot : t && t.entry; }; // * の印があればそのID、なければ親
-// 索引 の中の行: ID の前の * の印のIDの上に赤い点（そのIDが親の索引があれば、押すとそこへ）
-const rowChips = r => [['d', r.d], ['p', r.p]].map(([s, l]) => l.map(x => chip(s, x, r.dot && r.dot.s === s && r.dot.id === L.splitAnchor(x).id ? (topicOf(s, x) || { name: '' }) : null)).join('')).join('');
-const chips = (v, t, kw) => { const dd = t && dotOf(t, kw); return [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x, dd && dd.s === s && dd.id === L.splitAnchor(x).id ? t : null)).join('')).join(''); };
+const chip = (s, raw) => {
+  const { id, n } = L.splitAnchor(raw), ts = n ? [] : topicsOf(s, id);
+  return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${s === 'p' ? '紙' : ''}${esc(raw)}</span>${ts.length ? `<i class="tix" data-tix="${s}:${esc(id)}" title="トピック Index を開く">📑</i>` : ''}`;
+};
+const rowChips = r => [['d', r.d], ['p', r.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
+const chips = v => [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
 const topicLabel = t => stripId(t.name);
 const tchip = name => `<span class="chip t" data-topic="${esc(name)}">${esc(stripId(name))}</span>`;
@@ -559,8 +512,6 @@ $('#list').addEventListener('click', e => {
   if (e.target.closest('#ff-add')) return pick(true, f => attach(null, f), '*');
   if (e.target.closest('#sb-loc')) return locateCur();
   { const sd = e.target.closest('#sb-dir'); if (sd) { if (sd.dataset.diary) diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); return renderList(); } }
-  if (e.target.closest('#ix-edit')) { ixEdit = !ixEdit; return renderList(); }
-  const c = e.target.closest('.chip.pick'); if (c) pickDot(c.dataset.pk, c.dataset.ps, c.dataset.pid);
 });
 $('#list').addEventListener('dragstart', e => { const n = e.target.closest('[data-id]'); if (n) e.dataTransfer.setData('text/plain', n.dataset.id); });
 $('#list').addEventListener('change', e => { if (e.target.id === 'ff-sel') { fileFilter = e.target.value; renderList(); } });
@@ -1295,9 +1246,9 @@ function openTopic(name, tmode = 'view', keep) {
   cur = place({ k: 'topic', name, mode: tmode }, keep); cur.mode = tmode; mode = 'notes';
   if (!inPreview) decided = { k: 'topic', name };
   if (!inPreview && !$('#q').value && t.entry && tab !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
-  const { rows, stars, refs } = L.mergeTopic(t), e = t.entry;
+  const { rows, stars, refs, ups, marks } = L.mergeTopic(t), e = t.entry;
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ID の前の * は赤い点 ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード は上位トピック（↑） ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
@@ -1306,10 +1257,10 @@ function openTopic(name, tmode = 'view', keep) {
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑 この索引を削除</button></div></div>`;
   else body = `<table class="ti">${rows.map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
-      ${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
-  // 逆方向（上に出す）: この索引の親を載せている Index・このIndexを + で案内している Index（引用できるのは Index だけ）
-  const back = topics.filter(o => o !== t && (L.mergeTopic(o).stars.includes(t.name) || (e && L.mergeTopic(o).rows.some(r => r[e.s].some(x => L.splitAnchor(x).id === e.id))))).sort((x, y) => x.name.localeCompare(y.name, 'ja'));
-  // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・⬆️ 索引されているトピック → 索引の中身
+      ${marks.map(x => `<tr class="tmark"><td colspan="2">◯ ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
+  // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
+  const upChip = k => { const o = kwTopic(k); return o ? `<span class="chip t" data-topic="${esc(o.name)}">↑ ${esc(k)}</span>` : `<span class="chip miss">↑ ${esc(k)}</span>`; };
+  // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
   $('#pane').innerHTML = `
     <div class="row thead">
       <span class="ti-ic">📑</span><h2>${esc(stripId(name))}</h2>
@@ -1319,7 +1270,7 @@ function openTopic(name, tmode = 'view', keep) {
     </div>
     <div class="row tmeta">
       <span class="tm"><span class="sub">🌳 親</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub">⬆️ 索引されているトピック</span>${back.length ? back.map(o => tchip(o.name)).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub">↑ 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
     </div>${body}`;
   if (tmode === 'edit') { // 1 つの欄。紙は ID(p)、デジタルは ID（親が紙の索引 なら、紙が ID、デジタルが ID(d)）
     const def = L.defOf(t), v = editor($('#ed-t'), L.topicText(t), 'topic', def, x => { t.text = x; saveTopic(t); }, `PKM 1a 3(p)`, () => L.topicText(t));
@@ -1380,7 +1331,7 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙</span>';
+  const chips = v => [['d', v.d], ['p', v.p]].map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
   return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today">今日の${esc(kind)}</button><input type="date" id="d-pick" value="${L.todayStr()}"><button id="d-make" title="この日の${esc(kind)}を開く（無ければ作る）">開く</button></div>${sortBar(true)}${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 $('#list').addEventListener('click', e => {

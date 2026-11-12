@@ -391,14 +391,10 @@ function openVault(vault) {
     return [...m].sort((x, y) => L.byReading(rd)(x[0], y[0]));
   }
   const idLinks = (s, list) => list.slice().sort((a, b) => L.cmpId(L.splitAnchor(a).id, L.splitAnchor(b).id)).map(x => { const { id, n } = L.splitAnchor(x); return `[${label(s, id)}${n ? `(${n})` : ''}](${noteHref(s, id)}${n ? '#c' + n : ''})`; }).join(' ');
-  // k のトピックIndex があれば、その入口のIDの真上に赤い点（Index.md 用）
   const cell = (v, k) => {
-    const t = k && [...topics.values()].find(x => x.keyword === k && x.entry);
     const one = (sp, x) => {
       const link = `<a href="${noteHref(sp, x)}">${label(sp, x)}</a>`;
-      return t && t.entry.s === sp && t.entry.id === x
-        ? `<span style="display:inline-block;text-align:center;line-height:1.15"><a href="${topicHref(t.name)}" title="トピックIndex ${h(t.name)}" style="color:#c0392b;font-size:.7em;text-decoration:none">●</a><br>${link}</span>`
-        : link;
+      return link;
     };
     return [['d', v.d], ['p', v.p]].flatMap(([sp, l]) => l.slice().sort(L.cmpId).map(x => one(sp, x))).join(' ');
   };
@@ -424,24 +420,23 @@ function openVault(vault) {
   }
 
   function topicMd(t) {
-    const { rows, stars, refs, chats } = L.mergeTopic(t), e = t.entry;
+    const { rows, stars, refs, chats, ups, marks } = L.mergeTopic(t), e = t.entry;
     const out = [
       `<!-- pkm-topic ${J(t)} -->`, `# ${esc(t.name)}`, '',
       `<p ${SUB}>入口 ${e ? a(noteHref(e.s, e.id), label(e.s, e.id)) : 'なし'}${t.keyword ? `　キーワード ${a(`${enc(KEYWORDS)}#${L.kwAnchor(t.keyword)}`, h(t.keyword))}` : ''}</p>`, ''
     ];
     if (rows.length) {
       out.push('| キーワード | ID |', '|---|---|');
-      for (const r of rows) { // * の印のIDには、上に赤い点（そのIDが入口のトピックIndex があればそこへのリンク）
+      for (const r of rows) { 
         const dotted = (s, list) => list.slice().sort((x, y) => L.cmpId(L.splitAnchor(x).id, L.splitAnchor(y).id)).map(raw => {
           const { id: x, n } = L.splitAnchor(raw), href = noteHref(s, x) + (n ? '#c' + n : ''), text = label(s, x) + (n ? `(${n})` : '');
-          const link = `[${text}](${href})`, tp = r.dot && r.dot.s === s && r.dot.id === x;
-          if (!tp) return link;
-          const to = topicOf(s, x);
-          return `<span style="display:inline-block;text-align:center;line-height:1.15">${to ? `<a href="${topicHref(to.name)}" style="color:#c0392b;font-size:.7em;text-decoration:none">●</a>` : '<span style="color:#c0392b;font-size:.7em">●</span>'}<br><a href="${href}">${text}</a></span>`;
+          return `[${text}](${href})`;
         }).join(' ');
         out.push(`| ${esc(r.kw)} | ${[dotted('d', r.d), dotted('p', r.p)].filter(Boolean).join(' ')} |`);
       }
     }
+    if (ups.length) out.push('', ...ups.map(k => `↑ ${esc(k)}  `));
+    if (marks.length) out.push('', ...marks.map(k => `◯ ${esc(k)}  `));
     if (stars.length) out.push('', ...stars.map(s => `★ [${esc(s)}](${topicHref(s)})  `));
     if (chats.length) out.push('', ...chats.map(c => `💬 ${esc(c)}  `));   // チャットメモのトピック（案内だけ。メモは、C_YYYY-MM-DD.md に）
     if (refs.length) out.push('', ...refs.map(r => `★ ${esc(r.label)} [${label(r.s, r.id)}](${noteHref(r.s, r.id)})  `));

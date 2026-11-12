@@ -62,7 +62,7 @@ test('全部が1つのフォルダに平らに置かれ、リンクは同じフ�
   v.saveNote({ s: 'd', id: '9', keywords: [], body: '上位' });
   v.saveTopic({ name: '9-PKM', entry: { s: 'd', id: '9' }, keyword: 'PKM', d: 'PKM 1 9', p: 'PKM 1' });
   const D9 = () => F('d', '9') + '.md';
-  assert.ok(new RegExp(`PKM[^\\n]*<a href="T_9-PKM.md"[^>]*>●</a><br><a href="${D9()}">9</a>`).test(r('キーワード.md')));
+  assert.ok(new RegExp(`PKM[^\\n]*<a href="${D9()}">9</a>`).test(r('キーワード.md')) && !r('キーワード.md').includes('●')); // 赤い点は廃止
   assert.match(r('T_9-PKM.md'), /キーワード <a href="%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89\.md#k-[a-z0-9]+">PKM<\/a>/);
   assert.strictEqual(openVault(dir).state().topics.find(t => t.name === '9-PKM').keyword, 'PKM');
 
@@ -288,13 +288,16 @@ test('日記の「今日のノート」から、消したノート・空のノ�
   assert.doesNotMatch(d.body, /:1\b/); assert.match(d.body, /:2/);
 });
 
-test('トピックIndexの + は案内、ID の前の * は赤い点の印', () => {
+test('トピックIndexの + は星、^ は上位トピック、* は ◯', () => {
   const L = require('../lib');
   assert.strictEqual(L.topicLine('+GUI').star, 'GUI');
   assert.strictEqual(L.topicLine('★ GUI').star, 'GUI');
-  const r = L.topicLine('PKM *1 1a');
-  assert.strictEqual(r.kw, 'PKM'); assert.deepStrictEqual(r.ids.map(x => [x.id, !!x.dot]), [['1', true], ['1a', false]]);
-  assert.deepStrictEqual(L.mergeTopic({ d: 'PKM *1 1a', p: '' }).rows[0].dot, { s: 'd', id: '1' });
+  assert.strictEqual(L.topicLine('^PKM').up, 'PKM');
+  assert.strictEqual(L.topicLine('*まとめ').mark, 'まとめ');
+  const r = L.topicLine('PKM 1 1a');
+  assert.strictEqual(r.kw, 'PKM'); assert.deepStrictEqual(r.ids.map(x => x.id), ['1', '1a']);
+  const m = L.mergeTopic({ d: '', p: '', text: '^上\n*進捗\nPKM 1 1a' });
+  assert.deepStrictEqual([m.ups, m.marks, m.rows.length], [['上'], ['進捗'], 1]);
 });
 
 test('昔の名前（D_<ID>.md / P_<ID>.md / D_u….md）を、日時の名前と YAML に移す（バックアップつき）', () => {

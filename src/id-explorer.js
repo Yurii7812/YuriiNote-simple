@@ -55,17 +55,16 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
   // IndexのIDチップは、親索引があれば先にそのIndexを開く。
   function indexChip(s, raw, fromTopic = '', dot = null) {
     const ref = L.splitAnchor(raw), id = ref.id;
-    const exists = byNote.has(s + ':' + id), hasDot = dot && dot.s === s && dot.id === id;
-    return '<span class="chip ' + s + (exists ? '' : ' miss') + (hasDot ? ' dotted' : '') +
+    const exists = byNote.has(s + ':' + id);
+    return '<span class="chip ' + s + (exists ? '' : ' miss') +
       '" data-ix-ref-s="' + esc(s) + '" data-ix-ref-id="' + esc(id) + '"' +
       (fromTopic ? ' data-ix-from-topic="' + esc(fromTopic) + '"' : '') +
       ' title="' + esc(exists ? '開く（索引があれば先に表示）' : 'まだ取り込まれていません') + '">' +
-      (hasDot ? '<i class="dotabove">●</i>' : '') + (s === 'p' ? '紙' : '') + esc(raw) + '</span>';
+      (s === 'p' ? '紙' : '') + esc(raw) + '</span>';
   }
   function indexRow(k) {
     const t = topics.find(t => t.keyword === k.name), m = t && L.mergeTopic(t);
-    const r = m && m.rows.find(r => r.kw === k.name && r.dot);
-    const dot = r ? r.dot : t && t.entry;
+    const dot = null;
     const all = [...k.notes.map(n => ({ s: n.s, raw: n.id })), ...k.pending.map(raw => ({ s: 'p', raw }))];
     return '<div class="ix idex-index-entry"><b class="idex-keyword" data-ix-kind="keyword" data-ix-key="' + esc(k.name) +
       '" tabindex="0">' + esc(k.name) + '</b>' +
