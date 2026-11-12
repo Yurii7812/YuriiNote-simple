@@ -4,45 +4,19 @@ import { ctx, $, esc, dialog, popMenu } from './shared.js';
 import L from '../lib.js';
 
 let pend = [];            // まだ紙のノートが無いもの [{ kw, reading, ids }]
-let sugTimer = null;
 
 export function init(docs) { pend = (docs['K_paperindex'] && docs['K_paperindex'].entries) || []; }
 export const pendingEntries = () => pend.map(e => ({ kw: e.kw, reading: e.reading || '', ids: [...(e.ids || [])] }));
 export const apply = st => { pend = (st.docs && st.docs['K_paperindex'] && st.docs['K_paperindex'].entries) || []; };
 export const isPending = kw => pend.some(e => e.kw === kw);
 
-// Index タブの上に出す、追加の欄とフィルター
-export function form() {
-  return `<div id="pi"><div class="pi-form">
-      <input id="pi-kw" placeholder="紙のキーワード" autocomplete="off"><input id="pi-rd" placeholder="よみ（自動）" autocomplete="off">
-      <input id="pi-ids" placeholder="ID　例: 12 12a" autocomplete="off"><button class="p" id="pi-add">追加</button>
-    </div>
-  </div>`;
-}
-async function add() {
-  const kw = $('#pi-kw').value.trim(), ids = $('#pi-ids').value.split(/[\s,、，]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
-  if (!kw) return $('#pi-kw').focus();
-  const bad = ids.filter(i => !L.isId(L.splitAnchor(i).id)); if (bad.length) return alert(`IDの形が違います: ${bad.join(' ')}\n（例: 12 や 3a や 3a(1)）`);
-  let rd = L.toHira($('#pi-rd').value.trim()); if (!rd) rd = await ctx.api.suggest(kw);
+// 取り込み前の紙のキーワードを足す（ID はまだ取り込んでいない紙のものでもよい）
+export async function addPaper(kw, reading, ids) {
   await ctx.flush();
-  const st = await ctx.api.addPaperIndex({ kw, reading: rd, ids });
-  if (!st) return;
-  ctx.applyState(st);   // 一覧を描き直す
-  const f = $('#pi-kw'); if (f) f.focus();
+  const st = await ctx.api.addPaperIndex({ kw, reading, ids });
+  if (st) ctx.applyState(st);
+  return !!st;
 }
-
-document.addEventListener('input', e => {
-  if (e.target.id === 'pi-kw') { // よみの候補を、自動で入れる（直していなければ）
-    clearTimeout(sugTimer);
-    sugTimer = setTimeout(async () => { const rd = $('#pi-rd'); if (!rd || rd.dataset.touched) return; const k = e.target.value.trim(); rd.value = k ? await ctx.api.suggest(k) : ''; }, 220);
-  }
-  if (e.target.id === 'pi-rd') e.target.dataset.touched = e.target.value ? '1' : '';
-});
-document.addEventListener('keydown', e => {
-  if (['pi-kw', 'pi-rd', 'pi-ids'].includes(e.target.id) && e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); }
-  if (['pi-kw', 'pi-rd', 'pi-ids'].includes(e.target.id) && e.key === 'Escape') { e.target.blur(); }
-});
-document.addEventListener('click', e => { if (e.target.id === 'pi-add') add(); });
 
 // 右クリック: 取り込み前の紙のキーワードの行を、直す・削除
 document.addEventListener('contextmenu', e => {

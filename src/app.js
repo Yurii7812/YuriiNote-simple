@@ -59,7 +59,6 @@ async function ensureKeyword(sp, id, kw) {
 }
 
 // ID の横の 📑: そのIDのトピック Index を開く。複数あるときは一覧から選ぶ
-document.addEventListener('click', e => { if (e.target.closest('#grp-new')) topicNewDialog('', true); });
 document.addEventListener('click', e => {
   const x = e.target.closest('.tix'); if (!x) return;
   e.preventDefault(); e.stopPropagation();
@@ -468,22 +467,21 @@ function renderList() {
   } else if (tab === 'i') {
     // Index: グローバルIndex（キーワードの一覧）⇄ グループIndex（0-1, 0-2 …）を、1つのボタンで切り替える
     const groups = topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1));
-    out.push(`<div class="grpbar"><button id="ix-mode" class="tbtn p" title="押すと、グローバルIndex ⇄ グループIndex を切り替えます">${groupMode ? '👥 グループ' : '🌐 グローバル'}</button>${groupMode ? '<button id="grp-new" class="tbtn" title="グループIndex を作る">＋ グループを作る</button>' : ''}</div>`);
+    out.push(`<div class="grpbar"><button id="ix-mode" class="tbtn p" title="押すと、グローバルIndex ⇄ グループIndex を切り替えます">${groupMode ? '👥 グループ' : '🌐 グローバル'}</button></div>`);
     if (groupMode) {
       for (const g of groups) {
         const m = L.mergeTopic(g);
         out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
       }
-      if (!groups.length) out.push('<div class="none">グループIndex はまだありません。「＋ グループを作る」で作ります</div>');
+      if (!groups.length) out.push('<div class="none">グループIndex はまだありません。右上の＋で作ります</div>');
     } else {
-      out.push(PI.form());
       let row = null;
       for (const e of globalIndex()) {
         const r = L.kanaRow(readingOf(e[0]));
         if (r !== row) { out.push(`<h4>${r}</h4>`); row = r; }
         out.push(ixRow(e));
       }
-      if (out.length === 2) out.push('<div class="none">ノートにキーワードを書くと、ここに並びます</div>');
+      if (out.length === 1) out.push(`<div class="none">${paperOnly ? '紙のキーワードはまだありません。右上の＋で作ります' : 'ノートにキーワードを書くと、ここに並びます。右上の＋でも作れます'}</div>`);
     }
   } else {
     const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
@@ -1056,8 +1054,41 @@ async function createNoid(kind) {
   if (kind === 'text') setTimeout(() => { if (cur && cur.k === 'note' && cur.id === n.id && lastView && lastView.dom.isConnected) lastView.focus(); }, 30);
   else setTimeout(() => { const t = $('#f-title'); if (t) t.focus(); }, 30);
 }
+// Index タブの＋: グローバルなら新しいキーワード（📜 のときは紙、ふだんはデジタル）、グループなら新しいグループIndex
+function newIndexDialog() {
+  const paper = paperOnly;
+  dialog(`<div class="dlg-a"><h3>➕ ${paper ? '紙の' : 'デジタルの'}キーワードを作る</h3>
+    <div class="da-lab">🏷 キーワード</div><input id="ni-kw" autocomplete="off">
+    <div class="da-lab">🔤 よみ（自動）</div><input id="ni-rd" autocomplete="off">
+    <div class="da-lab">🔢 ID（空白で区切る。例: 12 12a）${paper ? '。まだ取り込んでいない紙のIDでもよい' : '。今あるデジタルのノートのID'}</div><input id="ni-ids" autocomplete="off">
+    <div class="da-bar"><span class="grow"></span><button id="ni-no">やめる</button><button class="p" id="ni-ok">➕ 作る</button></div></div>`, close => {
+    let touched = false, timer = null;
+    $('#ni-kw').focus(); $('#ni-no').onclick = close;
+    $('#ni-rd').oninput = () => { touched = !!$('#ni-rd').value; };
+    $('#ni-kw').oninput = () => { clearTimeout(timer); timer = setTimeout(async () => { if (touched) return; const k = $('#ni-kw').value.trim(); $('#ni-rd').value = k ? await api.suggest(k) : ''; }, 220); };
+    const ok = async () => {
+      const kw = $('#ni-kw').value.trim(), ids = $('#ni-ids').value.split(/[\s,、，]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
+      if (!kw) return $('#ni-kw').focus();
+      if (!ids.length) return $('#ni-ids').focus();
+      const bad = ids.filter(i => !L.isId(L.splitAnchor(i).id)); if (bad.length) return alert(`IDの形が違います: ${bad.join(' ')}\n（例: 12 や 3a）`);
+      if (paper) {
+        const rd = L.toHira($('#ni-rd').value.trim()) || await api.suggest(kw);
+        if (!(await PI.addPaper(kw, rd, ids))) return;
+      } else {
+        const miss = ids.filter(i => !get('d', L.splitAnchor(i).id)); if (miss.length) return alert(`デジタルのノートがありません: ${miss.join(' ')}`);
+        for (const i of ids) { const n = get('d', L.splitAnchor(i).id); if (!n.keywords.includes(kw)) { n.keywords.push(kw); await api.saveNote(pubNote(n)); } }
+        const rd = L.toHira($('#ni-rd').value.trim()); if (rd) { try { await api.setReading?.(kw, rd); } catch { } }
+        renderList();
+      }
+      close();
+    };
+    $('#ni-ok').onclick = ok;
+    for (const id of ['ni-kw', 'ni-rd', 'ni-ids']) $('#' + id).onkeydown = ev => { if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); ok(); } };
+  });
+}
 $('#new').onclick = e => {
   if (mode === 'diary') return openDiary(L.todayStr());
+  if (mode === 'notes' && tab === 'i') return groupMode ? topicNewDialog('', true) : newIndexDialog();
   const r = $('#new').getBoundingClientRect();
   popMenu({ clientX: r.left, clientY: r.bottom + 4 }, [
     ['📝 ノート', () => createNoid('text')],
