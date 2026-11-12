@@ -27,7 +27,6 @@ if ! { npm install --no-audit --no-fund && npm run build; }; then say "失敗し
 
 # 入れ替え
 mv "$APP" "$OLD"; mv "$NEW" "$APP"
-for keep in downloads; do :; done
 rm -rf "$OLD"
 cd "$APP"
 
