@@ -8,7 +8,7 @@ import * as LC from './linked-content.js';
 import * as ReferencePicker from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch } from './md.js';
 import { ctx } from './shared.js';
-import * as IDExplorer from './id-explorer.js';
+import X from '../id-explorer-core.js';
 import * as PI from './pindex.js';
 import { dialog, popMenu, toast, renderMd } from './shared.js';
 import { installMermaidObserver } from './mermaid.js';
@@ -740,6 +740,7 @@ function closeTab(i) {
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
   : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'cards' ? '🗒 カード' : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
 function renderTabs() {
+  drawIdBar();
   $('#tabbar').innerHTML = tabs.map((t, i) => `<div class="tab${i === active ? ' on' : ''}" data-ti="${i}"><span>${tabLabel(t)}</span><b class="x" data-close="${i}" title="閉じる (Ctrl+W)">×</b></div>`).join('')
     + '<button class="tab-new" title="新しいタブ (Ctrl+T)">＋</button>';
   renderNav();
@@ -833,15 +834,47 @@ async function changeId(note, v) {
   }
   await refreshDiaries(); openNote(note.s, v, null, true); return true;
 }
-// 通常ノート・ノート化されたメモで共通のID探索。
-// グローバルIndex→索引→本文・関係をたどり、候補確定後に保存する。
-function openIdExplorer({ subject = null, onChoose }) {
-  return IDExplorer.open({ notes, topics, readings, paperEntries: PI.pendingEntries(), subject, onChoose });
-}
+// ===== IDをつける =====
+// 特別な画面は使わず、ふつうの画面でノートを探して、「このノートの子／次」と決める。
+// 上に帯が出る: 🆕 新しい番号 ／ 基準にするノートを開くと 🌱 子 ・ ↔️ 次（押したら決定）／ ✖️ やめる
+let idPick = null;   // { stem }（付けるノート）
+const idSubject = () => idPick && notes.find(n => n.stem === idPick.stem && n.noid) || null;
 function giveIdDialog(note) {
   if (!note || note.s !== 'd') return;
-  openIdExplorer({ subject: note, onChoose: id => changeId(note, id) });
+  idPick = { stem: note.stem }; drawIdBar(); toast('基準にするノートを開いて、🌱分岐／↔️並列を押します（🆕新規ならノートは選ばなくてOK）');
 }
+function endIdPick() { idPick = null; drawIdBar(); }
+function drawIdBar() {
+  const bar = $('#idbar'); if (!bar) return;
+  const subject = idSubject();
+  if (idPick && !subject) idPick = null;
+  if (!idPick) { bar.hidden = true; bar.innerHTML = ''; return; }
+  const base = cur && cur.k === 'note' ? get(cur.s, cur.id) : null;
+  const ok = base && base.s === 'd' && !base.noid && base !== subject;
+  const child = ok ? X.suggest(notes, base, 'child') : '', sib = ok ? X.suggest(notes, base, 'sibling') : '';
+  bar.hidden = false;
+  bar.innerHTML = `<span class="idb-t">🔢 <b>${esc(titleOf(subject) || '（無題）')}</b> のIDを選んでいます</span>`
+    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="ノートに関係なく、新しい系統（次の空き番号）にする">🆕 新規 <b>${esc(X.nextRoot(notes))}</b></button>`
+    + (ok ? `<span class="idb-base">基準 <b>${esc(base.id)}</b> ${esc(limit(titleOf(base), 14))}</span>`
+      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐（子）する">🌱 分岐 <b>${esc(child)}</b></button>`
+      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列（次）にする">↔️ 並列 <b>${esc(sib)}</b></button>`
+      : '<span class="idb-hint">ノートを開くと、🌱分岐／↔️並列が選べます</span>')
+    + '<span class="grow"></span><button class="idb" data-idcancel title="やめる（Esc）">✖️</button>';
+}
+const limit = (t, n) => String(t || '').length > n ? String(t).slice(0, n) + '…' : String(t || '');
+document.addEventListener('click', async e => {
+  if (e.target.closest('[data-idcancel]')) return endIdPick();
+  const b = e.target.closest('[data-idpick]'); if (!b || !idPick) return;
+  const subject = idSubject(); if (!subject) return endIdPick();
+  const id = b.dataset.idpick, ok = await changeId(subject, id);
+  if (ok === false) return toast('そのIDは使えませんでした');
+  idPick = null; drawIdBar(); toast(`ID ${id} を付けました`);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !idPick || e.isComposing || $('#modal').style.display === 'flex') return;
+  if (e.target && e.target.closest && e.target.closest('input, textarea, .cm-editor')) return;
+  endIdPick();
+});
 // キーワードと索引（ボタンで足す）
 const refContexts = (body, id, own = 'd', target = own) => { // id（target の側）を指している所の、周辺の文章（ハイライトなし）。own は、この本文のある側。リンクだけの行は出さない
   const out = [];
@@ -1874,7 +1907,6 @@ Object.assign(ctx, {
   targetMemo: LC.targetMemo, addNote: n => notes.push(n),
   renderChanged: () => LC.refresh(), renderTabs, openLink, applyState, readings: () => readings, lastNote: () => lastNote,
  renderList, pick, get, free, refreshDiaries, records: () => records, openNote, openDiary, getDiary,
-  exploreId: callback => openIdExplorer({ onChoose: id => { callback(id); return true; } }),
   setCur: c => { cur = c; }, setMode: m => { mode = m; }, cur: () => cur, notes: () => notes, vault: () => vault,
   touchNote: n => saveNote(n),
   touchDiary: saveDiary, saveDocument, hasPending: key => saves.has(key),

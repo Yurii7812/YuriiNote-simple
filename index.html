@@ -63,7 +63,7 @@ button:disabled{opacity:.4;cursor:default}
 
 .grpbar{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:6px 10px}.grpbar .tbtn{height:34px;min-height:34px;padding:0;font-size:16px}.grpbar #ix-mode{flex:1 1 auto;min-width:0}.grpbar #ix-add{flex:none;width:34px}.chip.g.on{background:var(--acc-bg);color:var(--acc);border-color:transparent}
 #searchbox{padding:8px 10px 2px;flex:none;display:flex;align-items:center;gap:4px}#searchbox #q{flex:1 1 auto;min-width:0}#searchbox .ic{flex:none;width:32px;height:32px;font-size:15px;background:#f4f5f8;border-radius:8px;color:var(--sub);padding:0}#searchbox .ic:hover{background:var(--hl)}#searchbox #q{margin:0;box-sizing:border-box;padding:6px 12px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:14px;background:#f4f5f8;outline:none}#searchbox #q:focus{background:#fff;border-color:var(--line)}
-.idex-section-actions,.idex-path{display:none!important}.idex-head small{display:none}
+#idbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:var(--acc-bg);border-bottom:1px solid var(--line);font-size:13.5px}#idbar .idb-t{font-weight:600}#idbar .idb-hint,#idbar .idb-base{color:var(--sub)}#idbar .grow{flex:1}#idbar button.idb{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);cursor:pointer;font:inherit;font-size:13.5px}#idbar button.idb.on{border-color:var(--acc);color:var(--acc);font-weight:600}#idbar button.idb:hover{background:var(--hl)}#idbar b{font-family:ui-monospace,monospace}
 #paperonly,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#save-status[hidden]{display:none}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
@@ -340,78 +340,9 @@ button{font-size:14.5px;padding:5px 13px;border-color:#d6d9e1;color:#3d4150}
 .pr.prev b{color:var(--acc)}.pr.prev span{margin-left:auto;font-size:12px;color:var(--acc)}
 
 /* ID付与・再指定: 全文検索とダブルIndexを行き来する探索ダイアログ */
-.idex-cover{position:fixed;inset:0;z-index:90;background:var(--bg,#fff);display:flex;align-items:stretch;justify-content:stretch;padding:0;box-sizing:border-box}
-.idex-dialog{width:100%;height:100%;min-height:380px;display:flex;flex-direction:column;background:var(--bg,#fff);color:var(--fg,#222);border-radius:0;overflow:hidden}
-.idex-head{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-bottom:1px solid var(--line,#ddd);gap:14px}
-.idex-head h2{font-size:21px;margin:0 0 4px}
-.idex-head small{color:var(--sub);font-size:12px}
-.idex-head [data-ix-close]{font-size:25px;line-height:1;border:0;background:transparent;color:var(--sub);cursor:pointer}
-.idex-main{display:grid;grid-template-columns:minmax(300px,32%) minmax(0,1fr);min-height:0;flex:1}
-.idex-sidebar{min-height:0;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px 12px 0}
-.idex-sidebar #idex-query{width:100%;box-sizing:border-box;padding:10px 12px;font:inherit;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
-.idex-scopes{display:flex;gap:4px;margin:9px 0 6px;flex-wrap:wrap}
-.idex-scopes button,.idex-method button{border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:6px 9px;cursor:pointer;color:var(--fg);font:inherit;font-size:12px}
-.idex-scopes button.on,.idex-method button.on{background:var(--acc-bg);border-color:var(--acc);color:var(--acc);font-weight:650}
-.idex-results{overflow:auto;flex:1;min-height:0;padding:2px 0 14px}
-.idex-result-section h3{position:sticky;top:0;margin:10px 0 5px;padding:7px 8px;background:var(--bg);font-size:12px;color:var(--sub);font-weight:600}
-.idex-link{width:100%;border:1px solid transparent;border-radius:7px;text-align:left;background:transparent;color:var(--fg);padding:8px 9px;display:flex;flex-direction:column;gap:2px;cursor:pointer;font:inherit;overflow-wrap:anywhere}
-.idex-link:hover,.idex-link:focus-visible{background:var(--hl);border-color:var(--line);outline:none}
-.idex-link strong{font-size:13px;font-weight:600}
-.idex-link small{color:var(--sub);font-size:11px;line-height:1.4}
-.idex-empty{font-size:12px;color:var(--sub);padding:6px 9px;margin:0}
-.idex-detail{display:flex;flex-direction:column;min-height:0;min-width:0}
-.idex-trail{padding:11px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;min-height:20px;font-size:12px;color:var(--sub)}
-.idex-trail button{border:0;background:transparent;color:var(--acc);cursor:pointer;font:inherit;white-space:nowrap}
-.idex-trail button:disabled{color:var(--sub);opacity:.5;cursor:default}
-.idex-path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.idex-preview{overflow:auto;min-height:0;flex:1;padding:16px 23px 28px}
-.idex-preview h2{font-size:20px;overflow-wrap:anywhere;margin:0 0 12px}
-.idex-section{margin:18px 0 24px}
-.idex-section h4{color:var(--sub);font-size:12px;margin:0 0 7px;padding:0 0 5px;border-bottom:1px solid var(--line)}
-.idex-section .idex-link{margin:2px 0}
-.idex-note-meta{color:var(--sub);font-size:12px}
-.idex-note-body{font:var(--bodysize,15px)/1.7 var(--bodyfont,inherit);white-space:pre-wrap;overflow-wrap:anywhere;padding:12px 14px;max-height:none;overflow-wrap:anywhere}
-.idex-index-row{display:grid;grid-template-columns:minmax(85px,30%) minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
-.idex-index-key{font-size:13px;font-weight:600;overflow-wrap:anywhere}
-.idex-missing{font-size:12px;color:var(--sub);padding:5px 8px;display:block}
-.idex-welcome{color:var(--sub);line-height:1.8;max-width:630px}
-.idex-welcome h3{color:var(--fg);font-size:17px}
-.idex-footer{border-top:1px solid var(--line);padding:12px 19px 14px;background:var(--bg);flex-shrink:0}
-.idex-pos{margin:0 0 10px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--hl);font-size:13px;line-height:1.55}.idex-pos-none{color:var(--sub)}.idex-pos-parent{color:var(--sub);font-size:12px;margin-bottom:2px}.idex-pos-row b{font-weight:600;margin-right:6px}.idex-pos-row.near{color:var(--sub)}.idex-pos-row.me{color:var(--acc);font-weight:650;background:var(--acc-bg);border-radius:6px;margin:1px -6px;padding-right:6px}.idex-pos-row.me::after{content:' ◀ ここに入る';font-weight:400;font-size:12px}.idex-pos-row.me.bad{color:var(--red,#c0392b);background:#c0392b14}.idex-pos-row.me.bad::after{content:''}
-.idex-method{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
-.idex-method button:disabled{opacity:.4;cursor:default}
-.idex-decision{display:flex;gap:10px;align-items:center;flex-wrap:nowrap;margin-right:auto;margin-left:18px}.idex-head h2{margin:0}
-.idex-decision label{display:flex;align-items:center;gap:8px;font-size:13px}
-.idex-decision input{max-width:116px;border:1px solid var(--line);padding:7px 9px;border-radius:7px;color:var(--fg);background:var(--bg);font:inherit}
-.idex-decision #idex-status{font-size:18px;flex:none;min-width:0;cursor:help}.idex-decision #idex-candidate.good{border-color:#198754;box-shadow:0 0 0 2px #19875422}.idex-decision #idex-candidate.bad{border-color:var(--red,#c0392b);box-shadow:0 0 0 2px #c0392b22}.idex-decision{gap:8px}
-.idex-decision #idex-status.good{color:#198754}
-.idex-decision #idex-status.bad{color:var(--red,#c0392b)}
-.idex-decision button{padding:8px 12px;border-radius:7px;border:1px solid var(--line);background:var(--bg);cursor:pointer;color:var(--fg);font:inherit}
-.idex-decision .idex-primary{background:var(--acc);border-color:var(--acc);color:white;font-weight:600}
-.idex-decision button:disabled{opacity:.4;cursor:default}
-@media(max-width:740px){.idex-dialog{height:100vh}.idex-head{padding:10px 12px}.idex-main{display:flex;flex-direction:column}.idex-sidebar{height:34%;min-height:140px;border-right:0;border-bottom:1px solid var(--line)}.idex-detail{flex:1}.idex-preview{padding:12px}.idex-footer{padding:9px 12px}.idex-decision{gap:6px}.idex-method{margin-bottom:6px}}
+
 /* ID探索では通常のIndex、索引、ノート一覧の見た目と操作を共有 */
-.idex-index-entry{padding:9px 10px;border-bottom:1px solid var(--line);line-height:2}
-.idex-index-entry .idex-keyword{cursor:pointer;margin-right:7px}
-.idex-index-entry .idex-keyword:hover{text-decoration:underline}
-.idex-index-entry .chip{margin:2px 5px 2px 0}
-.idex-result-section .item{cursor:pointer}
-.idex-result-section .item:hover{background:var(--hl)}
-.idex-preview .ti{width:100%;font-size:inherit}
-.idex-topic-head{align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
-.idex-topic-head h2{margin:0}
-.idex-preview .star{margin-top:12px}
-.idex-view-index .ix{font-size:15px}
-.idex-preview .idex-section .item{padding:6px 10px;border-bottom:1px solid var(--line);cursor:pointer}
-.idex-preview .idex-section .item:hover{background:var(--hl)}
 /* 探索結果の表示順と各グループの並べ替え */
-.idex-result-section>h3{display:flex;align-items:center;flex-wrap:wrap;gap:6px;justify-content:space-between}
-.idex-section-actions{display:flex;align-items:center;gap:3px;flex:none}
-.idex-section-actions select{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:4px 2px}
-.idex-section-actions button{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:4px 7px;cursor:pointer}
-.idex-section-actions button:disabled{opacity:.35;cursor:default}
-.idex-choose-target{display:flex;gap:7px;flex-wrap:wrap;padding:14px 0}
-.idex-choose-target button{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg);color:var(--fg);cursor:pointer}
 /* 長いタイトルは一覧・カード・本文のいずれでも読めるようにする。
    リスト行の高さは自然に広げ、タイトル欄は入力中も折り返し自動伸長。 */
 .item.note .nt,.item.topicrow .nt,.idex-result-section .nt{
@@ -600,6 +531,7 @@ body{-webkit-user-select:none;user-select:none}
       <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="more" class="ic" title="メニュー">🧰</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
+    <div id="idbar" hidden></div>
     <div id="pane"></div>
   </section>
 </main>
