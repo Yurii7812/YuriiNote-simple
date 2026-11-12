@@ -467,7 +467,7 @@ function renderList() {
   } else if (tab === 'i') {
     // Index: グローバルIndex（キーワードの一覧）⇄ グループIndex（0-1, 0-2 …）を、1つのボタンで切り替える
     const groups = topics.filter(t => t.entry && t.entry.s === 'd' && t.entry.id === '0').sort((a, b) => (a.num || 1) - (b.num || 1));
-    out.push(`<div class="grpbar"><button id="ix-mode" class="tbtn p" title="押すと、グローバルIndex ⇄ グループIndex を切り替えます">${groupMode ? '👥 グループ' : '🌐 グローバル'}</button><button id="ix-add" class="tbtn" title="${groupMode ? '新しいグループIndex を作る' : (paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る')}">＋ ${groupMode ? '新しいグループ' : '新しいキーワード'}</button></div>`);
+    out.push(`<div class="grpbar"><button id="ix-mode" class="tbtn p" title="${groupMode ? 'グループIndex（押すとグローバルIndexへ）' : 'グローバルIndex（押すとグループIndexへ）'}">${groupMode ? '👥' : '🌐'}</button><button id="ix-add" class="tbtn" title="${groupMode ? '新しいグループIndex を作る' : (paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る')}">＋ ${groupMode ? 'グループ' : 'キーワード'}</button></div>`);
     if (groupMode) {
       for (const g of groups) {
         const m = L.mergeTopic(g);
