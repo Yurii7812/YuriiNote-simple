@@ -10,7 +10,7 @@
 body{margin:0;font:15px/1.6 system-ui,"Noto Sans JP",sans-serif;color:var(--fg);background:var(--bg);height:100vh;display:flex;flex-direction:column}
 body{font-size:15px}
 .ico{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
-.top{display:flex;align-items:center;gap:2px;padding:7px 12px;border-bottom:1px solid #f4f4f6;flex-shrink:0}.top .sp{flex:1}
+.top{display:flex;align-items:center;gap:2px;padding:4px 12px 0;border-bottom:1px solid #f4f4f6;flex-shrink:0}.top .sp{flex:1}
 .top input{width:190px;margin:0 6px;padding:4px 12px;border:1px solid transparent;border-radius:8px;font:inherit;font-size:13.5px;background:#f4f5f8;outline:none}
 .top input:focus{background:#fff;border-color:var(--line);width:280px}
 button.ic{width:28px;height:28px;padding:0;border:0;border-radius:7px;background:none;line-height:1;color:#9a9fac;display:inline-flex;align-items:center;justify-content:center}
@@ -88,7 +88,7 @@ i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacit
 .chip.p{color:var(--paper);border-color:#e6d6c0}.chip.t{color:var(--acc)}.chip.miss{opacity:.45}
 .chip:hover{background:var(--hl)}
 #right{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabbar{display:flex;align-items:flex-end;gap:2px;padding:4px 10px 0;background:#fff;border-bottom:1px solid #f4f4f6;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;flex-shrink:0}
+#tabbar{flex:1 1 auto;min-width:0;display:flex;align-items:flex-end;gap:2px;padding:4px 10px 0;background:#fff;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;flex-shrink:0}
 .tab{display:flex;align-items:center;gap:6px;max-width:200px;padding:5px 8px 5px 12px;border:1px solid transparent;border-bottom:0;border-radius:7px 7px 0 0;color:var(--sub);cursor:pointer;white-space:nowrap;font-size:14px}
 .tab span{overflow:hidden;text-overflow:ellipsis}.tab small{margin-left:6px;color:#aaa}
 .tab:hover{background:var(--hl)}.tab.on{background:#fff;border-color:transparent;color:var(--fg);box-shadow:inset 0 -2px var(--acc)}
@@ -291,7 +291,7 @@ button.ic{width:36px;height:36px;border-radius:9px;color:#5d6270}
 button.ic .ico{width:21px;height:21px;stroke-width:1.9}
 button.ic:hover:not(:disabled){background:#e9ecf3;color:#23262d}
 button{font-size:14.5px;padding:5px 13px;border-color:#d6d9e1;color:#3d4150}
-#tabbar{padding:6px 12px 0}
+#tabbar{padding:0 8px}
 .tab{font-size:14.5px;padding:7px 12px 7px 14px;color:#5d6270}.tab.on{color:#23262d;font-weight:600}
 .tab small{color:#8a8f9c}
 .idline{font-size:14px;color:#5d6270;min-height:28px}
@@ -593,12 +593,12 @@ body{-webkit-user-select:none;user-select:none}
   <section id="right">
     <div class="top">
       <button id="nav-back" class="ic" title="戻る (Alt+←)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Alt+→)" disabled>➡️</button>
-      <span class="sp"></span>
+      <div id="tabbar"></div>
       <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
       <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="more" class="ic" title="メニュー">🧰</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
-    <div id="tabbar"></div><div id="pane"></div>
+    <div id="pane"></div>
   </section>
 </main>
 
