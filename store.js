@@ -277,9 +277,9 @@ function openVault(vault) {
     const low = lowerOf(d), lines = (d.body || '').split('\n'), H = '## 今日の記録';
     const i = lines.findIndex(l => l.trim() === H);
     let rest = lines;
-    if (i >= 0) { let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*-\s+\[[^\]]*\]\([^)]*\)/.test(lines[j]))) j++; rest = [...lines.slice(0, i), ...lines.slice(j)]; }
+    if (i >= 0) { let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*(-\s+)?\[[^\]]*\]\([^)]*\)\s*$/.test(lines[j]))) j++; rest = [...lines.slice(0, i), ...lines.slice(j)]; }
     const free = rest.join('\n').replace(/^\n+/, '');
-    const sec = low.length ? [H, '', ...low.map(o => `- [${lowerLabel(o)}](${diaryHref(o)})`)].join('\n') : '';
+    const sec = low.length ? [H, '', ...low.map(o => `[${lowerLabel(o)}](${diaryHref(o)})`)].join('\n') : '';
     const body = sec ? sec + (free ? '\n\n' + free : '') : free;
     if (body !== (d.body || '')) d.body = body;
   }

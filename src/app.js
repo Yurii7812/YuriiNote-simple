@@ -1591,8 +1591,8 @@ async function openDiary(date, keep, kind) {
   // 自由に書く部分（最初の「## 」より前）にカーソル。節で始まる日記は、その前に空行を足して書く場所を作る
   let text = view.state.doc.toString(), base = 0;
   const ls = text.split('\n');
-  if (ls[0].trim() === '## 今日の記録') { let j = 1; while (j < ls.length && (!ls[j].trim() || /^\s*-\s+\[[^\]]*\]\([^)]*\)/.test(ls[j]))) j++; base = ls.slice(0, j).join('\n').length + (j < ls.length ? 1 : 0); }   // 一番上の「今日の記録」の下が、書く場所
-  if (/^## /.test(text.slice(base))) { view.dispatch({ changes: { from: base, insert: '\n\n\n' } }); text = view.state.doc.toString(); }   // 本文は onChange で d.body に入る（上下に空行）
+  if (ls[0].trim() === '## 今日の記録') { let j = 1; while (j < ls.length && (!ls[j].trim() || /^\s*(-\s+)?\[[^\]]*\]\([^)]*\)\s*$/.test(ls[j]))) j++; base = ls.slice(0, j).join('\n').length + (j < ls.length ? 1 : 0); }   // 一番上の「今日の記録」の下が、書く場所
+  if (/^## /.test(text.slice(base))) { view.dispatch({ changes: { from: base, insert: base > 0 ? '\n\n' : '\n\n\n' } }); text = view.state.doc.toString(); }   // 本文は onChange で d.body に入る（上下に空行）
   const h2 = text.slice(base).search(/^## /m), at = h2 > 0 ? base + h2 - 2 : text.length; // 見出しの前の、真ん中の空行
   if (cur.pos != null && keep) view.dispatch({ selection: { anchor: Math.min(cur.pos, view.state.doc.length) } });
   else { view.dispatch({ selection: { anchor: at } }); view.focus(); }
