@@ -29,7 +29,7 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     '<div class="idex-preview"></div></div></div>' +
     '<footer class="idex-footer"><div class="idex-method"><button type="button" data-ix-method="child" title="分岐（子）にする">🌱 子</button><button type="button" data-ix-method="sibling" title="並列（きょうだい）にする">↔️ 並列</button><button type="button" data-ix-method="direct" class="on" title="IDを直接指定">✍️ 直接</button></div>' +
     '<div class="idex-decision"><label>ID <input id="idex-candidate" autocapitalize="off" spellcheck="false" autocomplete="off"></label>' +
-    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">✅ 決定</button><button type="button" data-ix-close title="やめる">✖️</button></div></footer></section>';
+    '<span id="idex-status"></span><button type="button" data-ix-confirm class="idex-primary" title="このIDに決定">🆗 決定</button><button type="button" data-ix-close title="やめる">✖️</button></div></footer></section>';
   document.body.append(root);
   const $ = sel => root.querySelector(sel);
   const byNote = new Map(notes.map(n => [nkey(n), n]));
@@ -194,10 +194,14 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
     if (!X.available(notes, id, subject)) return {ok:false,text:'IDの形式が無効か、すでに使われています'};
     return {ok:true,text:'使用可能なID'};
   }
+  // IDが使えるかは、文字ではなく ✅ / ❌ と、入力欄の枠の色で見せる（理由は、マウスを乗せると出る）
+  function setStatus(ok, text) {
+    const el = $('#idex-status'); el.textContent = ok ? '✅' : '❌'; el.title = text; el.className = ok ? 'good' : 'bad';
+    $('#idex-candidate').classList.toggle('good', ok); $('#idex-candidate').classList.toggle('bad', !ok);
+  }
   function updateStatus() {
     const result = valid();
-    $('#idex-status').textContent = result.text;
-    $('#idex-status').className = result.ok ? 'good' : 'bad';
+    setStatus(result.ok, result.text);
     $('[data-ix-confirm]').disabled = st.busy || !result.ok;
   }
   function drawFooter() {
@@ -243,10 +247,10 @@ export function open({ notes, topics, readings = {}, paperEntries = [], subject 
       try {
         const success = await onChoose(st.typed.trim().toLowerCase());
         if (success !== false) close();
-        else { $('#idex-status').textContent = 'IDを変更できませんでした'; st.busy = false; updateStatus(); }
+        else { setStatus(false, 'IDを変更できませんでした'); st.busy = false; updateStatus(); }
       } catch (err) {
         st.busy = false; updateStatus();
-        $('#idex-status').textContent = err && err.message ? err.message : 'IDを決定できませんでした';
+        setStatus(false, err && err.message ? err.message : 'IDを決定できませんでした');
       }
     }
   });
