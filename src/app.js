@@ -315,7 +315,16 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
     parent, state: EditorState.create({
-      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Mod-m', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-r', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(EditorView.domEventHandlers({   // Ctrl+M（新しい (n)）、Ctrl+R（時刻のオン・オフ）。キーの位置で見るので、日本語入力がオンでも効く
+        keydown(e, v) {
+          const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+          if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
+          if (isDiary && ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
+          if (isDiary && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v);
+          return false;
+        },
+        compositionstart(_e, v) { if (isDiary) maybeStamp(v); return false; }
+      })), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -1815,8 +1824,9 @@ $('#scan').addEventListener('click', e => {
   if (e.target.closest('#sc-img')) { $('#scan').classList.toggle('zoomed'); $('#sc-id').focus(); }
 });
 $('#scan').onkeydown = e => {
-  if (e.isComposing || e.keyCode === 229) return;
-  const alt = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey, k = e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };
+  const ctl = e.ctrlKey || e.metaKey;
+  if ((e.isComposing || e.keyCode === 229) && !ctl) return;   // 日本語入力の変換中でも、Ctrl つきのキーは効かせる
+  const alt = ctl && !e.altKey && !e.shiftKey, k = /^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };   // 文字は、キーの位置（KeyD など）で見る。日本語入力がオンでも同じ
   if (e.key === 'Enter') { stop(); if (e.target.id === 'sc-date') diaryScanOk(); else scanOk(); }   // 日付の欄で Enter なら、紙の日記に入れる
   else if (e.key === 'Escape') { stop(); if (e.target.id === 'sc-date') { $('#sc-id').focus(); } else closeScan(); }
   else if (alt && k === 'h') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
