@@ -8,7 +8,7 @@
 :root{--bg:#fff;--fg:#25272e;--sub:#7c808c;--line:#e6e7ec;--acc:#3b5bdb;--acc-bg:#eef1ff;--red:#c0392b;--ok:#1f8a4c;--paper:#f6f6f1;
   --font:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif}
 @media (prefers-color-scheme:dark){:root{--bg:#17181d;--fg:#e8e9ee;--sub:#9096a6;--line:#2b2e38;--acc:#8aa2ff;--acc-bg:#232842;--red:#ff8d7a;--ok:#5ccf8e;--paper:#22232a;color-scheme:dark}}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);overscroll-behavior:none}
 button{font:inherit;color:inherit}
@@ -98,6 +98,13 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 </main>
 <nav class="tabs"><button data-t="memo" class="on"><span>📒</span>メモ帳</button><button data-t="diary"><span>📔</span>日記</button><button data-t="notes"><span>📝</span>ノート</button><button data-t="paper"><span>📷</span>紙</button></nav>
 <div class="sheet" id="sheet" hidden><div class="bar"><input id="sheet-q" placeholder="🔎 リンクするノートを探す" autocomplete="off"><button class="ib" id="sheet-x" aria-label="やめる">✖️</button></div><div class="help">押すと、本文に <b>->ID</b> が入ります</div><div class="res" id="sheet-res"></div></div>
+<div class="sheet" id="fmtsheet" hidden style="top:auto;border-radius:18px 18px 0 0;padding-bottom:max(12px,env(safe-area-inset-bottom))">
+  <div class="bar" style="padding-bottom:0"><b style="flex:1;font-size:16px;line-height:44px">⏱️ 時刻の見せ方</b><button class="ib" id="fmt-x" aria-label="閉じる">✖️</button></div>
+  <div class="help" style="padding:4px 14px 8px">保存は、いつも「年月日 時:分:秒」です。ここでは、見せ方だけを変えます（PC と同じ選び方）。</div>
+  <label class="row"><input type="checkbox" id="fmt-show"><span class="t">行ごとの時刻を表示</span></label>
+  <label class="row"><input type="checkbox" id="fmt-sec"><span class="t">秒まで出す（2026-11-13 12:54:30）</span></label>
+  <label class="row"><input type="checkbox" id="fmt-short"><span class="t">今日の行は、年月日を省く（12:54:30）</span></label>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 (() => {
@@ -116,7 +123,7 @@ const Native = window.Native || (() => {
   };
 })();
 const pad = n => String(n).padStart(2, '0');
-const nowAt = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const nowAt = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };   // 保存は、いつも秒まで
 const today = () => nowAt().slice(0, 10);
 const rid = () => Date.now() + '-' + Math.random().toString(36).slice(2, 6);
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 1800); };
@@ -141,6 +148,11 @@ function load() {
 const isSent = it => imported.has(it.name);
 const save = (name, d) => Native.write(name, JSON.stringify(d));
 
+function drawFmt() { $('#fmt-show').checked = showStamp; $('#fmt-sec').checked = fmt.sec; $('#fmt-short').checked = fmt.short; }
+$('#fmt-show').onchange = e => { showStamp = e.target.checked; Native.setPref('stamp', showStamp ? '1' : '0'); $('#b-stamp').classList.toggle('on', showStamp); draw(); };
+$('#fmt-sec').onchange = e => { fmt.sec = e.target.checked; Native.setPref('fmt', JSON.stringify(fmt)); draw(); };
+$('#fmt-short').onchange = e => { fmt.short = e.target.checked; Native.setPref('fmt', JSON.stringify(fmt)); draw(); };
+$('#fmt-x').onclick = () => { $('#fmtsheet').hidden = true; };
 // ---- タブ
 let tab = 'memo', memoDay = today(), diaryDay = today(), kind = Native.pref('kind') || '日記', editing = null;
 const TITLES = { memo: 'メモ帳', diary: '日記', notes: 'ノート', paper: '紙のカード', edit: 'ノート' };
@@ -154,10 +166,15 @@ function show(t) {
 }
 $$('.tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
 $('#b-stamp').classList.toggle('on', showStamp);
-$('#b-stamp').onclick = () => { showStamp = !showStamp; Native.setPref('stamp', showStamp ? '1' : '0'); $('#b-stamp').classList.toggle('on', showStamp); draw(); toast(showStamp ? '⏱️ 行ごとの時刻を表示' : '⏱️ 行ごとの時刻を隠す（保存はされています）'); };
+let fmtHold = null, fmtLong = false;
+$('#b-stamp').addEventListener('pointerdown', () => { fmtLong = false; fmtHold = setTimeout(() => { fmtLong = true; drawFmt(); $('#fmtsheet').hidden = false; }, 550); });
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $('#b-stamp').addEventListener(ev, () => clearTimeout(fmtHold));
+$('#b-stamp').addEventListener('contextmenu', e => { e.preventDefault(); drawFmt(); $('#fmtsheet').hidden = false; });
+$('#b-stamp').onclick = () => { if (fmtLong) { fmtLong = false; return; } showStamp = !showStamp; Native.setPref('stamp', showStamp ? '1' : '0'); $('#b-stamp').classList.toggle('on', showStamp); draw(); toast(showStamp ? '⏱️ 行ごとの時刻を表示' : '⏱️ 行ごとの時刻を隠す（保存はされています）'); };
 
 // ---- 時刻の見せ方（今日なら時刻だけ、ほかの日は年月日も）
-const showAt = at => at.slice(0, 10) === today() ? at.slice(11) : at;
+let fmt = (() => { try { return { sec: true, short: false, ...JSON.parse(Native.pref('fmt') || '{}') }; } catch { return { sec: true, short: false }; } })();
+const showAt = at => { at = String(at || ''); let t = fmt.sec ? at : at.replace(/(\d{2}:\d{2}):\d{2}$/, '$1'); if (fmt.short && at.slice(0, 10) === today()) t = t.slice(11); return t; };
 const hintFor = (names, cls) => {
   const done = names.filter(n => imported.has(n));
   return done.length ? `<div class="hint">✔ PC に取り込み済み ${done.length} 件<button data-clear="${cls}">🗑️ スマホから消す</button></div>` : '';
@@ -277,7 +294,7 @@ function drawStrip() {
   $('#strip').innerHTML = arr.length ? arr.map(it => `<div class="thumb" data-n="${esc(it.name)}"><img src="${esc(Native.url ? Native.url(it.d.image) : '')}" alt=""><i>${isSent(it) ? '✔' : ''}</i></div>`).join('') + (arr.some(isSent) ? '<button class="chip" data-clear="paper">🗑️ 取り込み済みを消す</button>' : '') : '撮ったカードが、ここに並びます';
 }
 // 戻るボタン（Android）
-window.onBack = () => { if (!$('#sheet').hidden) { $('#sheet').hidden = true; return true; } if (tab === 'edit') { $('#edit-back').click(); return true; } return false; };
+window.onBack = () => { if (!$('#fmtsheet').hidden) { $('#fmtsheet').hidden = true; return true; } if (!$('#sheet').hidden) { $('#sheet').hidden = true; return true; } if (tab === 'edit') { $('#edit-back').click(); return true; } return false; };
 window.reload = () => { load(); draw(); };   // PC につないだあと、Native から呼ぶ
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); draw(); } });
 load(); show('memo');
