@@ -273,17 +273,36 @@ function syncEditors() {
     }
   }
 }
-// ===== 時刻の記録と、新しい (n) =====
-// 日記・メモ帳: Ctrl+Enter（または Ctrl+;）で、いまの時刻（例: 09:15）の行を、書いた文章の最後（「今日のノート」の手前）に足して、その下から書く
-function insertStamp(view) {
-  if (!view) return false;
-  const doc = view.state.doc.toString(), now = new Date(), hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-  const mk = ['## 今日のノート', '## 紙の日記'].map(h => doc.split('\n').findIndex(l => l.trim() === h)).filter(i => i >= 0).sort((a, b) => a - b)[0];
-  let at = doc.length; if (mk !== undefined) at = doc.split('\n').slice(0, mk).join('\n').length + (mk > 0 ? 1 : 0);
-  const head = doc.slice(0, at).replace(/\s+$/, ''), tailStart = head.length, rest = doc.slice(at);
-  const ins = (head ? '\n\n' : '') + hhmm + '\n', end = tailStart + ins.length, gap = rest && !/^\n/.test(rest) ? '\n\n' : (rest ? '' : '');
-  view.dispatch({ changes: { from: tailStart, to: at, insert: ins + gap }, selection: { anchor: end }, effects: EditorView.scrollIntoView(end, { y: 'center' }) });
-  view.focus(); return true;
+// ===== 時刻つきで書く（日記・メモ帳）=====
+// ショートカット（Ctrl+;）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
+const stampOn = kind => { try { const v = localStorage.getItem('pkm-stamp:' + kind); return v === null ? kind === 'メモ帳' : v === '1'; } catch { return kind === 'メモ帳'; } };
+const setStampOn = (kind, on) => { try { localStorage.setItem('pkm-stamp:' + kind, on ? '1' : '0'); } catch { } };
+function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の日記・今日のノート）の外か
+  const lines = doc.split('\n'); let off = 0, at = lines.length - 1;
+  for (let i = 0; i < lines.length; i++) { if (pos <= off + lines[i].length) { at = i; break; } off += lines[i].length + 1; }
+  const item = /^\s*(-\s+)?(\[[^\]]*\]\([^)]*\)|:[0-9a-z]+)\s*$/;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (t === '## 今日の記録' || t === '## 今日のノート') { let j = i + 1; while (j < lines.length && (!lines[j].trim() || item.test(lines[j]))) j++; if (at >= i && at < j) return false; i = j - 1; }
+    else if (t === '## 紙の日記') { let j = i + 1; while (j < lines.length && !/^##\s/.test(lines[j])) j++; if (at >= i && at < j) return false; i = j - 1; }
+  }
+  return true;
+}
+function maybeStamp(view) {
+  if (!cur || cur.k !== 'diary' || !stampOn(cur.kind || '日記')) return;
+  const sel = view.state.selection.main; if (!sel.empty) return;
+  const doc = view.state.doc, line = doc.lineAt(sel.head);
+  if (line.text.length || !(line.number === 1 || !doc.line(line.number - 1).text.trim())) return;   // 空の行で、前が空行（新しい段落）のときだけ
+  if (!freeArea(doc.toString(), line.from)) return;
+  const now = new Date(), stamp = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ' ';
+  view.dispatch({ changes: { from: sel.head, insert: stamp }, selection: { anchor: sel.head + stamp.length } });
+}
+function toggleStamp(view) {
+  if (!cur || cur.k !== 'diary') return false;
+  const kind = cur.kind || '日記', on = !stampOn(kind); setStampOn(kind, on);
+  const b = document.querySelector('[data-act="stampmode"]'); if (b) b.classList.toggle('on', on);
+  toast(on ? '⏱️ 書き始めに、時刻をつける' : '⏱️ 時刻をつけない');
+  if (view) view.focus(); return true;
 }
 // Alt+N: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
 function insertNextAnchor(view) {
@@ -296,7 +315,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
     parent, state: EditorState.create({
-      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-Enter', run: v => insertStamp(v) }, { key: 'Mod-;', run: v => insertStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-;', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -1639,7 +1658,7 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
+      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+;）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
@@ -1673,6 +1692,7 @@ async function diaryAct(act) {
   }
   if (act === 'attach') pick(true, f => attach(d, f), '*');
   if (act === 'table') insertTable();
+  if (act === 'stampmode') toggleStamp(lastView);
 }
 function insertTable() {
   if (!lastView) return;
