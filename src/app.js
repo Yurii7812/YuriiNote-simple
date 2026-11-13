@@ -626,6 +626,7 @@ document.addEventListener('click', e => {
   const f = e.target.closest('.fzf'); if (!f) return;
   e.preventDefault(); e.stopPropagation();
   const k = f.dataset.fold; if (foldIds.has(k)) foldIds.delete(k); else foldIds.add(k);
+  if (!foldIds.size) foldMode = false;   // 全部ひらいたら、ふだんの表示に戻る
   saveFold(); renderList();
 }, true);
 document.addEventListener('click', onOpenClick);
