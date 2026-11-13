@@ -223,7 +223,7 @@ const defOf = t => t && t.entry && t.entry.s === 'p' ? 'p' : 'd';   // 索引 �
 const TMARK = { up: '⬆️', down: '⬇️', ref: '↪️', before: '↩️', mark: '⭕', star: '⭐', dot: '🔴' };
 function topicLine(line) {
   const at = line.match(/^(\s*(?:[@＠]|⭕\uFE0F?)\s*)(.+?)\s*$/);   // @まとめ → ◯ の見出し
-  if (at) return { mark: at[2], from: at[1].length, to: at[1].length + at[2].length, ids: [] };
+  if (at) { const r = rowOf(at[2], at[1].length); return { mark: r.kw, ids: r.ids, tnos: r.tnos, from: at[1].length, to: at[1].length + at[2].length }; }   // @まとめ ID … のように、番号を続けてもよい（見出しの行になる）
   const b = line.match(/^(\s*(?:↰|<\||↖\uFE0F?|↩\uFE0F?)\s*)(.+?)\s*$/);   // <| 名前 ID（↰）→ 独立前（元の索引）
   if (b) { const r = rowOf(b[2], b[1].length); return { before: r.kw, ids: r.ids, tnos: r.tnos, from: b[1].length, to: b[1].length + b[2].length }; }
   const u = line.match(/^(\s*(?:[\^＾↑]|⬆\uFE0F?)\s*)(.+?)\s*$/);   // ^キーワード ID → 上位トピック（↑）
@@ -280,11 +280,12 @@ function mergeTopic(t) {
     if (r.up !== undefined) { if (!ups.some(x => x.kw === r.up && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) ups.push({ kw: r.up, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
     if (r.down !== undefined) { if (!downs.some(x => x.kw === r.down && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) downs.push({ kw: r.down, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
     if (r.before !== undefined) { if (!befores.some(x => x.kw === r.before && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) befores.push({ kw: r.before, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
-    if (r.mark !== undefined) { marks.push(r.mark); continue; }
+    if (r.mark !== undefined && !r.ids.length && !(r.tnos || []).length) { marks.push(r.mark); continue; }
     if (r.star !== undefined) { if (r.star && !stars.includes(r.star)) stars.push(r.star); continue; }
     if (!r.kw && !r.ids.length && !(r.tnos || []).length) continue;
-    const k = r.kw || '';
+    const k = (r.mark !== undefined ? r.mark : r.kw) || '';
     if (!m.has(k)) m.set(k, { kw: k, d: [], p: [], t: [] });
+    if (r.mark !== undefined) m.get(k).mark = true;
     for (const x of r.tnos || []) if (!m.get(k).t.includes(x.tno)) m.get(k).t.push(x.tno);
     for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); if (x.dot && !m.get(k).dot) m.get(k).dot = { s, id: x.id }; }   // 並びには (番号) つきのまま入れる
   }

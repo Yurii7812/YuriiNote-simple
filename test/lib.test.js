@@ -217,3 +217,11 @@ test('トピックIndex: 絵文字の印（⬆️ ⬇️ ↘️ ↖️ ⭕ ⭐�
   assert.strictEqual(T('⭕まとめ').mark, 'まとめ'); assert.strictEqual(T('⭐GUI').star, 'GUI');
   assert.deepStrictEqual(Object.values(L.TMARK), ['⬆️', '⬇️', '↪️', '↩️', '⭕', '⭐', '🔴']);
 });
+
+test('トピックIndex: @まとめ ID のように、見出しに番号を続けてもよい', () => {
+  const r = L.topicLine('@まとめ 1a 2');
+  assert.strictEqual(r.mark, 'まとめ'); assert.deepStrictEqual(r.ids.map(x => x.id), ['1a', '2']);
+  const m = L.mergeTopic({ text: '@進捗\n@まとめ 1a 2\nキーワード 3' });
+  assert.deepStrictEqual(m.marks, ['進捗']);
+  assert.deepStrictEqual(m.rows.map(x => [x.kw, !!x.mark, x.d]), [['まとめ', true, ['1a', '2']], ['キーワード', false, ['3']]]);
+});

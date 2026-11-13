@@ -124,7 +124,7 @@ LC.install();
 function links(mode, space) {
   const build = view => {
     const b = new RangeSetBuilder(), text = view.state.doc.toString(), selM = view.hasFocus ? view.state.selection.main : { from: -9, to: -9 };   // 編集していない（フォーカスなし）ときは、書き方を隠して、見た目のまま。開いた直後に、先頭のリンクが生の書き方で出ないように
-    const add = (from, to, data, ok) => b.add(from, to, Decoration.mark({ class: 'lk' + (data && data.t === 'ref' ? ' ref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(data) } }));
+    const add = (from, to, data, ok, extra) => b.add(from, to, Decoration.mark({ class: 'lk' + (data && data.t === 'ref' ? ' ref' : '') + (ok ? '' : ' miss') + (extra ? ' ' + extra : ''), attributes: { 'data-l': JSON.stringify(data) } }));
     if (mode === 'note') {
       const items = [], syms = [];
       for (const t of L.tokens(text)) {
@@ -183,8 +183,8 @@ function links(mode, space) {
         }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
         else { for (const x of r.ids) {
-            if (x.dot) { const on2 = selM.from <= off + x.to && selM.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({ widget: new TopicMarkWidget(L.TMARK.dot) })); }   // 番号の前の * は、赤い点
-            add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id)); }
+            if (x.dot) { const on2 = selM.from <= off + x.to && selM.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({})); }   // 赤点は、IDの上に（紙と同じ）。書いた * は、見た目では隠す   // 番号の前の * は、赤い点
+            add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id), x.dot ? 'dotid' : ''); }
           for (const x of r.tnos || []) { const tt = topics.find(y => topicNo(y) === x.tno); add(off + x.from, off + x.to, { t: 'topic', name: tt ? tt.name : x.tno }, !!tt); } }   // 0-1 のような番号は、その索引へのリンク
         off += line.length + 1;
       }
@@ -1520,7 +1520,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
         <input id="t-id" value="${e ? esc(e.id) : ''}" style="width:110px" placeholder="番号"><span class="sub">この索引の親になるノートの番号</span></div>
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
-  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td${r.dot ? ` class="dotkw" data-chipish="1" data-s="${r.dot.s}" data-id="${esc(r.dot.id)}" title="赤い点の番号（入口）へ"` : ''}>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
+  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td${r.dot ? ` class="dotkw" data-chipish="1" data-s="${r.dot.s}" data-id="${esc(r.dot.id)}" title="赤い点の番号（入口）へ"` : ''}>${r.mark ? `<span class="tmk">${L.TMARK.mark}</span> ` : ''}${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
       ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">${L.TMARK.mark}</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>${L.TMARK.star} ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${ups.map(u => `<tr class="trel"><td><span class="tmk">${L.TMARK.up}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${downs.map(u => `<tr class="trel"><td><span class="tmk">${L.TMARK.down}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${befores.map(u => `<tr class="trel"><td><span class="tmk">${L.TMARK.before}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${refs.map(x => `<tr class="trel${focus && focus.s === x.s && focus.id === x.id ? ' tfocus' : ''}"><td><span class="tmk">${L.TMARK.ref}</span> ${esc(x.label)}</td><td>${upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })}</td></tr>`).join('')}</table>`;
   // 上位トピック（^）・独立前（<|）・独立したもの（|>）: そのキーワードのトピック Index があれば、押して開ける
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
