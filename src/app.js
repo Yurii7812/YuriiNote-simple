@@ -437,6 +437,16 @@ const fzHidden = n => {   // 先祖のどれかがたたまれていれば、隠
   while (p && guard++ < 64) { if (foldIds.has(n.s + ':' + p)) return true; p = L.parentIn(p, has); }
   return false;
 };
+// Trilium のように: たたんでいるとき、開いたノートまでの道（先祖）だけがひらく。ほかは、たたんだまま
+function autoFold(n) {
+  if (!foldIds.size || !n || n.noid) return;
+  const has = x => !!get(n.s, x), open = new Set();
+  let p = L.parentIn(n.id, has), guard = 0;
+  while (p && guard++ < 64) { open.add(n.s + ':' + p); p = L.parentIn(p, has); }
+  const next = new Set();
+  for (const m of notes) if (!m.noid && fzKids(m) && !open.has(m.s + ':' + m.id)) next.add(m.s + ':' + m.id);
+  foldIds = next; saveFold();
+}
 function toggleFoldAll() {   // Ctrl+J: 全部たたむ／全部ひらく
   if (foldIds.size) { foldIds.clear(); toast('折りたたみを、全部ひらきました'); }
   else { for (const n of notes) if (!n.noid && fzKids(n)) foldIds.add(n.s + ':' + n.id); toast('折りたたみました（親のノートだけ。Ctrl+J でひらく）'); }
@@ -918,6 +928,7 @@ function openNote(s, id, n, keep, mid) {
     saveNote(note); renderList(); renderTabs();
   };
   titleField.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing && !e.shiftKey) { e.preventDefault(); if (lastView && lastView.dom.isConnected) { lastView.focus(); lastView.dispatch({ selection: { anchor: 0 } }); } } };
+  autoFold(note);
   renderTabs(); renderList(); if (!$('#q').value) centerOn();   // タブの移動・リンクで開いたときも、見ているノートが一覧の真ん中に（同じタブにあるとき。検索中は動かさない）
   if (!text) { // 今は扱わない種類（旧なりきり・キャンバス・メモのノート）: 書いてある文字だけを読み取り専用で見せる
     $('#nbody').innerHTML = '<div class="sub">この種類のノートは、いまは編集できません。</div><pre class="legacy-body"></pre>';
