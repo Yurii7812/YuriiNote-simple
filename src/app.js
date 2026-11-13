@@ -176,10 +176,10 @@ function links(mode, space) {
       let off = 0;
       for (const line of text.split('\n')) {
         const r = L.topicLine(line);
-        const lead = /^(\s*)(\^|＾|↑|⬆\uFE0F?|_|＿|↓|⬇\uFE0F?|↰|↖\uFE0F?|<\||@|＠|⭕\uFE0F?|(?:\*|＊)(?![0-9])|★|☆|⭐\uFE0F?|\+|＋|↳|↘\uFE0F?|\|>)/.exec(line);
+        const lead = /^(\s*)(\^|＾|↑|⬆\uFE0F?|_|＿|↓|⬇\uFE0F?|↰|↖\uFE0F?|↩\uFE0F?|<\||@|＠|⭕\uFE0F?|(?:\*|＊)(?![0-9])|★|☆|⭐\uFE0F?|\+|＋|↳|↘\uFE0F?|↪\uFE0F?|\|>)/.exec(line);
         if (lead) {   // 行頭の印は赤。カーソルが外にあるとき、<| ↰ ^ は ↰、|> ↳ + ★ は ↳、* は ◯ の見た目に（ファイルの中は、書いたまま）
           const f = off + lead[1].length, tt = f + lead[2].length, on = view.state.selection.main.from <= off + line.length && view.state.selection.main.to >= off;
-          const g = /^(\^|＾|↑|⬆\uFE0F?)$/.test(lead[2]) ? L.TMARK.up : /^(_|＿|↓|⬇\uFE0F?)$/.test(lead[2]) ? L.TMARK.down : /^(↰|<\||↖\uFE0F?)$/.test(lead[2]) ? L.TMARK.before : /^(@|＠|\*|＊|⭕\uFE0F?)$/.test(lead[2]) ? L.TMARK.mark : L.TMARK.ref;
+          const g = /^(\^|＾|↑|⬆\uFE0F?)$/.test(lead[2]) ? L.TMARK.up : /^(_|＿|↓|⬇\uFE0F?)$/.test(lead[2]) ? L.TMARK.down : /^(↰|<\||↖\uFE0F?|↩\uFE0F?)$/.test(lead[2]) ? L.TMARK.before : /^(@|＠|\*|＊|⭕\uFE0F?)$/.test(lead[2]) ? L.TMARK.mark : L.TMARK.ref;
           if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
         }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
@@ -1534,7 +1534,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
     return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
   };
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（⬆️） ・ _キーワード ID は下位トピック（⬇️） ・ |> 名前 ID は独立したもの（↘️） ・ <| 名前 ID は独立前（↖️） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ @まとめ は ⭕ の見出し ・ 番号の前の * は赤い点（入口の目印。例: PKM *1 1a。番号を右クリックでも付け外し） ・ +名前 は別の索引へ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（⬆️） ・ _キーワード ID は下位トピック（⬇️） ・ |> 名前 ID は独立したもの（↪️） ・ <| 名前 ID は独立前（↩️） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ @まとめ は ⭕ の見出し ・ 番号の前の * は赤い点（入口の目印。例: PKM *1 1a。番号を右クリックでも付け外し） ・ +名前 は別の索引へ</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
