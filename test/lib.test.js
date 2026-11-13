@@ -225,3 +225,9 @@ test('トピックIndex: @まとめ ID のように、見出しに番号を続�
   assert.deepStrictEqual(m.marks, ['進捗']);
   assert.deepStrictEqual(m.rows.map(x => [x.kw, !!x.mark, x.d]), [['まとめ', true, ['1a', '2']], ['キーワード', false, ['3']]]);
 });
+
+test('トピックIndex: 印の行もふつうの行も、書いた順に並ぶ（order）', () => {
+  const m = L.mergeTopic({ text: 'a 1\n|> 独立 2\nb 3\n@まとめ\n^上位 0-1\n<| 前 1b\n_下位 3\n+GUI\na 4' });
+  assert.deepStrictEqual(m.order.map(x => x.k), ['row', 'ref', 'row', 'mark', 'up', 'before', 'down', 'star']);
+  assert.deepStrictEqual(m.order[0].o.d, ['1', '4']);   // 同じキーワードの行は、最初の位置にまとまる
+});

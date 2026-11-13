@@ -272,24 +272,24 @@ function legacyTopicText(t) {
 const topicText = t => t.text !== undefined ? t.text : legacyTopicText(t);
 // 表示用に: [{kw, d:[ids], p:[ids]}], stars, refs。(p) (d) の印で、紙とデジタルに分ける
 function mergeTopic(t) {
-  const m = new Map(), stars = [], refs = [], chats = [], ups = [], downs = [], befores = [], marks = [], def = defOf(t);
+  const m = new Map(), stars = [], refs = [], chats = [], ups = [], downs = [], befores = [], marks = [], order = [], def = defOf(t);   // order: 書いた順（行ごとの印も、ふつうの行も）
   for (const line of topicText(t).split('\n')) {
     const r = topicLine(line);
     if (r.chat) { if (!chats.includes(r.chat)) chats.push(r.chat); continue; }
-    if (r.ref) { const s = r.ref.sp || def; if (!refs.some(x => x.s === s && x.id === r.ref.id && x.label === r.ref.label)) refs.push({ s, label: r.ref.label, id: r.ref.id }); continue; }
-    if (r.up !== undefined) { if (!ups.some(x => x.kw === r.up && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) ups.push({ kw: r.up, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
-    if (r.down !== undefined) { if (!downs.some(x => x.kw === r.down && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) downs.push({ kw: r.down, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
-    if (r.before !== undefined) { if (!befores.some(x => x.kw === r.before && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) befores.push({ kw: r.before, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }); continue; }
-    if (r.mark !== undefined && !r.ids.length && !(r.tnos || []).length) { marks.push(r.mark); continue; }
-    if (r.star !== undefined) { if (r.star && !stars.includes(r.star)) stars.push(r.star); continue; }
+    if (r.ref) { const s = r.ref.sp || def; if (!refs.some(x => x.s === s && x.id === r.ref.id && x.label === r.ref.label)) { const o = { s, label: r.ref.label, id: r.ref.id }; refs.push(o); order.push({ k: 'ref', o }); } continue; }
+    if (r.up !== undefined) { if (!ups.some(x => x.kw === r.up && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) { const o = { kw: r.up, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; ups.push(o); order.push({ k: 'up', o }); } continue; }
+    if (r.down !== undefined) { if (!downs.some(x => x.kw === r.down && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) { const o = { kw: r.down, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; downs.push(o); order.push({ k: 'down', o }); } continue; }
+    if (r.before !== undefined) { if (!befores.some(x => x.kw === r.before && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) { const o = { kw: r.before, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; befores.push(o); order.push({ k: 'before', o }); } continue; }
+    if (r.mark !== undefined && !r.ids.length && !(r.tnos || []).length) { marks.push(r.mark); order.push({ k: 'mark', o: r.mark }); continue; }
+    if (r.star !== undefined) { if (r.star && !stars.includes(r.star)) { stars.push(r.star); order.push({ k: 'star', o: r.star }); } continue; }
     if (!r.kw && !r.ids.length && !(r.tnos || []).length) continue;
     const k = (r.mark !== undefined ? r.mark : r.kw) || '';
-    if (!m.has(k)) m.set(k, { kw: k, d: [], p: [], t: [] });
+    if (!m.has(k)) { m.set(k, { kw: k, d: [], p: [], t: [] }); order.push({ k: 'row', o: m.get(k) }); }
     if (r.mark !== undefined) m.get(k).mark = true;
     for (const x of r.tnos || []) if (!m.get(k).t.includes(x.tno)) m.get(k).t.push(x.tno);
     for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); if (x.dot && !m.get(k).dot) m.get(k).dot = { s, id: x.id }; }   // 並びには (番号) つきのまま入れる
   }
-  return { rows: [...m.values()], stars, refs, chats, ups, downs, befores, marks };
+  return { rows: [...m.values()], stars, refs, chats, ups, downs, befores, marks, order };
 }
 
 // 索引 の文字に「キーワード ID」を足す（同じキーワードの行があればその行の後ろに）。ID は 1a や 1a(p) のように、印つきで
