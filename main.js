@@ -67,6 +67,16 @@ let aiEmb = null, aiIdx = null, aiIdxVault = '';
 const aiMod = () => require('./ai-embed');
 const aiEmbedder = () => { if (!aiEmb) aiEmb = new (aiMod().Embedder)(path.join(app.getPath('userData'), 'ai-models', 'multilingual-e5-small')); return aiEmb; };
 const aiSend = m => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('aiMsg', m); };
+// HTMLの書き出し: 保存先を選んでもらって、1 つのファイルとして書く
+ipcMain.handle('saveHtml', async (_e, name, html) => {
+  if (typeof html !== 'string' || !html) return null;
+  const base = String(name || 'YuriiNote').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').slice(0, 80);
+  if (process.env.YURIINOTE_TEST_SAVE_DIR) { const f = path.join(process.env.YURIINOTE_TEST_SAVE_DIR, base + '.html'); fs.writeFileSync(f, html); return f; }   // 試験用: 選ぶ画面を出さずに書く
+  const r = await dialog.showSaveDialog(mainWin && !mainWin.isDestroyed() ? mainWin : undefined, { title: 'HTMLで保存', defaultPath: path.join(app.getPath('desktop'), base + '.html'), filters: [{ name: 'HTML', extensions: ['html'] }] });
+  if (r.canceled || !r.filePath) return null;
+  fs.writeFileSync(r.filePath, html);
+  return r.filePath;
+});
 ipcMain.handle('aiStatus', () => ({ installed: aiEmbedder().installed() }));
 ipcMain.handle('aiInstall', async () => { try { await aiEmbedder().install(p => aiSend({ kind: 'download', ...p })); return { ok: true }; } catch (e) { return { ok: false, message: String(e.message || e) }; } });
 ipcMain.handle('aiVectors', async (_e, notes) => {

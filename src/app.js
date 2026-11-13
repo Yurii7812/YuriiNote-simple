@@ -18,6 +18,7 @@ import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
 import * as PI from './pindex.js';
 import { dialog, popMenu, toast, renderMd } from './shared.js';
+import ExportHtml from './export-html-bridge.js';
 import { installMermaidObserver } from './mermaid.js';
 import UrlLinks from '../url-links.js';
 import Persistence from '../persistence.js';
@@ -1456,7 +1457,7 @@ function exportDialog(start) {
   const draw = () => {
     const list = ordered();
     $('#ex-list').innerHTML = list.map(n => `<div class="exrow"><b>${n.noid ? 'IDなし' : (n.s === 'p' ? '紙 ' : '') + esc(n.id)}</b> ${esc(titleOf(n).slice(0, 40))}<span class="grow"></span><i data-rm="${esc(keyOf(n))}" title="外す">×</i></div>`).join('') || '<div class="sub">まだ選んでいません</div>';
-    $('#ex-n').textContent = `${list.length}件`; $('#ex-open').disabled = $('#ex-copy').disabled = !list.length;
+    $('#ex-n').textContent = `${list.length}件`; $('#ex-open').disabled = $('#ex-copy').disabled = $('#ex-html').disabled = !list.length;
   };
   dialog(`<h3>エクスポート <small class="sub">（保存はしません。確認してコピー）</small></h3>
     <div class="exsec"><b>関連を足す</b>
@@ -1467,7 +1468,7 @@ function exportDialog(start) {
       <input id="ex-root" placeholder="1a" size="5" style="margin-left:14px"> <button id="ex-tree">その枝（子孫すべて）を足す</button></div>
     <div class="exsec"><b id="ex-n"></b> <span class="sub">番号順に出します。リンクは、この中を指すものだけ生かします</span></div>
     <div id="ex-list" class="exlist"></div>
-    <div class="row"><button class="p" id="ex-open">一時タブで確認</button><button id="ex-copy">コピー</button><button id="ex-no">閉じる</button></div>`, close => {
+    <div class="row"><button class="p" id="ex-open">一時タブで確認</button><button id="ex-copy">コピー</button><button id="ex-html">HTMLで保存</button><button id="ex-no">閉じる</button></div>`, close => {
     $('#ex-no').onclick = close;
     $('#ex-list').onclick = e => { const r = e.target.closest('[data-rm]'); if (r) { sel.delete(r.dataset.rm); draw(); } };
     $('#ex-rel').onclick = () => { for (const k of related([...document.querySelectorAll('.ex-k:checked')].map(c => c.value))) sel.add(k); draw(); };
@@ -1475,6 +1476,16 @@ function exportDialog(start) {
     $('#ex-tree').onclick = () => { const r = $('#ex-root').value.trim().toLowerCase(); if (!r) return; for (const id of L.fzSubtree(idsOf('d'), r)) sel.add('d:' + id); draw(); };
     const text = () => clipText(L.exportMd(ordered().map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid }))));
     $('#ex-copy').onclick = async () => { await navigator.clipboard.writeText(text()); toast(`${sel.size}件をコピーしました`); };
+    $('#ex-html').onclick = async () => {   // 選んだ範囲を、1 つのHTMLに。範囲の中のリンクは、そのまま辿れる
+      const list = ordered(); if (!list.length) return;
+      $('#ex-html').disabled = true; toast('HTMLを作っています…');
+      try {
+        const html = await ExportHtml.build(list, { renderMd, clipText, get, titleOf });
+        const p = await api.saveHtml('YuriiNote-' + L.now().slice(0, 10), html);
+        toast(p ? `HTMLに保存しました（${list.length}件）: ${p}` : '保存をやめました');
+      } catch (err) { toast('HTMLを作れませんでした: ' + (err && err.message || err)); }
+      $('#ex-html').disabled = false;
+    };
     $('#ex-open').onclick = () => { const t = text(), c = sel.size; close(); newTab = true; openExport({ k: 'export', text: t, count: c }); };
     draw();
   });

@@ -231,3 +231,14 @@ test('トピックIndex: 印の行もふつうの行も、書いた順に並ぶ�
   assert.deepStrictEqual(m.order.map(x => x.k), ['row', 'ref', 'row', 'mark', 'up', 'before', 'down', 'star']);
   assert.deepStrictEqual(m.order[0].o.d, ['1', '4']);   // 同じキーワードの行は、最初の位置にまとまる
 });
+
+test('HTMLの書き出し: ノートごとの節・目次・範囲の中のリンクだけ、ページ内で移る', () => {
+  const { buildHtml, anchorOf } = require('../export-html');
+  const h = buildHtml({ title: 'テスト"<>', notes: [{ s: 'd', id: '1', title: '一 <b>', html: '<p>→ <a href="#n-p-1a">1a</a></p>' }, { s: 'p', id: '1a', title: '二', html: '<p>y</p>' }, { s: 'd', id: 'x', noid: true, title: '', html: '' }], generated: '書き出し' });
+  assert.strictEqual(anchorOf('d', '1a'), 'n-d-1a');
+  assert.ok(h.includes('<section id="n-d-1" class="note" hidden>') && h.includes('<section id="n-p-1a"') && h.includes('<section id="n-d-x"'));
+  assert.ok(h.includes('href="#n-p-1a"') && h.includes('data-k="n-p-1a"'));
+  assert.ok(!h.includes('<b>') || h.includes('&lt;b&gt;'));   // 題の < は、そのまま出さない
+  assert.ok(h.includes('（3件）') && h.includes('hashchange'));
+  const m = h.match(/<script>([\s\S]*)<\/script>/)[1]; new Function(m);   // 中のスクリプトに、文法の誤りがない
+});

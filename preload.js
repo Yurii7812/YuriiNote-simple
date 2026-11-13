@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer: r } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   load: () => r.invoke('load'),
+  saveHtml: (name, html) => r.invoke('saveHtml', name, html),
   deleteFile: name => r.invoke('deleteFile', name),
   filePreview: name => r.invoke('filePreview', name),
   onFileDup: cb => r.on('fileDup', (_e, dups) => cb(dups)),   // 同じファイルが既にあったとき
