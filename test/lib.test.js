@@ -201,3 +201,11 @@ test('全角の「：」と、1d-1 のような索引番号は、リンクにし
   assert.strictEqual(L.colonToArrow('元：1d-1  ↳因数分解 2\n新：2-1'), '元：1d-1  ↳因数分解 2\n新：2-1');
   assert.deepStrictEqual(L.tokens('元：1d-1 と ->1d-1').filter(t => t.id).map(t => t.id), []);
 });
+
+test('トピックIndex: _名前 ID は下位トピック（↓）。^ や _ の行の終わりの 0-1 は、索引へのリンク', () => {
+  for (const l of ['_数学 1b', '＿数学 1b', '↓ 数学 1b']) { const r = L.topicLine(l); assert.strictEqual(r.down, '数学', l); assert.strictEqual(r.up, undefined, l); }
+  const m = L.mergeTopic({ text: '^理系 0-4\n_因数分解 2\n_分数 0-3\nキーワード 1a' });
+  assert.deepStrictEqual(m.ups.map(u => [u.kw, u.tnos]), [['理系', ['0-4']]]);
+  assert.deepStrictEqual(m.downs.map(u => [u.kw, u.ids.map(i => i.id), u.tnos]), [['因数分解', ['2'], []], ['分数', [], ['0-3']]]);
+  assert.deepStrictEqual(m.rows.map(r => r.kw), ['キーワード']);
+});

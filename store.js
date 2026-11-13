@@ -442,7 +442,7 @@ function openVault(vault) {
   }
 
   function topicMd(t) {
-    const { rows, stars, refs, chats, ups, befores, marks } = L.mergeTopic(t), e = t.entry;
+    const { rows, stars, refs, chats, ups, downs, befores, marks } = L.mergeTopic(t), e = t.entry;
     const out = [
       `<!-- pkm-topic ${J(t)} -->`, `# ${esc(t.name)}`, '',
       `<p ${SUB}>入口 ${e ? a(noteHref(e.s, e.id), label(e.s, e.id)) : 'なし'}${t.keyword ? `　キーワード ${a(`${enc(KEYWORDS)}#${L.kwAnchor(t.keyword)}`, h(t.keyword))}` : ''}</p>`, ''
@@ -461,6 +461,7 @@ function openVault(vault) {
     if (marks.length) out.push('', ...marks.map(k => `${RED('◯')} ${esc(k)}  `));
     if (stars.length) out.push('', ...stars.map(s => `${RED('★')} [${esc(s)}](${topicHref(s)})  `));
     if (chats.length) out.push('', ...chats.map(c => `💬 ${esc(c)}  `));   // チャットメモのトピック（案内だけ。メモは、C_YYYY-MM-DD.md に）
+    if (downs.length) out.push('', ...downs.map(u => `${RED('↓')} ${esc(u.kw)} ${u.ids.map(x => '[' + label(x.s, x.id) + '](' + noteHref(x.s, x.id) + ')').join(' ')}${(u.tnos || []).map(x => ' ' + x).join('')}  `));
     if (befores.length) out.push('', ...befores.map(u => `${RED('↰')} ${esc(u.kw)} ${u.ids.map(x => '[' + label(x.s, x.id) + '](' + noteHref(x.s, x.id) + ')').join(' ')}  `));
     if (refs.length) out.push('', ...refs.map(r => `${RED('↳')} ${esc(r.label)} [${label(r.s, r.id)}](${noteHref(r.s, r.id)})  `));
     return out.join('\n') + '\n';
