@@ -124,7 +124,7 @@ LC.install();
 // ===== エディタ（:1 や (1) をその場でリンクに）=====
 function links(mode, space) {
   const build = view => {
-    const b = new RangeSetBuilder(), text = view.state.doc.toString();
+    const b = new RangeSetBuilder(), text = view.state.doc.toString(), selM = view.hasFocus ? view.state.selection.main : { from: -9, to: -9 };   // 編集していない（フォーカスなし）ときは、書き方を隠して、見た目のまま。開いた直後に、先頭のリンクが生の書き方で出ないように
     const add = (from, to, data, ok) => b.add(from, to, Decoration.mark({ class: 'lk' + (data && data.t === 'ref' ? ' ref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(data) } }));
     if (mode === 'note') {
       const items = [], syms = [];
@@ -150,7 +150,7 @@ function links(mode, space) {
       }
       for (const link of bare) items.push([link.from,link.to,{t:'file',rel:link.url},true,'url']);
       // カーソルが外にあるとき、リンクは名前だけを見せる（![ や ](パス) を隠す）。カーソルを置くと元の記述が出る
-      const sel = view.state.selection.main, rs = [];
+      const sel = selM, rs = [];
       for (const [f, t, d, ok, cls] of items) {
         if (d === 'mk') { rs.push(Decoration.mark({ class: 'mk' }).range(f, t)); continue; }
         if (d && d.t === 'ref' && !d.n && ok && !(sel.from <= t && sel.to >= f)) {   // 「- :ID」だけの行（今日のノートなど）は、ID のかわりにノートの題を見せる
@@ -178,13 +178,13 @@ function links(mode, space) {
         const r = L.topicLine(line);
         const lead = /^(\s*)(\^|＾|↑|⬆\uFE0F?|_|＿|↓|⬇\uFE0F?|↰|↖\uFE0F?|↩\uFE0F?|<\||@|＠|⭕\uFE0F?|(?:\*|＊)(?![0-9])|★|☆|⭐\uFE0F?|\+|＋|↳|↘\uFE0F?|↪\uFE0F?|\|>)/.exec(line);
         if (lead) {   // 行頭の印は赤。カーソルが外にあるとき、<| ↰ ^ は ↰、|> ↳ + ★ は ↳、* は ◯ の見た目に（ファイルの中は、書いたまま）
-          const f = off + lead[1].length, tt = f + lead[2].length, on = view.state.selection.main.from <= off + line.length && view.state.selection.main.to >= off;
+          const f = off + lead[1].length, tt = f + lead[2].length, on = selM.from <= off + line.length && selM.to >= off;
           const g = /^(\^|＾|↑|⬆\uFE0F?)$/.test(lead[2]) ? L.TMARK.up : /^(_|＿|↓|⬇\uFE0F?)$/.test(lead[2]) ? L.TMARK.down : /^(↰|<\||↖\uFE0F?|↩\uFE0F?)$/.test(lead[2]) ? L.TMARK.before : /^(@|＠|\*|＊|⭕\uFE0F?)$/.test(lead[2]) ? L.TMARK.mark : L.TMARK.ref;
           if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
         }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
         else { for (const x of r.ids) {
-            if (x.dot) { const on2 = view.state.selection.main.from <= off + x.to && view.state.selection.main.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({ widget: new TopicMarkWidget(L.TMARK.dot) })); }   // 番号の前の * は、赤い点
+            if (x.dot) { const on2 = selM.from <= off + x.to && selM.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({ widget: new TopicMarkWidget(L.TMARK.dot) })); }   // 番号の前の * は、赤い点
             add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id)); }
           for (const x of r.tnos || []) { const tt = topics.find(y => topicNo(y) === x.tno); add(off + x.from, off + x.to, { t: 'topic', name: tt ? tt.name : x.tno }, !!tt); } }   // 0-1 のような番号は、その索引へのリンク
         off += line.length + 1;
@@ -196,7 +196,7 @@ function links(mode, space) {
     constructor(v) { this.decorations = build(v); this.pending = false; }
     update(u) {
       if (u.view.composing) { if (u.docChanged) this.decorations = this.decorations.map(u.changes); this.pending = true; return; }   // 日本語の変換中は、作り直さない
-      if (u.docChanged || u.selectionSet || this.pending) { this.decorations = build(u.view); this.pending = false; }
+      if (u.docChanged || u.selectionSet || u.focusChanged || this.pending) { this.decorations = build(u.view); this.pending = false; }
     }
   }, {
     decorations: v => v.decorations,
