@@ -491,7 +491,7 @@ function renderList() {
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
-  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', !!b.dataset.mode && b.dataset.mode === mode));
   $('#paperonly').classList.toggle('on', paperOnly);
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
