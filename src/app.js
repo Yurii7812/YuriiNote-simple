@@ -12,7 +12,7 @@ import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from 
 import { boardTemplate, focusBoardAt } from './board.js';
 import * as Q from './query.js';
 import { search, searchKeymap, openSearchPanel } from '@codemirror/search';
-import { stampsShown, setStampsShown, stampPresets, useStampPreset, saveStampPreset, deleteStampPreset } from './stamps.js';
+import { stampsShown, clipText, setStampsShown, stampPresets, useStampPreset, saveStampPreset, deleteStampPreset } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -1473,7 +1473,7 @@ function exportDialog(start) {
     $('#ex-rel').onclick = () => { for (const k of related([...document.querySelectorAll('.ex-k:checked')].map(c => c.value))) sel.add(k); draw(); };
     $('#ex-range').onclick = () => { const f = $('#ex-from').value.trim().toLowerCase(), t = $('#ex-to').value.trim().toLowerCase(); if (!f || !t) return; for (const id of L.fzRange(idsOf('d'), f, t)) sel.add('d:' + id); draw(); };
     $('#ex-tree').onclick = () => { const r = $('#ex-root').value.trim().toLowerCase(); if (!r) return; for (const id of L.fzSubtree(idsOf('d'), r)) sel.add('d:' + id); draw(); };
-    const text = () => L.exportMd(ordered().map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid })));
+    const text = () => clipText(L.exportMd(ordered().map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid }))));
     $('#ex-copy').onclick = async () => { await navigator.clipboard.writeText(text()); toast(`${sel.size}件をコピーしました`); };
     $('#ex-open').onclick = () => { const t = text(), c = sel.size; close(); newTab = true; openExport({ k: 'export', text: t, count: c }); };
     draw();
@@ -1484,7 +1484,7 @@ function openExport(t, keep) {
   $('#pane').innerHTML = `<div class="row"><h2>📤 エクスポート</h2><span class="sub">${cur.count}件・保存はされません（このタブを閉じると消えます）</span><span class="grow"></span><button class="p" id="ex-copy2">コピー</button></div>
     <textarea id="ex-text" class="extext" readonly></textarea>`;
   $('#ex-text').value = cur.text;
-  $('#ex-copy2').onclick = async () => { await navigator.clipboard.writeText(cur.text); toast('コピーしました'); };
+  $('#ex-copy2').onclick = async () => { await navigator.clipboard.writeText(clipText(cur.text)); toast('コピーしました'); };
   renderTabs(); renderList();
 }
 
@@ -2196,7 +2196,7 @@ async function copySelection() { return copyNotes([...picked].map(k => get(k[0],
 async function copyNotes(selected) {
   if (!selected.length) return;
   selected.sort((a, b) => a.s.localeCompare(b.s) || L.cmpId(a.id, b.id));
-  const text = L.exportMd(selected.map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid })));
+  const text = clipText(L.exportMd(selected.map(n => ({ s: n.s, id: n.id, title: n.title || '', body: n.body || '', noid: n.noid }))));
   try { await navigator.clipboard.writeText(text); toast(`${selected.length}件をコピーしました`); }
   catch { toast('コピーできませんでした'); }
 }

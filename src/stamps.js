@@ -16,6 +16,8 @@ const curFmt = () => presets.current === 'all' ? Stamp.normFmt(null) : (presets.
 const views = new Set();
 const refresh = StateEffect.define();
 export const stampsShown = () => show;
+// コピーボタンなどで外へ出す文章: 行ごとの時刻を出していないときは、時刻なしのまま出す
+export const clipText = text => show ? text : Stamp.strip(text);
 const refreshAll = () => { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch { } for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } } };
 export const stampPresets = () => ({ current: presets.current, list: presets.list.map(x => ({ ...x })) });
 export const stampFormat = () => ({ ...curFmt() });
