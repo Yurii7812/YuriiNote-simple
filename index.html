@@ -54,8 +54,8 @@ button:disabled{opacity:.4;cursor:default}
 .cm-check{margin:0 6px 0 0;vertical-align:-1px;width:15px;height:15px;cursor:pointer;accent-color:var(--acc);text-indent:0}
 /* 表: そのままの画面で編集。見出しの行は、特別にしない */
 .md-tw{position:relative;display:inline-block;max-width:100%;margin:6px 0;padding:0 26px 26px 0;overflow:auto;vertical-align:top}
-.md-table{border-collapse:collapse}.md-table td{border:1px solid var(--line);padding:5px 10px;min-width:4.6em;height:1.9em;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:top;cursor:text}
-.md-table td:focus{background:var(--acc-bg);box-shadow:inset 0 0 0 2px var(--acc)}
+.md-table{border-collapse:collapse}.md-table th,.md-table td{border:1px solid var(--line);padding:5px 10px;min-width:4.6em;height:1.9em;outline:none;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:top;cursor:text}
+.md-table th{background:#f6f7f9;font-weight:700;text-align:left}.md-table th:focus,.md-table td:focus{background:var(--acc-bg);box-shadow:inset 0 0 0 2px var(--acc)}
 .md-tadd-col,.md-tadd-row{position:absolute;opacity:0;border:1px dashed var(--line);background:var(--bg);color:var(--sub);cursor:pointer;border-radius:6px;font-size:13px;line-height:1;padding:0;transition:opacity .12s}
 .md-tw:hover .md-tadd-col,.md-tw:hover .md-tadd-row,.md-tw:focus-within .md-tadd-col,.md-tw:focus-within .md-tadd-row{opacity:.85}
 .md-tadd-col:hover,.md-tadd-row:hover{opacity:1;color:var(--acc);border-color:var(--acc)}
