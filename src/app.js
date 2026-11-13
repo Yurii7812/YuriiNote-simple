@@ -274,7 +274,7 @@ function syncEditors() {
   }
 }
 // ===== 時刻つきで書く（日記・メモ帳）=====
-// ショートカット（Ctrl+;）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
+// ショートカット（Alt+T）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
 const stampOn = kind => { try { const v = localStorage.getItem('pkm-stamp:' + kind); return v === null ? kind === 'メモ帳' : v === '1'; } catch { return kind === 'メモ帳'; } };
 const setStampOn = (kind, on) => { try { localStorage.setItem('pkm-stamp:' + kind, on ? '1' : '0'); } catch { } };
 function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の日記・今日のノート）の外か
@@ -315,7 +315,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
     parent, state: EditorState.create({
-      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-;', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Alt-t', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -1658,7 +1658,7 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+;）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
+      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Alt+T）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
