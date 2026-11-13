@@ -1502,7 +1502,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
     return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
   };
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（⬆️） ・ _キーワード ID は下位トピック（⬇️） ・ |> 名前 ID は独立したもの（↪️） ・ <| 名前 ID は独立前（↩️） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ @まとめ は ⭕ の見出し ・ 番号の前の * は赤い点（入口の目印。例: PKM *1 1a。番号を右クリックでも付け外し） ・ +名前 は別の索引へ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ キーワード ID ID … ・ 1a(p) は紙 ・ ^ ⬆️ ・ _ ⬇️ ・ |&gt; ↪️ ・ &lt;| ↩️ ・ @ ⭕ ・ + ⭐ ・ *ID 🔴（右クリックでも） ・ 行の終わりの 0-1 は索引へのリンク</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
@@ -1536,10 +1536,10 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
     </div>
     <div class="row tmeta">
       <span class="tm"><span class="sub" title="親">🌳</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
-      ${ups.length ? `<span class="tm"><span class="tmk" title="上位トピック">${L.TMARK.up}</span>${ups.map(upChip).join('')}</span>` : ''}
-      ${downs.length ? `<span class="tm"><span class="tmk" title="下位トピック">${L.TMARK.down}</span>${downs.map(upChip).join('')}</span>` : ''}
-      ${befores.length ? `<span class="tm"><span class="tmk" title="独立前">${L.TMARK.before}</span>${befores.map(upChip).join('')}</span>` : ''}
-      ${refs.length ? `<span class="tm"><span class="tmk" title="独立したもの">${L.TMARK.ref}</span>${refs.map(x => upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })).join('')}</span>` : ''}
+      ${ups.length ? `<span class="tm"><span class="tmk">${L.TMARK.up}</span>${ups.map(upChip).join('')}</span>` : ''}
+      ${downs.length ? `<span class="tm"><span class="tmk">${L.TMARK.down}</span>${downs.map(upChip).join('')}</span>` : ''}
+      ${befores.length ? `<span class="tm"><span class="tmk">${L.TMARK.before}</span>${befores.map(upChip).join('')}</span>` : ''}
+      ${refs.length ? `<span class="tm"><span class="tmk">${L.TMARK.ref}</span>${refs.map(x => upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })).join('')}</span>` : ''}
     </div>${body}`;
   const fr = $('#pane .tfocus'); if (fr) { fr.scrollIntoView({ block: 'center' }); }   // ノートから飛んできたら、そのノートの行を示す
   if (tmode === 'edit') { // 1 つの欄。紙は ID(p)、デジタルは ID（親が紙の索引 なら、紙が ID、デジタルが ID(d)）
