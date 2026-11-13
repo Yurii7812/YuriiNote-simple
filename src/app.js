@@ -1725,16 +1725,10 @@ async function openDiary(date, keep, kind) {
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
     ${kind !== '日記' && kind !== 'メモ帳' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
-    <div class="ed" id="ed"></div>
-    <div class="chatbar"><textarea id="chat-in" rows="1" placeholder="とりあえず書く（Enter で追加・Shift+Enter で改行）" aria-label="追加する文"></textarea><button id="chat-send" class="ic" title="追加（Enter）" aria-label="追加">⬆️</button></div>`;
+    <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
     kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
   $('#d-title').oninput = e => { d.title = e.target.value; saveDiary(d); renderList(); };
-  // チャットのように、下の欄に書いて Enter で、その日の本文の最後に（時刻つきで）足す
-  const chatIn = $('#chat-in'), chatSend = () => { const t = chatIn.value.replace(/\s+$/, ''); if (!t.trim()) return; appendEntry(view, t); chatIn.value = ''; chatIn.style.height = ''; chatIn.focus(); };
-  chatIn.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); chatSend(); } };
-  chatIn.oninput = () => { chatIn.style.height = 'auto'; chatIn.style.height = Math.min(chatIn.scrollHeight, 140) + 'px'; };
-  $('#chat-send').onclick = chatSend;
   document.querySelectorAll('[data-dparpick]').forEach(c => c.onclick = () => parentPickDialog(kind, date));
   renderTabs(); renderList();
   // 自由に書く部分（最初の「## 」より前）にカーソル。節で始まる日記は、その前に空行を足して書く場所を作る
@@ -1762,14 +1756,6 @@ async function diaryAct(act) {
   if (act === 'table') insertTable();
   if (act === 'board') insertBoard();
   if (act === 'stampmode') toggleStamp(lastView);
-}
-// 日記・メモ帳の本文の「書く部分」の最後（紙の日記・今日のノートの前）に、行ごとの時刻つきで足す
-function appendEntry(view, text) {
-  const doc = view.state.doc.toString(), lines = doc.split('\n');
-  const idx = lines.findIndex(l => /^##\s/.test(l) && ['## 紙の日記', '## 今日のノート'].includes(Stamp.stripLine(l).trim()));
-  const head = idx >= 0 ? lines.slice(0, idx).join('\n') + '\n' : doc, end = head.replace(/\s+$/, '').length;
-  const ins = (end > 0 ? '\n' : '') + Stamp.add(text, Stamp.nowStamp());
-  view.dispatch({ changes: { from: end, insert: ins }, selection: { anchor: end + ins.length }, scrollIntoView: true });
 }
 function insertBoard() {
   if (!lastView) return;
