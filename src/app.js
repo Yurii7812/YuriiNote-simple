@@ -274,7 +274,7 @@ function syncEditors() {
   }
 }
 // ===== 時刻つきで書く（日記・メモ帳）=====
-// ショートカット（Alt+T）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
+// ショートカット（Ctrl+R = Record）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
 const stampOn = kind => { try { const v = localStorage.getItem('pkm-stamp:' + kind); return v === null ? kind === 'メモ帳' : v === '1'; } catch { return kind === 'メモ帳'; } };
 const setStampOn = (kind, on) => { try { localStorage.setItem('pkm-stamp:' + kind, on ? '1' : '0'); } catch { } };
 function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の日記・今日のノート）の外か
@@ -304,7 +304,7 @@ function toggleStamp(view) {
   toast(on ? '⏱️ 書き始めに、時刻をつける' : '⏱️ 時刻をつけない');
   if (view) view.focus(); return true;
 }
-// Alt+N: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
+// Ctrl+M（Mark）: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
 function insertNextAnchor(view) {
   if (!view) return false;
   const nums = L.tokens(view.state.doc.toString()).filter(t => t.k === 'self' && t.bare).map(t => +t.n);
@@ -315,7 +315,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
     parent, state: EditorState.create({
-      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Alt-n', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Alt-t', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(keymap.of([{ key: 'Mod-m', run: v => insertNextAnchor(v) }, ...(isDiary ? [{ key: 'Mod-r', run: v => toggleStamp(v) }] : [])])), keymap.of([...defaultKeymap, ...historyKeymap]), ...(isDiary ? [EditorView.domEventHandlers({ keydown(e, v) { if (!e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v); return false; }, compositionstart(_e, v) { maybeStamp(v); return false; } })] : []), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -552,8 +552,8 @@ function renderList() {
 document.addEventListener('mousedown', e => { if (e.button === 1) { e.preventDefault(); } newTab = e.ctrlKey || e.metaKey; }, true);
 document.addEventListener('mouseup', e => { if (e.button === 1) e.preventDefault(); }, true);
 document.addEventListener('paste', e => { if (e.__mid) e.preventDefault(); }, true);
-// 戻る・進む: ボタン、Alt+←/→、マウスの戻る/進むボタン
-document.addEventListener('keydown', e => { if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) { e.preventDefault(); go(e.key === 'ArrowLeft' ? -1 : 1); } });
+// 戻る・進む: ボタン、Ctrl+, / Ctrl+.、マウスの戻る/進むボタン
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === ',' || e.key === '.') && $('#modal').style.display !== 'flex') { e.preventDefault(); go(e.key === ',' ? -1 : 1); } });
 document.addEventListener('mouseup', e => { if (e.button === 3) { e.preventDefault(); go(-1); } if (e.button === 4) { e.preventDefault(); go(1); } });
 function onOpenClick(e) {
   if (e.target.closest('#modal') || e.target.closest('#selbar')) return;
@@ -601,7 +601,7 @@ $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) { tab =
 $('#q').oninput = renderList;
 $('#q').onkeydown = e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').blur(); renderList(); if (lastView && cur && cur.k === 'note') lastView.focus(); searchMark(); } };
 document.addEventListener('keydown', e => {
-  if (!(e.ctrlKey || e.metaKey) || $('#modal').style.display === 'flex') return;
+  if (!(e.ctrlKey || e.metaKey) || $('#modal').style.display === 'flex' || $('#scan').style.display === 'flex') return;
   if (e.key === 'f') { e.preventDefault(); $('#q').focus(); $('#q').select(); }
   if (e.key === 'w') { e.preventDefault(); closeTab(active); }
   if (e.key === 't') { e.preventDefault(); tabs.push({ k: 'empty' }); show(tabs.length - 1); }
@@ -692,7 +692,7 @@ document.addEventListener('keydown', e => {
 
 // ===== 書きながらノートを作る: Ctrl+n（IDなし）/ Ctrl+h（並列）/ Ctrl+b（分岐）/ Ctrl+i（カーソルに :ID を書く）=====
 document.addEventListener('keydown', e => {
-  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || $('#modal').style.display === 'flex' || $('#idpop')) return;
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || $('#modal').style.display === 'flex' || $('#idpop') || $('#scan').style.display === 'flex') return;
   const k = e.key.toLowerCase(); if (!'nhbip'.includes(k) || k.length !== 1) return;
   if (k === 'p') { // Ctrl+P: カーソルに (p)（紙）を書く。:1a のあとで押せば、紙の 1a
     const v = lastView; if (!v || !v.dom.isConnected || !v.hasFocus) return; e.preventDefault(); v.dispatch(v.state.replaceSelection('(p)')); return;
@@ -1658,7 +1658,7 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Alt+T）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
+      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
@@ -1718,7 +1718,7 @@ function shrink(file, max = 2000) {
   });
 }
 // 取り込み画面: 左に画像と、並んだ全部の小さな画像（✅=済み ⏭️=飛ばした 📔=日記）。右に ID・キーワード。キーだけで、どんどん進める
-//   Enter 保存して次へ ／ Alt+→ 次(↔️) ／ Alt+↓ 子(🌱) ／ Alt+← 親の次(⤴️) ／ Alt+K 前と同じキーワード ／ Alt+S 飛ばす ／ Alt+D 日記へ ／ Alt+Z 拡大 ／ PageUp/PageDown 画像を移る ／ Esc 閉じる
+//   Enter 保存して次へ ／ Ctrl+H 次(↔️) ／ Ctrl+B 子(🌱) ／ Ctrl+U 親の次(⤴️) ／ Ctrl+K 前と同じキーワード ／ Ctrl+S 飛ばす ／ Ctrl+D 日記へ ／ Ctrl+E 拡大 ／ PageUp/PageDown 画像を移る ／ Esc 閉じる
 let queue = [], qi = 0, lastId = '', lastKws = '', lastDiary = '';
 let scanSt = [], scanThumbs = [], scanBusy = false, scanBatch = '', scanTimer = null;
 const startScan = fs => {
@@ -1816,16 +1816,16 @@ $('#scan').addEventListener('click', e => {
 });
 $('#scan').onkeydown = e => {
   if (e.isComposing || e.keyCode === 229) return;
-  const alt = e.altKey && !e.ctrlKey && !e.metaKey, k = e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };
+  const alt = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey, k = e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };
   if (e.key === 'Enter') { stop(); if (e.target.id === 'sc-date') diaryScanOk(); else scanOk(); }   // 日付の欄で Enter なら、紙の日記に入れる
   else if (e.key === 'Escape') { stop(); if (e.target.id === 'sc-date') { $('#sc-id').focus(); } else closeScan(); }
-  else if (alt && e.key === 'ArrowRight') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
-  else if (alt && e.key === 'ArrowDown') { stop(); $('#sc-id').value = scanSuggest.chi(); scanCheck(); $('#sc-id').focus(); }
-  else if (alt && e.key === 'ArrowLeft') { stop(); $('#sc-id').value = scanSuggest.up(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && k === 'h') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && k === 'b') { stop(); $('#sc-id').value = scanSuggest.chi(); scanCheck(); $('#sc-id').focus(); }
+  else if (alt && k === 'u') { stop(); $('#sc-id').value = scanSuggest.up(); scanCheck(); $('#sc-id').focus(); }
   else if (alt && k === 'k') { stop(); $('#sc-kw').value = lastKws; }
   else if (alt && k === 's') { stop(); scanSkip(); }
   else if (alt && k === 'd') { stop(); $('#sc-date').focus(); scanFlash('日記の日付を入れて、Enter（Esc で戻る）'); }   // 勝手に今日にしない。日付を決めてから Enter
-  else if (alt && k === 'z') { stop(); $('#scan').classList.toggle('zoomed'); }
+  else if (alt && k === 'e') { stop(); $('#scan').classList.toggle('zoomed'); }
   else if (e.key === 'PageDown') { stop(); scanGo(1); }
   else if (e.key === 'PageUp') { stop(); scanGo(-1); }
 };

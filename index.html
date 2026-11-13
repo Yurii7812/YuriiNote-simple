@@ -567,7 +567,7 @@ body{-webkit-user-select:none;user-select:none}
   </aside>
   <section id="right">
     <div class="top">
-      <button id="nav-back" class="ic" title="戻る (Alt+←)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Alt+→)" disabled>➡️</button>
+      <button id="nav-back" class="ic" title="戻る (Ctrl+,)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Ctrl+.)" disabled>➡️</button>
       <div id="tabbar"></div>
       <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
       <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="more" class="ic" title="メニュー">🧰</button>
@@ -582,7 +582,7 @@ body{-webkit-user-select:none;user-select:none}
 
 <div id="scan" role="dialog" aria-label="紙を取り込む" tabindex="-1">
   <div class="sc-stage">
-    <div class="sc-view"><img id="sc-img" alt="" title="押すと、拡大・全体表示を切り替え (Alt+Z)"></div>
+    <div class="sc-view"><img id="sc-img" alt="" title="押すと、拡大・全体表示を切り替え (Ctrl+E)"></div>
     <div class="sc-strip" id="sc-strip"></div>
   </div>
   <aside class="sc-side">
@@ -592,21 +592,21 @@ body{-webkit-user-select:none;user-select:none}
     <div class="sc-idrow"><input id="sc-id" autocomplete="off" spellcheck="false" aria-label="紙のID"><span id="sc-mark"></span></div>
     <div id="sc-hint" class="sc-hint"></div>
     <div class="sc-quick">
-      <button data-sc-q="sib" title="直前の次（並列）  Alt+→" tabindex="-1">↔️ <b id="q-sib"></b><kbd>Alt →</kbd></button>
-      <button data-sc-q="chi" title="直前の子（分岐）  Alt+↓" tabindex="-1">🌱 <b id="q-chi"></b><kbd>Alt ↓</kbd></button>
-      <button data-sc-q="up" title="直前の親の次  Alt+←" tabindex="-1">⤴️ <b id="q-up"></b><kbd>Alt ←</kbd></button>
+      <button data-sc-q="sib" title="直前の次（並列）  Ctrl+H" tabindex="-1">↔️ <b id="q-sib"></b><kbd>Ctrl H</kbd></button>
+      <button data-sc-q="chi" title="直前の子（分岐）  Ctrl+B" tabindex="-1">🌱 <b id="q-chi"></b><kbd>Ctrl B</kbd></button>
+      <button data-sc-q="up" title="直前の親の次  Ctrl+U" tabindex="-1">⤴️ <b id="q-up"></b><kbd>Ctrl U</kbd></button>
     </div>
     <div class="sc-lab">🏷️</div>
     <input id="sc-kw" placeholder="キーワード（、で区切る）" autocomplete="off" aria-label="キーワード">
     <div id="sc-kwchips" class="sc-kcs"></div>
     <button id="sc-save" class="sc-primary" title="保存して次へ  Enter">⏎ 保存して次へ</button>
     <div class="sc-row2">
-      <button id="sc-skip" title="飛ばす  Alt+S" tabindex="-1">⏭️<kbd>Alt S</kbd></button>
-      <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Alt+D で日付の欄へ）" tabindex="-1">📔<kbd>Alt D</kbd></button>
+      <button id="sc-skip" title="飛ばす  Ctrl+S" tabindex="-1">⏭️<kbd>Ctrl S</kbd></button>
+      <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Ctrl+D で日付の欄へ）" tabindex="-1">📔<kbd>Ctrl D</kbd></button>
       <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1">
     </div>
     <div id="sc-msg"></div>
-    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Alt K</kbd>前と同じ🏷️</span><span><kbd>Alt D</kbd>📔日付→Enter</span><span><kbd>Alt Z</kbd>拡大</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
+    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Ctrl K</kbd>前と同じ🏷️</span><span><kbd>Ctrl D</kbd>📔日付→Enter</span><span><kbd>Ctrl E</kbd>拡大</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
   </aside>
 </div>
 <script src="dist/app.js"></script>

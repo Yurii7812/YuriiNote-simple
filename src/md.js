@@ -204,8 +204,8 @@ const listKeys = Prec.high(keymap.of([
     const at = l.from + m[1].length + m[2].length + m[3].length + 1;
     v.dispatch({ changes: { from: at, to: at + 1, insert: /[xX]/.test(m[4]) ? ' ' : 'x' } }); return true;
   } },
-  { key: 'Alt-ArrowUp', run: v => moveLines(v, -1) },
-  { key: 'Alt-ArrowDown', run: v => moveLines(v, 1) }
+  { key: 'Mod-ArrowUp', run: v => moveLines(v, -1) },
+  { key: 'Mod-ArrowDown', run: v => moveLines(v, 1) }
 ]));
 // 箇条書きの行を、子ごと上下に動かす（アウトラインの並べ替え）
 function moveLines(view, dir) {
