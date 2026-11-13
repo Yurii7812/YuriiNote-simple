@@ -1,4 +1,5 @@
 import { WidgetType, Decoration, EditorView } from '@codemirror/view';
+import Stamp from '../stamp.js';
 import { StateField } from '@codemirror/state';
 import Core from '../link-core.js';
 import L from '../lib.js';
@@ -150,7 +151,7 @@ function occurrenceKey(owner,text,from,uri){const prefix=text.slice(Math.max(0,f
 export function enhance(el,{path=[],owner='rendered'}={}) {
   owner=JSON.stringify([path,owner]);
   for(const img of [...el.querySelectorAll('img')]){const src=img.getAttribute('src')||'';let uri=src;if(/^\d{14}(?:-\d+)?\.md$/.test(src))uri='note:'+src.slice(0,-3);if(/^(link|memo|note):/.test(uri))img.replaceWith(embed(uri,path,JSON.stringify([owner,uri,img.alt]),img.alt));}
-  for(const a of [...el.querySelectorAll('p>a:only-child')]){const url=a.dataset.file||a.getAttribute('href');if(!/^https?:\/\//.test(url||''))continue;const p=a.parentElement;if(p.textContent.trim()!==a.textContent.trim())continue;const index=[...el.querySelectorAll('a')].filter(x=>(x.dataset.file||x.getAttribute('href'))===url).indexOf(a);p.replaceWith(urlPreview(url,JSON.stringify([owner,url,index]),null,a.textContent));}
+  for(const a of [...el.querySelectorAll('p>a:only-child')]){const url=a.dataset.file||a.getAttribute('href');if(!/^https?:\/\//.test(url||''))continue;const p=a.parentElement;if(Stamp.stripLine(p.textContent).trim()!==a.textContent.trim())continue;const index=[...el.querySelectorAll('a')].filter(x=>(x.dataset.file||x.getAttribute('href'))===url).indexOf(a);p.replaceWith(urlPreview(url,JSON.stringify([owner,url,index]),null,a.textContent));}
 }
 export class ContentWidget extends WidgetType {
   constructor(uri,label,key,path=[]){super();Object.assign(this,{uri,label,key,path,version});}
@@ -169,7 +170,7 @@ export function decorations(owner,space='d') {
           if(/^(link|memo|note):/.test(uri)){embeds++;result.push(Decoration.widget({widget:new ContentWidget(uri,m[1],occurrenceKey(owner,text,at,uri),[owner]),block:true,side:embeds}).range(pos+line.length));}
         }
         if(!embeds){
-          const token=line.trim(),md=/^\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/.exec(token),url=md?.[2]||(/^https?:\/\/\S+$/.test(token)?token:null);
+          const token=Stamp.stripLine(line).trim(),md=/^\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/.exec(token),url=md?.[2]||(/^https?:\/\/\S+$/.test(token)?token:null);
           if(url)result.push(Decoration.widget({widget:new ContentWidget(url,md?.[1]||'',occurrenceKey(owner,text,pos,url)),block:true,side:1}).range(pos+line.length));
         }
       }
