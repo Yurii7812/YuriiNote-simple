@@ -28,6 +28,9 @@ main{flex:1;display:flex;min-height:0}
 #dlist .dtop input{font:inherit;font-size:13px;padding:2px 6px;border:1px solid var(--line);border-radius:6px}
 .sc-diary{margin-left:6px;color:var(--sub);font-size:13px}.sc-diary input{font-size:13px}
 aside{width:250px;display:flex;flex-direction:column;border-right:1px solid #f0f0f3}
+#leftpanel{width:260px;flex:none;border-right:1px solid #f0f0f3;overflow:auto;min-height:0}
+#leftpanel .mgn{position:static;width:auto;min-height:0;margin:0;border-left:0;padding:46px 14px 60px 16px;height:auto}
+.stage.mgnleft>.col{max-width:none;margin:0 auto}
 #tabs{display:flex;gap:12px;padding:14px 14px 8px}
 #tabs button{border:0;border-radius:0;padding:0;background:none;color:#aeb2bf;font-size:12.5px}
 #tabs button:hover{background:none;color:#666}#tabs button.on{color:var(--fg);font-weight:600}
@@ -596,6 +599,7 @@ body{-webkit-user-select:none;user-select:none}
 <body>
 <main>
   <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="more" class="ic" title="メニュー">🧰</button></nav>
+  <div id="leftpanel" hidden></div>
   <aside>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F（今のページの中は Ctrl+E）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>

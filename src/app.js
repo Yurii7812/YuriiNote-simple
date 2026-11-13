@@ -881,7 +881,18 @@ function closeTab(i) {
 }
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
   : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'similar' ? '🔍 類似' : t.k === 'tlist' ? `📑 ${esc(t.id)}` : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
+// 右のパネル（キーワード・索引・つながり）を、試しに、左の一覧の左に置く。panelLeft を切ると、元の右に戻る
+let panelLeft = (() => { try { return localStorage.getItem('ysimple-panel-left') !== '0'; } catch { return true; } })();
+function syncLeftPanel() {
+  const lp = $('#leftpanel'); if (!lp) return;
+  const m = $('#pane #margin');
+  if (panelLeft && m) { lp.replaceChildren(m); const st = $('#pane .stage'); if (st) st.classList.add('mgnleft'); }
+  else if (!panelLeft || !(cur && cur.k === 'note')) lp.replaceChildren();
+  lp.hidden = !panelLeft || !lp.firstChild || mgnHidden;
+}
+function togglePanelLeft() { panelLeft = !panelLeft; try { localStorage.setItem('ysimple-panel-left', panelLeft ? '1' : '0'); } catch { } if (cur && cur.k === 'note') openNote(cur.s, cur.id, null, true); else syncLeftPanel(); }
 function renderTabs() {
+  syncLeftPanel();
   drawIdBar();
   $('#tabbar').innerHTML = tabs.map((t, i) => `<div class="tab${i === active ? ' on' : ''}" data-ti="${i}"><span>${tabLabel(t)}</span><b class="x" data-close="${i}" title="閉じる (Ctrl+W)">×</b></div>`).join('')
     + '<button class="tab-new" title="新しいタブ (Ctrl+T)">＋</button>';
@@ -1131,7 +1142,7 @@ const parentNote = note => {
 const parentHtml = note => { const p = parentNote(note); return p ? `<div class="sec">${metaLabel('🌳', '親')}<div class="mt ch" data-s="${p.s}" data-id="${esc(p.id)}"><a class="tl" style="margin-left:0">${esc(titleOf(p) || '（無題）')}</a></div></div>` : ''; };
 // 右パネルの順番: 🏷️ キーワード → 📑 自トピック → 🗂️ トピック → 🌳 親 → 🌱 子 → 🔗 バックリンク → 💬 チャットメモ
 function renderMeta(note) {
-  const el = $('#margin'); if (!el) return;
+  const el = $('#pane #margin') || $('#margin'); if (!el) return;
   const bundles = LC.allLinks().filter(l => l.targets.some(t => t.kind === 'note' && t.stem === note.stem && t.s === note.s));
   if (note.noid) { el.innerHTML = parentHtml(note) + childrenHtml(note) + (bundles.length ? `<div class="sec">${metaLabel('🔗', 'バックリンク', bundles.length)}${bundles.map(l => `<div class="mt"><a class="tl" data-link-object="${esc(l.id)}">${esc(l.title)}</a></div>`).join('')}</div>` : '') + '<div class="hint">🆔 IDなしのノートです。<br>「IDを付ける」と、キーワードや索引、バックリンクが使えます。</div>'; return; }
   const tops = topics.map(t => ({ t, kws: L.mergeTopic(t).rows.filter(r => r[note.s].some(x => L.splitAnchor(x).id === note.id)).map(r => r.kw) })).filter(x => x.kws.length); // 自分のキーワードがあるものだけ
@@ -1194,7 +1205,7 @@ async function refreshDiaries() {
   for (const r of await api.diaryState()) upsertDiary(r, since);
   syncEditors();
 }
-$('#pane').addEventListener('click', async e => {
+const paneClick = async e => {
   const objectLink = e.target.closest('[data-link-object]'); if (objectLink) return LC.detail(objectLink.dataset.linkObject);
   const a = e.target.closest('[data-act]'); if (!a || !cur) return;
   const act = a.dataset.act;
@@ -1218,12 +1229,14 @@ $('#pane').addEventListener('click', async e => {
   }
   if (act === 'tadd') topicAddDialog(note);
   if (act === 'img') pick(false, async f => { const r = await api.saveImage(s, id, await shrink(f[0])); Object.assign(get(s, id), r); openNote(s, id); });
-});
+};
+$('#pane').addEventListener('click', paneClick);
+$('#leftpanel').addEventListener('click', paneClick);   // 右のパネルを左に置いたときも、同じボタンが効く
 // 右の欄（キーワード・索引・バックリンク）を隠す・出す。覚えておく
 let mgnHidden = (() => { try { return localStorage.getItem('pkm-mgn-hidden') === '1'; } catch { return false; } })();
 const applyMgn = () => { const st = document.querySelector('#pane .stage'); if (st) { st.classList.toggle('nomgn', mgnHidden); st.style.setProperty('--ph', $('#pane').clientHeight + 'px'); } };
 window.addEventListener('resize', applyMgn);
-function toggleMgn() { mgnHidden = !mgnHidden; try { localStorage.setItem('pkm-mgn-hidden', mgnHidden ? '1' : '0'); } catch { } applyMgn(); }
+function toggleMgn() { mgnHidden = !mgnHidden; try { localStorage.setItem('pkm-mgn-hidden', mgnHidden ? '1' : '0'); } catch { } applyMgn(); syncLeftPanel(); }
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === '\\' && !e.shiftKey) { e.preventDefault(); toggleMgn(); } });
 // ノートのメニュー（⋯）: 並列・分岐・表・添付・ID・削除
 function noteMenu(btn, note) {
@@ -2157,6 +2170,7 @@ $('#stamp-toggle').oncontextmenu = e => {
   e.preventDefault(); const P = stampPresets(), r = $('#stamp-toggle').getBoundingClientRect(), mark = on => on ? '✔ ' : '　 ', sample = '2026-11-13 12:54:30';
   popMenu({ clientX: Math.max(8, r.right - 260), clientY: r.bottom + 4 }, [
     [mark(stampsShown()) + '行ごとの時刻を表示', () => toggleStamp(lastView)],
+    [mark(panelLeft) + '右のパネルを、左に置く', () => togglePanelLeft()],
     [mark(P.current === 'all') + '全部（' + sample + '）', () => useStampPreset('all')],
     ...P.list.map(x => [mark(P.current === x.name) + x.name + '（' + Stamp.format(sample, x) + '）', () => useStampPreset(x.name)]),
     ['＋ カスタムを作る…', () => stampPresetDialog(null)],
