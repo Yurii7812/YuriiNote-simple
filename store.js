@@ -257,6 +257,7 @@ function openVault(vault) {
   const earlierExplicit = d => { let best = null; for (const o of diaries.values()) if (o.kind === d.kind && o.date < d.date && o.parentsSet !== false && rawParents(o).length && (!best || o.date > best.date)) best = o; return best; };
   const dayParents = d => {
     if (d.kind === DIARY) return [];
+    if (d.kind === MEMO) return [DIARY];   // メモ帳の上位は、いつも日記（選ばない）
     if (d.parentsSet !== false && rawParents(d).length) return rawParents(d);
     const best = earlierExplicit(d), p = best ? rawParents(best) : kindParents(d.kind);
     return p.length ? p : [DIARY];
@@ -630,7 +631,7 @@ function openVault(vault) {
       rebuild(); return pubDiary(d);
     },
     // ----- 記録の種類 -----
-    records: () => kindNames().map(k => ({ name: k, parent: k === DIARY ? '' : kindParent(k), parents: k === DIARY ? [] : kindParents(k) })),
+    records: () => kindNames().map(k => ({ name: k, parent: k === DIARY ? '' : kindParent(k), parents: k === DIARY ? [] : k === MEMO ? [DIARY] : kindParents(k) })),
     // child の上位を up にすると、輪になるか（up の上位をたどって child に着く）
     recordCycle(child, up) { const seen = new Set(), walk = p => { if (!p || seen.has(p)) return false; if (p === child) return true; seen.add(p); return kindParents(p).some(walk); }; return asList(up).some(walk); },
     addRecord(name, parent = '') {
@@ -641,12 +642,12 @@ function openVault(vault) {
     // 種類の上位（これから作る日の初期値。もう作った日は変えない）
     setRecordParent(name, parent = '') {
       const ups = [...new Set(asList(parent))];
-      if (name === DIARY || !kindNames().includes(name) || ups.some(p => !kindNames().includes(p) || p === name || this.recordCycle(name, p))) return false;
+      if (FIXED.includes(name) || !kindNames().includes(name) || ups.some(p => !kindNames().includes(p) || p === name || this.recordCycle(name, p))) return false;
       const d = recDoc(); d.kinds = kindNames().filter(k => k !== DIARY).map(k => k === name ? { name: k, parent: ups[0] || '', parents: ups } : { name: k, parent: kindParent(k), parents: kindParents(k) }); saveRecDoc(d); rebuild(); return this.records();
     },
     // その日だけ上位を変える
     setDayParent(kind, date, parent = '') {
-      const d = diaries.get(dk(kind, date)), ups = [...new Set(asList(parent))]; if (!d || kind === DIARY || ups.some(p => p === kind || !kindNames().includes(p) || this.recordCycle(kind, p))) return false;
+      const d = diaries.get(dk(kind, date)), ups = [...new Set(asList(parent))]; if (!d || FIXED.includes(kind) || ups.some(p => p === kind || !kindNames().includes(p) || this.recordCycle(kind, p))) return false;
       setDayParents(d, ups); d.updated = L.now(); rebuild(); return pubDiary(d);
     },
     renameRecord(from, to) {

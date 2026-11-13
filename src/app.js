@@ -1557,13 +1557,13 @@ function recordsDialog() {
     };
     const row = (x, i) => {
       if (x.t === 'day') return `<div class="rd-row day${i === at ? ' on' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(x.kind)}</span><b>${esc(x.kind)}　${esc(x.date)}${x.title ? '　' + esc(x.title) : ''}</b><small>${esc(x.text)}</small></div>`;
-      const n = x.kind, r = records.find(y => y.name === n) || {}, ups = n === '日記' ? [] : (r.parents && r.parents.length ? r.parents : ['日記']);
+      const n = x.kind, r = records.find(y => y.name === n) || {}, ups = FIXED.includes(n) ? [] : (r.parents && r.parents.length ? r.parents : ['日記']);
       if (edit && edit.kind === n) {
         const others = records.map(y => y.name).filter(y => y !== n);
         return `<div class="rd-row edit" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span>${edit.mode === 'rename' ? `<input id="rd-edit" value="${esc(n)}" autocomplete="off" aria-label="新しい名前">` : `<select id="rd-edit" aria-label="まとめる先">${others.map(y => `<option>${esc(y)}</option>`).join('')}</select>`}<span class="rd-acts on"><button data-act="ok" title="決める">✅</button><button data-act="no" title="やめる">✖️</button></span></div>`;
       }
       const fixed = FIXED.includes(n);
-      return `<div class="rd-row${i === at ? ' on' : ''}${n === curKind ? ' cur' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span><b>${esc(n)}</b><small>${ups.length ? '↑ ' + esc(ups.join('・')) + '　' : ''}${count(n)}日${x.last ? '　' + x.last.slice(5) : ''}</small><span class="rd-acts">${n === '日記' ? '' : `<button data-act="up" title="上位を決める">🔼</button>`}${fixed ? '' : `<button data-act="rename" title="名前を変える">✏️</button><button data-act="merge" title="ほかの記録にまとめる">🔀</button><button data-act="del" title="消す">🗑️</button>`}</span></div>`;
+      return `<div class="rd-row${i === at ? ' on' : ''}${n === curKind ? ' cur' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span><b>${esc(n)}</b><small>${ups.length ? '↑ ' + esc(ups.join('・')) + '　' : ''}${count(n)}日${x.last ? '　' + x.last.slice(5) : ''}</small><span class="rd-acts">${FIXED.includes(n) ? '' : `<button data-act="up" title="上位を決める">🔼</button>`}${fixed ? '' : `<button data-act="rename" title="名前を変える">✏️</button><button data-act="merge" title="ほかの記録にまとめる">🔀</button><button data-act="del" title="消す">🗑️</button>`}</span></div>`;
     };
     const draw = () => { build(); box.innerHTML = items.map(row).join('') || '<div class="none">見つかりません</div>'; const on = box.querySelector('.rd-row.on'); if (on) on.scrollIntoView({ block: 'nearest' }); const ed = $('#rd-edit'); if (ed) { ed.focus(); if (ed.select) ed.select(); } };
     const go = i => {
@@ -1643,7 +1643,7 @@ async function openDiary(date, keep, kind) {
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
-    ${kind !== '日記' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
+    ${kind !== '日記' && kind !== 'メモ帳' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
     kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
