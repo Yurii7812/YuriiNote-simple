@@ -44,7 +44,7 @@ test('トピックIndex の行', () => {
   assert.strictEqual(L.topicLine('タイトル検索 7b1, 7b2').kw, 'タイトル検索');
   assert.strictEqual(L.topicLine('★ 7b-デジタルPKM').star, '7b-デジタルPKM');
   const m = L.mergeTopic({ d: 'PKM 1a 3\n★ 9-x', p: 'PKM 2\n紙だけ 5' });
-  assert.deepStrictEqual(m.rows, [{ kw: 'PKM', d: ['1a', '3'], p: ['2'] }, { kw: '紙だけ', d: [], p: ['5'] }]);
+  assert.deepStrictEqual(m.rows, [{ kw: 'PKM', d: ['1a', '3'], p: ['2'], t: [] }, { kw: '紙だけ', d: [], p: ['5'], t: [] }]);
   assert.deepStrictEqual(m.stars, ['9-x']);
 });
 
@@ -172,15 +172,18 @@ test('Markdown との行き来: コンマ続きのID（->1a,1b,1c と 1a,1b->）
   assert.strictEqual(L.mdToBody('[1a](http://x), [題](a.md)'), '[1a](http://x), [題](a.md)');   // ふつうのリンクは、そのまま
 });
 
-test('トピックIndex: ↳ / |> は下位の索引への案内、↰ / <| は上位。昔の + ★ ^ も同じ', () => {
+test('トピックIndex: 上位（^）・独立（|> ↳ + ★）・独立前（<| ↰）は、別々。行の終わりの 0-1 は索引へのリンク', () => {
   const T = L.topicLine;
   for (const l of ['↳楔形文字で粘土板に英語を書く 2', '|> 楔形文字で粘土板に英語を書く 2', '+楔形文字で粘土板に英語を書く 2', '★ 楔形文字で粘土板に英語を書く 2']) {
     const r = T(l); assert.strictEqual(r.star, '', l); assert.deepStrictEqual([r.ref.label, r.ref.id], ['楔形文字で粘土板に英語を書く', '2'], l);
   }
-  for (const l of ['↰楔形文字で粘土板に英語を書く 1b', '<| 楔形文字で粘土板に英語を書く 1b', '^楔形文字で粘土板に英語を書く 1b']) {
-    const r = T(l); assert.strictEqual(r.up, '楔形文字で粘土板に英語を書く', l); assert.deepStrictEqual(r.ids.map(x => x.id), ['1b'], l);
+  for (const l of ['↰楔形文字で粘土板に英語を書く 1b', '<| 楔形文字で粘土板に英語を書く 1b']) {
+    const r = T(l); assert.strictEqual(r.before, '楔形文字で粘土板に英語を書く', l); assert.strictEqual(r.up, undefined, l); assert.deepStrictEqual(r.ids.map(x => x.id), ['1b'], l);
   }
-  const m = L.mergeTopic({ text: 'その他の粘土板の書き方 1b\n粘土板への記録 1b1\n↳ 楔形文字で粘土板に英語を書く 2\n↰ 親 1b' });
-  assert.deepStrictEqual(m.rows.map(r => r.kw), ['その他の粘土板の書き方', '粘土板への記録']);
-  assert.deepStrictEqual(m.refs, [{ s: 'd', label: '楔形文字で粘土板に英語を書く', id: '2' }]); assert.deepStrictEqual(m.ups.map(u => u.kw), ['親']);
+  for (const l of ['^上位の索引 1b', '＾上位の索引 1b', '↑ 上位の索引 1b']) { const r = T(l); assert.strictEqual(r.up, '上位の索引', l); assert.strictEqual(r.before, undefined, l); }
+  const m = L.mergeTopic({ text: 'その他の粘土板の書き方 1b\n粘土板への記録 1b1\n↳ 楔形文字で粘土板に英語を書く 2\n<| 元の索引 1b\n^上位 1\nグループ 0-1 3-2' });
+  assert.deepStrictEqual(m.rows.map(r => r.kw), ['その他の粘土板の書き方', '粘土板への記録', 'グループ']);
+  assert.deepStrictEqual(m.rows[2].t, ['0-1', '3-2']);
+  assert.deepStrictEqual(m.refs, [{ s: 'd', label: '楔形文字で粘土板に英語を書く', id: '2' }]);
+  assert.deepStrictEqual(m.befores.map(u => u.kw), ['元の索引']); assert.deepStrictEqual(m.ups.map(u => u.kw), ['上位']);
 });

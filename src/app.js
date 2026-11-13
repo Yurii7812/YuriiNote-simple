@@ -176,14 +176,15 @@ function links(mode, space) {
       let off = 0;
       for (const line of text.split('\n')) {
         const r = L.topicLine(line);
-        const lead = /^(\s*)(\^|＾|↰|<\||\*|＊|★|☆|\+|＋|↳|\|>)/.exec(line);
+        const lead = /^(\s*)(\^|＾|↑|↰|<\||\*|＊|★|☆|\+|＋|↳|\|>)/.exec(line);
         if (lead) {   // 行頭の印は赤。カーソルが外にあるとき、<| ↰ ^ は ↰、|> ↳ + ★ は ↳、* は ◯ の見た目に（ファイルの中は、書いたまま）
           const f = off + lead[1].length, tt = f + lead[2].length, on = view.state.selection.main.from <= off + line.length && view.state.selection.main.to >= off;
-          const g = /^(\^|＾|↰|<\|)$/.test(lead[2]) ? '↰' : /^(\*|＊)$/.test(lead[2]) ? '◯' : '↳';
+          const g = /^(\^|＾|↑)$/.test(lead[2]) ? '↑' : /^(↰|<\|)$/.test(lead[2]) ? '↰' : /^(\*|＊)$/.test(lead[2]) ? '◯' : '↳';
           if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
         }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
-        else for (const x of r.ids) add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id));
+        else { for (const x of r.ids) add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id));
+          for (const x of r.tnos || []) { const tt = topics.find(y => topicNo(y) === x.tno); add(off + x.from, off + x.to, { t: 'topic', name: tt ? tt.name : x.tno }, !!tt); } }   // 0-1 のような番号は、その索引へのリンク
         off += line.length + 1;
       }
     }
@@ -402,8 +403,10 @@ const chip = (s, raw) => {
   const { id, n } = L.splitAnchor(raw), ts = n ? [] : topicsOf(s, id);
   return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${s === 'p' ? '紙' : ''}${esc(raw)}</span>${ts.length ? `<i class="tix" data-tix="${s}:${esc(id)}" title="トピック Index を開く">📑</i>` : ''}`;
 };
-const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
-const paperRows = rows => paperOnly ? rows.filter(r => r.p.length) : rows;   // 紙だけのとき、紙のIDがない行は出さない
+const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('') + (r.t || []).map(tnoChip).join('');
+// 行の終わりに書いた 0-1 のような番号: その番号の索引へのリンク（グループIndex など）
+const tnoChip = no => { const t = topics.find(x => topicNo(x) === no); return t ? `<span class="chip t" data-topic="${esc(t.name)}" title="${esc(t.name)}">${esc(no)} ${esc(stripId(t.name))}</span>` : `<span class="chip miss" title="その番号の索引はありません">${esc(no)}</span>`; };
+const paperRows = rows => paperOnly ? rows.filter(r => r.p.length || (r.t || []).length) : rows;   // 紙だけのとき、紙のIDがない行は出さない
 const topicVisible = t => !paperOnly || !t.entry || t.entry.s === 'p' || t.entry.id === '0';   // グループIndex（0番）は、いつも
 const chips = v => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
@@ -605,7 +608,7 @@ function onOpenClick(e) {
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
   if (e.target.closest('#ix-add')) return groupMode ? topicNewDialog('', true) : newIndexDialog();
   if (e.target.closest('#ix-mode')) { groupMode = !groupMode; return renderList(); }
-  const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic);
+  const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic, 'view', false, cur && cur.k === 'note' ? { s: cur.s, id: cur.id } : null);
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
     // Index（左の一覧）と、索引の中の ID チップは、索引があればそちらへ（ノート本体は、トピックの上の親から）
@@ -1511,15 +1514,22 @@ function openExport(t, keep) {
   renderTabs(); renderList();
 }
 
-function openTopic(name, tmode = 'view', keep) {
+function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートから飛んできたとき、そのノート { s, id }（その行を示す）
   const t = topics.find(x => x.name === name); if (!t) return;
   if (bgOpen) { place({ k: 'topic', name, mode: tmode }, false); return; }   // ホイールクリック: 背景の新しいタブで開く。いまのタブは動かない
   cur = place({ k: 'topic', name, mode: tmode }, keep); cur.mode = tmode; mode = 'notes';
   if (!inPreview) decided = { k: 'topic', name };
   if (!inPreview && !$('#q').value && t.entry && t.entry.id !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
-  const { rows, stars, refs, ups, marks } = L.mergeTopic(t), e = t.entry;
+  const { rows, stars, refs, ups, befores, marks } = L.mergeTopic(t), e = t.entry;
+  const hit = r => !!focus && [...(r.d || []).map(x => ['d', x]), ...(r.p || []).map(x => ['p', x])].some(([s, x]) => s === focus.s && L.splitAnchor(x).id === focus.id);
+  const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
+    const o = (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw)), x0 = u.ids[0];
+    const name = esc(u.kw || u.ids.map(x => x.raw).join(' '));
+    if (o) return `<span class="chip t" data-topic="${esc(o.name)}">${name}</span>`;
+    return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
+  };
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ↰キーワード ID（<| でも）は上位の索引 ・ ↳名前 ID（|> でも）は独立させた下位の索引 ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（↑） ・ |> 名前 ID は独立したもの（↳） ・ <| 名前 ID は独立前（↰） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
@@ -1527,15 +1537,9 @@ function openTopic(name, tmode = 'view', keep) {
         <input id="t-id" value="${e ? esc(e.id) : ''}" style="width:110px" placeholder="番号"><span class="sub">この索引の親になるノートの番号</span></div>
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
-  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
-      ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td><span class="tmk">↳</span> ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
-  // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
-  const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
-    const o = (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw)), x0 = u.ids[0];
-    const name = esc(u.kw || u.ids.map(x => x.raw).join(' '));
-    if (o) return `<span class="chip t" data-topic="${esc(o.name)}">${name}</span>`;
-    return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
-  };
+  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
+      ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${ups.map(u => `<tr class="trel"><td><span class="tmk">↑</span> 上位　${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${befores.map(u => `<tr class="trel"><td><span class="tmk">↰</span> 独立前　${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${refs.map(x => `<tr class="trel${focus && focus.s === x.s && focus.id === x.id ? ' tfocus' : ''}"><td><span class="tmk">↳</span> 独立　${esc(x.label)}</td><td>${upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })}</td></tr>`).join('')}</table>`;
+  // 上位トピック（^）・独立前（<|）・独立したもの（|>）: そのキーワードのトピック Index があれば、押して開ける
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
   $('#pane').innerHTML = `
     <div class="row thead">
@@ -1546,8 +1550,11 @@ function openTopic(name, tmode = 'view', keep) {
     </div>
     <div class="row tmeta">
       <span class="tm"><span class="sub">🌳 親</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub"><span class="tmk">↰</span> 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub"><span class="tmk">↑</span> 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub"><span class="tmk">↰</span> 独立前</span>${befores.length ? befores.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub"><span class="tmk">↳</span> 独立したもの</span>${refs.length ? refs.map(x => upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })).join('') : '<span class="sub">なし</span>'}</span>
     </div>${body}`;
+  const fr = $('#pane .tfocus'); if (fr) { fr.scrollIntoView({ block: 'center' }); }   // ノートから飛んできたら、そのノートの行を示す
   if (tmode === 'edit') { // 1 つの欄。紙は ID(p)、デジタルは ID（親が紙の索引 なら、紙が ID、デジタルが ID(d)）
     const def = L.defOf(t), v = editor($('#ed-t'), L.topicText(t), 'topic', def, x => { t.text = x; saveTopic(t); }, `PKM 1a 3(p)`, () => L.topicText(t));
     v.focus();
