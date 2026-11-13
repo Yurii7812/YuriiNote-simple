@@ -25,6 +25,9 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 .chip{flex:none;border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:14px;background:transparent}
 .chip.on{background:var(--acc-bg);border-color:var(--acc);color:var(--acc);font-weight:700}
 .datebar{flex:none;display:flex;align-items:center;gap:6px;padding:8px 12px 0}.datebar b{flex:1;text-align:center;font-size:15px}
+.datebtn{flex:1;position:relative;display:flex;justify-content:center;padding:10px 0;border:1px dashed var(--line);border-radius:12px}
+.datebtn input{position:absolute;inset:0;width:100%;height:100%;opacity:0}
+.datebar .chip{padding:6px 11px}
 .list{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
 .entry{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .entry time{flex:none;color:var(--sub);font-size:11px;font-variant-numeric:tabular-nums;padding-top:5px;min-width:40px;max-width:84px;line-height:1.3}
@@ -45,7 +48,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 .edtools{flex:none;display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--line);overflow-x:auto}
 .edtools button{flex:none;height:42px;min-width:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:transparent;font-size:17px}
 .cam{flex:1;min-height:0;margin:10px 12px 0;border-radius:16px;background:#0f1013;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.cam video{width:100%;height:100%;object-fit:cover}
+.cam video{width:100%;height:100%;object-fit:contain}   /* 切り取らずに、撮れる範囲を全部見せる（撮った写真と同じ範囲） */
 .cam .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cfd2da;font-size:14px;text-align:center;padding:20px;line-height:1.8}
 .count{position:absolute;right:12px;top:12px;background:rgba(255,255,255,.2);color:#fff;border-radius:999px;padding:3px 12px;font-size:13px}
 .shutter{flex:none;display:flex;justify-content:center;padding:10px 0 4px}
@@ -59,22 +62,27 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 .sheet .bar{display:flex;gap:8px;padding:12px 12px 6px}.sheet input{flex:1;min-width:0;height:44px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font:inherit;background:var(--bg);color:var(--fg)}
 .sheet .help{padding:0 14px 8px;font-size:12px;color:var(--sub)}.sheet .id{flex:none;width:52px;font:600 13px ui-monospace,monospace;color:var(--red)}
 .sheet .res{flex:1;overflow:auto}
+.row input[type=checkbox]{width:26px;height:26px;flex:none;accent-color:var(--acc)}
+.row input.num{width:84px;flex:none;font:inherit;font-size:17px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);text-align:right}
+.row input.num:focus{outline:none;border-color:var(--acc)}
+.row label,label.row{cursor:pointer}
+.sheet select,.row select{font:inherit;padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg)}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 60px);transform:translateX(-50%);background:var(--fg);color:var(--bg);border-radius:999px;padding:7px 15px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 .toast.on{opacity:.93}
 </style>
 </head>
 <body>
-<div class="top"><h1 id="ttl">メモ帳</h1><button class="ib" id="b-stamp" aria-label="行ごとの時刻を表示・非表示">⏱️</button></div>
+<div class="top"><h1 id="ttl">メモ帳</h1><button class="ib" id="b-alarm" aria-label="定期の通知（アラーム）">⏰</button><button class="ib" id="b-stamp" aria-label="行ごとの時刻を表示・非表示">⏱️</button></div>
 <main>
   <section class="pane on" id="p-memo">
-    <div class="datebar"><button class="ib" data-day="-1" data-for="memo" aria-label="前の日">◀</button><b id="memo-date"></b><button class="ib" data-day="1" data-for="memo" aria-label="次の日">▶</button></div>
+    <div class="datebar"><button class="ib" data-day="-1" data-for="memo" aria-label="前の日">◀</button><label class="datebtn"><b id="memo-date"></b><input type="date" id="memo-pick" aria-label="日付を選ぶ"></label><button class="chip" data-today="memo" id="memo-today" hidden>今日へ</button><button class="ib" data-day="1" data-for="memo" aria-label="次の日">▶</button></div>
     <div id="memo-hint"></div>
     <div class="list" id="memo-list"></div>
     <div class="compose"><textarea id="memo-in" rows="1" placeholder="とりあえず書く"></textarea><button class="send" id="memo-send" aria-label="追加">⬆️</button></div>
   </section>
   <section class="pane" id="p-diary">
     <div class="chips" id="kinds"></div>
-    <div class="datebar"><button class="ib" data-day="-1" data-for="diary" aria-label="前の日">◀</button><b id="diary-date"></b><button class="ib" data-day="1" data-for="diary" aria-label="次の日">▶</button></div>
+    <div class="datebar"><button class="ib" data-day="-1" data-for="diary" aria-label="前の日">◀</button><label class="datebtn"><b id="diary-date"></b><input type="date" id="diary-pick" aria-label="日付を選ぶ"></label><button class="chip" data-today="diary" id="diary-today" hidden>今日へ</button><button class="ib" data-day="1" data-for="diary" aria-label="次の日">▶</button></div>
     <div id="diary-hint"></div>
     <div class="list" id="diary-list"></div>
     <div class="compose"><textarea id="diary-in" rows="1" placeholder="今日のこと"></textarea><button class="send" id="diary-send" aria-label="追加">⬆️</button></div>
@@ -104,6 +112,17 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
   <label class="row"><input type="checkbox" id="fmt-show"><span class="t">行ごとの時刻を表示</span></label>
   <label class="row"><input type="checkbox" id="fmt-sec"><span class="t">秒まで出す（2026-11-13 12:54:30）</span></label>
   <label class="row"><input type="checkbox" id="fmt-short"><span class="t">今日の行は、年月日を省く（12:54:30）</span></label>
+</div>
+<div class="sheet" id="alarmsheet" hidden style="top:auto;border-radius:18px 18px 0 0;padding-bottom:max(12px,env(safe-area-inset-bottom))">
+  <div class="bar" style="padding-bottom:0"><b style="flex:1;font-size:16px;line-height:44px">⏰ 定期の通知（今まで何してた？）</b><button class="ib" id="alarm-x" aria-label="閉じる">✖️</button></div>
+  <div class="help" style="padding:4px 14px 8px">時間になると通知が出ます。押すと、今日のメモ帳の入力が開きます。</div>
+  <label class="row"><input type="checkbox" id="al-on"><span class="t">通知を使う</span></label>
+  <div class="row"><span class="t">間隔</span><input class="num" type="number" id="al-min" inputmode="numeric" min="1" max="1440" step="1"><span>分ごと</span></div>
+  <div class="row"><span class="t">時間帯</span><input class="num" type="number" id="al-from" inputmode="numeric" min="0" max="24" step="1"><span>時 〜</span><input class="num" type="number" id="al-to" inputmode="numeric" min="0" max="24" step="1"><span>時</span></div>
+  <div class="row"><span class="t">音を鳴らし続ける（0 は 1 回だけ）</span><input class="num" type="number" id="al-ring" inputmode="numeric" min="0" max="600" step="1"><span>秒</span></div>
+  <div class="row" id="al-warn" hidden><span class="t" style="white-space:normal;color:var(--red)">通知が許可されていません</span><button class="chip" id="al-notif">許可する</button></div>
+  <div class="row" id="al-exact" hidden><span class="t" style="white-space:normal;color:var(--sub)">時刻ぴったりに鳴らすには、「アラームの許可」が要ります</span><button class="chip" id="al-exactbtn">許可する</button></div>
+  <div class="help" id="al-next" style="padding:6px 14px 0"></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -158,6 +177,8 @@ let tab = 'memo', memoDay = today(), diaryDay = today(), kind = Native.pref('kin
 const TITLES = { memo: 'メモ帳', diary: '日記', notes: 'ノート', paper: '紙のカード', edit: 'ノート' };
 function show(t) {
   if (tab === 'paper' && t !== 'paper') stopCam();
+  if (t === 'memo') memoDay = today();    // メモ帳・日記は、いつも今日を開く（日付を選ぶと、その日を開く）
+  if (t === 'diary') diaryDay = today();
   tab = t; $$('.pane').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
   $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === (t === 'edit' ? 'notes' : t)));
   $('.tabs').style.display = t === 'edit' ? 'none' : ''; $('#ttl').textContent = TITLES[t];
@@ -165,6 +186,9 @@ function show(t) {
   draw(); if (t === 'paper') startCam();
 }
 $$('.tabs button').forEach(b => b.onclick = () => show(b.dataset.t));
+for (const k of ['memo', 'diary']) {
+  $('#' + k + '-pick').addEventListener('change', e => { const v = e.target.value; if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return; if (k === 'memo') memoDay = v; else diaryDay = v; draw(); });
+}
 $('#b-stamp').classList.toggle('on', showStamp);
 let fmtHold = null, fmtLong = false;
 $('#b-stamp').addEventListener('pointerdown', () => { fmtLong = false; fmtHold = setTimeout(() => { fmtLong = true; drawFmt(); $('#fmtsheet').hidden = false; }, 550); });
@@ -186,12 +210,12 @@ function chatList(sel, hintSel, arr) {
 }
 function draw() {
   if (tab === 'memo') {
-    $('#memo-date').textContent = `${memoDay}（${wd(memoDay)}）`;
+    $('#memo-date').textContent = `${memoDay}（${wd(memoDay)}）${memoDay === today() ? '　今日' : ''}`; $('#memo-pick').value = memoDay; $('#memo-today').hidden = memoDay === today();
     chatList('#memo-list', '#memo-hint', items.filter(i => i.d.type === 'memo' && String(i.d.at).slice(0, 10) === memoDay).sort((a, b) => a.d.at.localeCompare(b.d.at) || a.name.localeCompare(b.name)));
   } else if (tab === 'diary') {
     const used = [...new Set(items.filter(i => i.d.type === 'diary').map(i => i.d.kind))], kinds = ['日記', ...new Set([...kindsPc.filter(k => k !== '日記' && k !== 'メモ帳'), ...used.filter(k => k !== '日記')])];
     $('#kinds').innerHTML = kinds.map(k => `<button class="chip${k === kind ? ' on' : ''}" data-kind="${esc(k)}">${k === '日記' ? '📔 ' : ''}${esc(k)}</button>`).join('') + '<button class="chip" id="kind-add">＋</button>';
-    $('#diary-date').textContent = `${diaryDay}（${wd(diaryDay)}）`;
+    $('#diary-date').textContent = `${diaryDay}（${wd(diaryDay)}）${diaryDay === today() ? '　今日' : ''}`; $('#diary-pick').value = diaryDay; $('#diary-today').hidden = diaryDay === today();
     chatList('#diary-list', '#diary-hint', items.filter(i => i.d.type === 'diary' && (i.d.kind || '日記') === kind && i.d.date === diaryDay).sort((a, b) => (a.d.at || '').localeCompare(b.d.at || '') || a.name.localeCompare(b.name)));
   } else if (tab === 'notes') {
     const arr = items.filter(i => i.d.type === 'note').sort((a, b) => (b.d.updated || b.d.created || '').localeCompare(a.d.updated || a.d.created || ''));
@@ -218,6 +242,7 @@ document.addEventListener('click', e => {
   const d = e.target.closest('[data-day]'); if (d) { const n = +d.dataset.day; if (d.dataset.for === 'memo') memoDay = shiftDay(memoDay, n); else diaryDay = shiftDay(diaryDay, n); draw(); return; }
   const k = e.target.closest('[data-kind]'); if (k) { kind = k.dataset.kind; Native.setPref('kind', kind); draw(); return; }
   if (e.target.id === 'kind-add') { const name = (prompt && prompt('新しい時系列記録の名前') || '').trim(); if (name && !/[\\/:*?"<>|]/.test(name)) { kind = name; Native.setPref('kind', kind); draw(); } return; }
+  const td = e.target.closest('[data-today]'); if (td) { if (td.dataset.today === 'memo') memoDay = today(); else diaryDay = today(); draw(); return; }
   const c = e.target.closest('[data-clear]'); if (c) { clearImported(); return; }
 });
 // 取り込み済みを、スマホから消す（消すかどうかは、利用者が決める）
@@ -273,7 +298,8 @@ let stream = null;
 async function startCam() {
   const msg = $('#cam-msg'); if (stream) return;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 } }, audio: false });
+    // 16:9 の画角は、上下を切り取った狭い範囲になる端末が多いので、センサー全体を使う 4:3 を求める。解像度も高めに（手書きの字を読むため）
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 }, aspectRatio: { ideal: 4 / 3 } }, audio: false });
     let v = $('#cam video'); if (!v) { v = document.createElement('video'); v.setAttribute('playsinline', ''); v.muted = true; $('#cam').prepend(v); }
     v.srcObject = stream; await v.play(); msg.hidden = true;
   } catch (e) { msg.hidden = false; msg.textContent = 'カメラを使えません。設定でカメラを許可してください。下の ● でも、写真を選べます。'; }
@@ -283,8 +309,8 @@ const shoot = blob => new Promise(res => { const r = new FileReader(); r.onload 
 $('#shot').onclick = async () => {
   const v = $('#cam video');
   if (v && stream && v.videoWidth) {
-    const w = Math.min(1600, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth), c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(v, 0, 0, w, h);
-    await new Promise(r => c.toBlob(async b => { await shoot(b); r(); }, 'image/jpeg', .85));
+    const k = Math.min(1, 2400 / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k), c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(v, 0, 0, w, h);
+    await new Promise(r => c.toBlob(async b => { await shoot(b); r(); }, 'image/jpeg', .88));
   } else { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.multiple = true; f.onchange = async () => { for (const file of f.files) await shoot(file); load(); drawStrip(); }; f.click(); return; }
   load(); drawStrip(); if (navigator.vibrate) navigator.vibrate(20);
 };
@@ -293,9 +319,42 @@ function drawStrip() {
   $('#cnt').textContent = arr.length + ' 枚';
   $('#strip').innerHTML = arr.length ? arr.map(it => `<div class="thumb" data-n="${esc(it.name)}"><img src="${esc(Native.url ? Native.url(it.d.image) : '')}" alt=""><i>${isSent(it) ? '✔' : ''}</i></div>`).join('') + (arr.some(isSent) ? '<button class="chip" data-clear="paper">🗑️ 取り込み済みを消す</button>' : '') : '撮ったカードが、ここに並びます';
 }
+// ---- 定期の通知（アラーム）。Android アプリのときだけ
+const hasAlarm = typeof Native.alarmGet === 'function';
+function fillAlarm() { }   // 間隔・時間帯・秒は、数を打って入れる
+function readAlarm() { try { return JSON.parse(Native.alarmGet()); } catch { return null; } }
+function drawAlarm() {
+  const a = readAlarm(); if (!a) return;
+  $('#al-on').checked = a.on; for (const [id, v] of [['#al-min', a.minutes], ['#al-from', a.from], ['#al-to', a.to], ['#al-ring', a.ring]]) if (document.activeElement !== $(id)) $(id).value = String(v);
+  $('#al-warn').hidden = !a.on || a.notif; $('#al-exact').hidden = !a.on || a.exact;
+  const n = a.on && a.next ? new Date(a.next) : null;
+  $('#al-next').textContent = n ? `次の通知: ${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())} ${pad(n.getHours())}:${pad(n.getMinutes())}` : (a.on ? '' : '今は、通知は出ません（初めは、オフです）');
+}
+function saveAlarm() {
+  if (!hasAlarm) return;
+  const num = (id, lo, hi, def) => { const v = parseInt($(id).value, 10); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+  const cur = readAlarm() || {};
+  Native.alarmSet(JSON.stringify({ on: $('#al-on').checked, minutes: num('#al-min', 1, 1440, cur.minutes || 60), from: num('#al-from', 0, 24, cur.from ?? 9), to: num('#al-to', 0, 24, cur.to ?? 23), ring: num('#al-ring', 0, 600, cur.ring || 0) }));
+  drawAlarm();
+}
+fillAlarm();
+$('#b-alarm').onclick = () => { if (!hasAlarm) return toast('⏰ 通知は、スマホのアプリで使えます'); drawAlarm(); $('#alarmsheet').hidden = false; };
+$('#alarm-x').onclick = () => { $('#alarmsheet').hidden = true; };
+for (const id of ['#al-on', '#al-min', '#al-from', '#al-to', '#al-ring']) $(id).onchange = () => { if (id === '#al-on' && $('#al-on').checked && Native.askNotify && !(readAlarm() || {}).notif) Native.askNotify(); saveAlarm(); };
+$('#al-notif').onclick = () => Native.askNotify && Native.askNotify();
+$('#al-exactbtn').onclick = () => Native.askExact && Native.askExact();
 // 戻るボタン（Android）
-window.onBack = () => { if (!$('#fmtsheet').hidden) { $('#fmtsheet').hidden = true; return true; } if (!$('#sheet').hidden) { $('#sheet').hidden = true; return true; } if (tab === 'edit') { $('#edit-back').click(); return true; } return false; };
+window.onBack = () => { if (!$('#alarmsheet').hidden) { $('#alarmsheet').hidden = true; return true; } if (!$('#fmtsheet').hidden) { $('#fmtsheet').hidden = true; return true; } if (!$('#sheet').hidden) { $('#sheet').hidden = true; return true; } if (tab === 'edit') { $('#edit-back').click(); return true; } return false; };
 window.reload = () => { load(); draw(); };   // PC につないだあと、Native から呼ぶ
+// アプリに戻ってきたとき: しばらく離れていたら、今日に戻す。通知から来たら、今日のメモ帳の入力へ
+let lastActive = Date.now();
+window.resumeToday = () => {
+  const away = Date.now() - lastActive > 10 * 60 * 1000; lastActive = Date.now(); load();
+  if (away) { memoDay = today(); diaryDay = today(); }
+  draw();
+};
+window.openPrompt = () => { lastActive = Date.now(); for (const id of ['#alarmsheet', '#fmtsheet', '#sheet']) $(id).hidden = true; load(); memoDay = today(); if (tab === 'edit') { clearTimeout(saveTimer); saveNote(); load(); } show('memo'); setTimeout(() => $('#memo-in').focus(), 150); };
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, true));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); draw(); } });
 load(); show('memo');
 })();

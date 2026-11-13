@@ -6,6 +6,8 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
@@ -106,7 +108,15 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         web.evaluateJavascript("(window.onBack&&window.onBack())===true") { if (it != "true") moveTaskToBack(true) }
     }
-    override fun onResume() { super.onResume(); web.evaluateJavascript("window.reload&&window.reload()", null) }
+    override fun onNewIntent(i: Intent) { super.onNewIntent(i); setIntent(i) }
+    override fun onResume() {
+        super.onResume()
+        Alarm.stopRinging(this)
+        val prompt = Alarm.takePrompt(this) || intent?.getBooleanExtra(Alarm.EXTRA_PROMPT, false) == true
+        intent?.removeExtra(Alarm.EXTRA_PROMPT)
+        // 戻ってきたら、今日のものを開く（通知から来たときは、メモ帳の入力まで）
+        web.evaluateJavascript(if (prompt) "window.openPrompt&&window.openPrompt()" else "window.resumeToday&&window.resumeToday()", null)
+    }
 
     // 画面（JS）から呼ぶ道具。名前は、英数字・ . _ - だけ
     inner class Bridge {
@@ -120,6 +130,21 @@ class MainActivity : Activity() {
         // PC が置いたもの（取り込み済みの印・記録の種類・PC のノートの一覧）
         @JavascriptInterface fun meta(name: String): String = if (name in listOf("imported.json", "kinds.json", "notes.json")) File(root, name).takeIf { it.isFile }?.readText() ?: "" else ""
         @JavascriptInterface fun url(name: String): String = if (safe(name)) "https://$host/inbox/$name" else ""
+        // 定期の通知（アラーム）
+        @JavascriptInterface fun alarmGet(): String = Alarm.toJson(this@MainActivity)
+        @JavascriptInterface fun alarmSet(json: String): String {
+            val o = JSONObject(json)
+            Alarm.save(this@MainActivity, Alarm.Cfg(o.optBoolean("on"), o.optInt("minutes", 60), o.optInt("from", 9), o.optInt("to", 23), o.optInt("ring", 0)))
+            Alarm.schedule(this@MainActivity)
+            return Alarm.toJson(this@MainActivity)
+        }
+        @JavascriptInterface fun askNotify() = runOnUiThread {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 3)
+            else startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        }
+        @JavascriptInterface fun askExact() = runOnUiThread {
+            if (Build.VERSION.SDK_INT >= 31) startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$packageName")))
+        }
         @JavascriptInterface fun pref(key: String): String = getSharedPreferences("yn", MODE_PRIVATE).getString(key, "") ?: ""
         @JavascriptInterface fun setPref(key: String, value: String) { getSharedPreferences("yn", MODE_PRIVATE).edit().putString(key, value).apply() }
         private fun put(name: String, bytes: ByteArray): Boolean {
