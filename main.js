@@ -75,14 +75,21 @@ ipcMain.handle('phoneInstall', async () => require('./phone').install({}, m => {
 // 取り込み（手動・自動 共通）
 async function runPhoneImport() {
   await flushRenderer();
-  const P = require('./phone'), C = require('./capture');
-  const r = await P.pull(); if (!r.ok) return { ok: false, message: r.message };
-  const out = C.importCapture(v, r.data);
-  const m = await P.mark(C.importedEntries(v), out.scansDone, r.data.paperIndex && r.data.paperIndex.rev);
-  await P.sendPaperIndex(C.paperIndexForPhone(v));   // 紙のIndex・紙のトピックIndex を、スマホへ
-  const pcm = C.pcMemos(v), sent = await P.sendPcMemos(pcm);   // メモ・日のノートを、スマホにも（共有）
-  await P.sendRecords(v.records().map(x => x.name), (((v.state().docs || {})['C_チャット'] || {}).topics || []).filter(t => t.type !== 'whole').map(t => t.name));   // 時系列記録と、チャットメモのトピックを、スマホへ
-  return { ok: true, state: v.state(), sum: out.sum, message: C.summaryText(out.sum) + (sent && sent.ok ? `\nスマホへ、PC のメモ ${pcm.memos.length} 件と、日のノート ${pcm.days.length} 件を送りました。` : '\n（PC のメモを、スマホへ送れませんでした。もう一度つないでみてください）') + (m.ok ? '\nスマホには「取り込み済み」の印を返しました。もう要らないメモは、スマホの中から消せます（PC のノートは消えません）。' : '\n（取り込み済みの印は、スマホへ返せませんでした。もう一度、USB でつないでみてください）') };
+  const P = require('./phone'), I = require('./phone-inbox');
+  const r = await P.pullInbox(); if (!r.ok) return { ok: false, message: r.message };
+  const seenFile = path.join(app.getPath('userData'), 'phone-seen.json');
+  let seen = new Set(); try { seen = new Set(JSON.parse(fs.readFileSync(seenFile, 'utf8')).names || []); } catch { }
+  const papersDir = path.join(vault, '.phone-papers');
+  const out = I.importInbox(v, r.files, { seen, papers: (name, buf) => { fs.mkdirSync(papersDir, { recursive: true }); fs.writeFileSync(path.join(papersDir, name), buf); } });
+  for (const n of out.done) seen.add(n);
+  const present = new Set(r.files.map(f => f.name)), keep = [...seen].filter(n => present.has(n));   // スマホに残っているものだけ覚える（消されたら忘れる）
+  fs.writeFileSync(seenFile, JSON.stringify({ names: keep }));
+  const m1 = await P.markInbox(keep);
+  const st = v.state();
+  const m2 = await P.sendMeta({ kinds: v.records().map(x => x.name), notes: st.notes.filter(n => (!n.kind || n.kind === 'text') && !n.noid).map(n => ({ s: n.s, id: n.id, title: n.title || '' })) });
+  const sum = { ...out.sum, chats: out.sum.memos, days: out.sum.diaries, scans: out.sum.papers };
+  const msg = I.summary(out.sum) ? 'スマホから取り込みました: ' + I.summary(out.sum) : 'スマホに、新しいものはありませんでした';
+  return { ok: true, state: st, sum, message: msg + (out.sum.already ? `（取り込み済みで残っているもの ${out.sum.already} 件）` : '') + (m1.ok && m2.ok ? '' : '\n（スマホへ、取り込み済みの印か一覧を返せませんでした）') };
 }
 ipcMain.handle('phoneImport', () => runPhoneImport());
 ipcMain.handle('urlTitle', async (_e, url) => { try { return (await urlPreviews.get(String(url || ''))).title || ''; } catch { return ''; } });

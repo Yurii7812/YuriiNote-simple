@@ -179,6 +179,35 @@ async function sendPcMemos(data) {
   let ok = true; for (const pkg of r.pkgs) ok = (await putFile(r, 'files/pc_memos.json', JSON.stringify(data), pkg)) && ok;
   return { ok };
 }
+
+// ===== 新しいスマホアプリ（WebView 版）の受信箱 =====
+// スマホは files/inbox/ に、新しいファイルだけを書く（phone-inbox.js が形を決めている）。PC は読んで取り込み、取り込んだファイルの名前を files/imported.json で返す。
+// スマホから消すかどうかは、スマホの画面で、利用者が決める（PC は消さない）
+const parseLs = out => out.split('\n').map(l => l.trim()).filter(f => /^[A-Za-z0-9][\w.-]*$/.test(f) && !/\.(tmp|part)$/.test(f));
+async function pullInbox() {
+  const r = await ready(); if (r.error) return { ok: false, message: r.error };
+  if (!r.pkgs.includes(PKG)) return { ok: false, message: 'スマホのアプリが古い版です。「スマホにアプリを入れる…」で入れ直してください。' };
+  const ls = await run(r.adb, r.A(['shell', `ls -1 ${EXT(PKG)}files/inbox 2>/dev/null`]));
+  const files = [];
+  for (const name of parseLs(ls.out)) {
+    const g = await catExt(r, 'files/inbox/' + name, PKG);
+    if (g.code !== 0) return { ok: false, message: 'スマホのファイルを読めませんでした（取り込みを中止します）: ' + name };
+    files.push({ name, buf: g.out });
+  }
+  return { ok: true, files };
+}
+// 取り込んだファイルの名前を、スマホへ返す（スマホに「取り込み済み」と出る）
+async function markInbox(names) {
+  const r = await ready(); if (r.error) return { ok: false, message: r.error };
+  return { ok: await putFile(r, 'files/imported.json', JSON.stringify({ version: 3, names }), PKG) };
+}
+// スマホで選べるように、PC の記録の種類と、ノートの一覧（ID と題）を渡す
+async function sendMeta({ kinds, notes }) {
+  const r = await ready(); if (r.error) return { ok: false, message: r.error };
+  const a = await putFile(r, 'files/kinds.json', JSON.stringify({ version: 3, kinds }), PKG);
+  const b = await putFile(r, 'files/notes.json', JSON.stringify({ version: 3, notes }), PKG);
+  return { ok: a && b };
+}
 // つながっているスマホ（adb devices の一覧）。adb が無ければ空
 async function listDevices() {
   const adb = findAdb(); if (!adb) return [];
@@ -194,4 +223,4 @@ async function installedSha(serial) {
 }
 // 入れようとしている APK の指紋。前に入れたものと違えば、更新が必要（バージョン番号を上げ忘れても、分かる）
 function apkSha() { const f = apkPath(); if (!f) return null; try { return require('crypto').createHash('sha256').update(fs.readFileSync(f)).digest('hex'); } catch { return null; } }
-module.exports = { listDevices, apkSha, installedSha, sendPaperIndex, sendPcMemos, install, findAdb, apkPath, parseDevices, PKG, pull, mark, sendRecords };
+module.exports = { parseLs, pullInbox, markInbox, sendMeta, listDevices, apkSha, installedSha, sendPaperIndex, sendPcMemos, install, findAdb, apkPath, parseDevices, PKG, pull, mark, sendRecords };

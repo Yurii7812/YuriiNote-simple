@@ -1,20 +1,34 @@
 // 行ごとの「年月日＋時刻」（行の先頭の「2026-11-13 12:54 」）。オンなら薄く小さく見せ、オフなら隠す（ファイルには残る）。
 // 行を書いたら、自動で付く（書き始めた時刻）。表示のオン・オフは、PC でも スマホでも 1 つの設定
-import { EditorView, Decoration, ViewPlugin, keymap } from '@codemirror/view';
+import { EditorView, Decoration, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
 import { StateField, StateEffect, EditorState, EditorSelection, Prec, Transaction } from '@codemirror/state';
 import Stamp from '../stamp.js';
 
 const KEY = 'pkm-stamp-show';
 let show = (() => { try { return localStorage.getItem(KEY) !== '0'; } catch { return true; } })();
+const FMT_KEY = 'pkm-stamp-fmt';
+// 見せ方: sec = 秒まで出す、short = 今日の行は年月日を省く（保存は、いつも「年月日 時:分:秒」）
+let fmt = (() => { try { return { sec: true, short: false, ...JSON.parse(localStorage.getItem(FMT_KEY) || '{}') }; } catch { return { sec: true, short: false }; } })();
 const views = new Set();
 const refresh = StateEffect.define();
 export const stampsShown = () => show;
+export const stampFormat = () => ({ ...fmt });
+export function setStampFormat(part) {
+  fmt = { ...fmt, ...part }; try { localStorage.setItem(FMT_KEY, JSON.stringify(fmt)); } catch { }
+  for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } }
+}
 export function setStampsShown(on) {
   show = !!on; try { localStorage.setItem(KEY, show ? '1' : '0'); } catch { }
   for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } }
 }
 
-const markShown = Decoration.mark({ class: 'stamp' }), markHidden = Decoration.replace({});
+class StampWidget extends WidgetType {
+  constructor(at, f) { super(); this.at = at; this.f = JSON.stringify(f); }
+  eq(o) { return o.at === this.at && o.f === this.f; }
+  toDOM() { const e = document.createElement('span'); e.className = 'stamp'; e.textContent = Stamp.format(this.at, JSON.parse(this.f)); e.title = this.at; return e; }
+  ignoreEvent() { return true; }
+}
+const markHidden = Decoration.replace({});
 // 見えている範囲の、日時の場所（見せる・隠す）。カーソルが入れないように、atomic にもする
 function build(view) {
   const ranges = [], seen = new Set();
@@ -22,7 +36,7 @@ function build(view) {
     for (let pos = from; pos <= to;) {
       const ln = view.state.doc.lineAt(pos); pos = ln.to + 1; if (seen.has(ln.number)) continue; seen.add(ln.number);
       const s = Stamp.parse(ln.text); if (!s || s.end <= s.p) continue;
-      ranges.push((show ? markShown : markHidden).range(ln.from + s.p, ln.from + s.end));
+      ranges.push((show ? Decoration.replace({ widget: new StampWidget(s.at, fmt) }) : markHidden).range(ln.from + s.p, ln.from + s.end));
     }
   }
   return Decoration.set(ranges, true);

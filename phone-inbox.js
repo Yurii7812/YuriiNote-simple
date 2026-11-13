@@ -9,7 +9,7 @@ const L = require('./lib'), Stamp = require('./stamp');
 
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const dateOf = at => String(at || '').slice(0, 10);
-const stampAt = at => { const m = String(at || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/); return m ? m[1] + ' ' + m[2] : Stamp.nowStamp(); };
+const stampAt = at => { const m = String(at || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/); return m ? m[1] + ' ' + m[2] : Stamp.nowStamp(); };
 const oneLine = t => String(t).replace(/\r?\n+/g, ' ').trim();
 
 // files: [{name, buf}]（buf は Buffer）。papers: 紙の写真の保存先を決める関数 (name, buf) => 保存した名前（省略時は保存しない）

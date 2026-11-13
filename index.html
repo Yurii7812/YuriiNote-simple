@@ -55,7 +55,7 @@ button:disabled{opacity:.4;cursor:default}
 .cm-check{margin:0 6px 0 0;vertical-align:-1px;width:15px;height:15px;cursor:pointer;accent-color:var(--acc);text-indent:0}
 /* 表: そのままの画面で編集。見出しの行は、特別にしない */
 .md-tw{position:relative;display:inline-block;max-width:100%;margin:6px 0;padding:0 26px 26px 0;overflow:auto;vertical-align:top}
-.stamp{color:var(--sub);font-size:.72em;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.85}
+.stamp{color:var(--sub);font-size:.72em;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.85;margin-right:.7em}
 /* ブレストボード: 文字は箱なし。どこからでもペン */
 .bd{position:relative;margin:8px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden;resize:vertical;min-height:220px;max-width:100%}
 .bd-stage{position:relative;touch-action:none;cursor:text;user-select:none;outline:none;width:100%;height:100%}
@@ -587,7 +587,7 @@ body{-webkit-user-select:none;user-select:none}
       <button id="nav-back" class="ic" title="戻る (Ctrl+,)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Ctrl+.)" disabled>➡️</button>
       <div id="tabbar"></div>
       <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
-      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="stamp-toggle" class="ic" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻の表示" aria-pressed="true">⏱️</button><button id="new" class="ic" title="新規">➕</button>
+      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="stamp-toggle" class="ic" title="行ごとの時刻を表示・非表示（Ctrl+R）。右クリックで、見せ方を選ぶ" aria-label="時刻の表示" aria-pressed="true">⏱️</button><button id="new" class="ic" title="新規">➕</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
     <div id="idbar" hidden></div>

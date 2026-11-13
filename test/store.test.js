@@ -119,7 +119,7 @@ test('v1（直下に <ID>.md / <ID>.jpg）も移す。添付の 5.png をノー�
   fs.writeFileSync(path.join(dir, '5.md'), '---\ndate: 2026 11 07\nkeywords: 古い\n---\n昔の本文\n');
   const v = openVault(dir);
   const old = v.state().notes.find(x => x.s === 'd' && x.id === '5');
-  assert.strictEqual(old.body, '2026-11-07 00:00 昔の本文');   // 日付の無い行には、そのノートの日時が付く
+  assert.strictEqual(old.body, '2026-11-07 00:00:00 昔の本文');   // 日付の無い行には、そのノートの日時が付く
    assert.strictEqual(old.created, '2026-11-07 00:00:00'); assert.deepStrictEqual(old.keywords, ['古い']);
   assert.ok(fs.existsSync(path.join(dir, old.stem + '.md')) && fs.existsSync(path.join(dir, '5.md.old')) && old.stem === '20261107000000');
   // 平らになったあとに入れた 7.png は、添付のまま（次に開いても紙の画像にならない）
@@ -672,8 +672,8 @@ test('日付の無い行には、そのノート（日記はその日）の日�
   fs.writeFileSync(path.join(dir, '.pkm-layout'), 'flat1\n');
   v = openVault(dir);
   const n = v.state().notes.find(x => x.id === '1'), d = v.state().diaries.find(x => x.kind === 'メモ帳' && x.date === '2026-10-11');
-  assert.strictEqual(n.body, '# 2026-10-10 11:12 題\n2026-10-10 11:12 本文\n```\nコード\n```');
-  assert.match(d.body, /^2026-10-11 10:35 朝\n2026-10-11 \d{2}:\d{2} 時刻なしの行$/);
+  assert.strictEqual(n.body, '# 2026-10-10 11:12:30 題\n2026-10-10 11:12:30 本文\n```\nコード\n```');
+  assert.match(d.body, /^2026-10-11 10:35 朝\n2026-10-11 \d{2}:\d{2}:\d{2} 時刻なしの行$/);
   assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('stamp1'));
   const again = openVault(dir).state().notes.find(x => x.id === '1');   // 二度目は、変えない
   assert.strictEqual(again.body, n.body);

@@ -3,12 +3,12 @@
 // コピーして貼っても、日時が見える。見出し（# ）・箇条書き（- ）・引用（> ）・チェックボックスの記号は、そのまま行頭に残し、日時はその後ろに付ける
 //   例:  - 2026-11-13 12:54 買い物      ## 2026-11-13 12:54 まとめ
 // 昔の形（行末の <!--2026-11-13 12:54-->）も読める
-const D = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}';
+const D = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}(?::\\d{2})?';   // 年月日 時:分:秒（昔の「時:分」までも読める）
 const LEGACY = new RegExp('[ \\t]*<!--(' + D + ')-->[ \\t]*$');
 const PREFIX = /^(\s*(?:>[ \t]?)*(?:#{1,6}[ \t]+|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d+[.)][ \t]+)?)/;
 const HEAD = new RegExp('^(' + D + ')(?: |$)');
 const pad = n => String(n).padStart(2, '0');
-const nowStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const nowStamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 // 先頭の日時: { p: 記号の長さ, at: 日時, end: 日時（と後ろの空白）の終わり } 。無ければ null
 function parse(line) {
   const p = PREFIX.exec(line)[1].length, m = HEAD.exec(line.slice(p));
@@ -53,7 +53,13 @@ function adoptTimes(text, date) {
   }
   return out.join('\n');
 }
-// 画面に出すときの形（スマホの試作用）。同じ日なら時刻だけ（today を渡したとき）、そうでなければ年月日と時刻
-const show = (at, today) => at ? (today && at.slice(0, 10) === today ? at.slice(11) : at) : '';
+// 画面に出すときの形。fmt: { sec: 秒まで出す, short: 今日の行は年月日を省く }（保存は、いつも秒まで）
+const format = (at, fmt = {}, today = nowStamp().slice(0, 10)) => {
+  if (!at) return '';
+  let t = fmt.sec === false ? at.replace(/(\d{2}:\d{2}):\d{2}$/, '$1') : at;
+  if (fmt.short && at.slice(0, 10) === today) t = t.slice(11);
+  return t;
+};
+const show = (at, today) => format(at, { sec: false, short: !!today }, today || undefined);
 
-module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, adoptTimes, migrate, show };
+module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, adoptTimes, migrate, format, show };

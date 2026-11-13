@@ -27,8 +27,18 @@ test('行ごとの日時: 昔の形（行末）も読め、先頭の形に直せ
 test('行ごとの日時: 画面に出す形', () => {
   assert.strictEqual(S.show('2026-11-13 13:05', '2026-11-13'), '13:05');
   assert.strictEqual(S.show('2026-11-12 23:50', '2026-11-13'), '2026-11-12 23:50');
-  assert.match(S.nowStamp(new Date(2026, 10, 3, 4, 5)), /^2026-11-03 04:05$/);
+  assert.match(S.nowStamp(new Date(2026, 10, 3, 4, 5, 6)), /^2026-11-03 04:05:06$/);
+  assert.strictEqual(S.format('2026-11-13 12:54:30', { sec: true }), '2026-11-13 12:54:30'); assert.strictEqual(S.format('2026-11-13 12:54:30', { sec: false }), '2026-11-13 12:54');
+  assert.strictEqual(S.format('2026-11-13 12:54:30', { sec: false, short: true }, '2026-11-13'), '12:54'); assert.strictEqual(S.format('2026-11-12 12:54:30', { sec: true, short: true }, '2026-11-13'), '2026-11-12 12:54:30');
+  assert.strictEqual(S.format('2026-11-13 12:54', { sec: true }), '2026-11-13 12:54');   // 昔の分までのものは、そのまま
 });
 test('行ごとの日時: 昔の「13:05 本文」は、その日の年月日つきにする', () => {
   assert.strictEqual(S.adoptTimes('10:35 abc\n- 11:00 箇条書き\n```\n10:35 コード\n```\n12:99 時刻ではない', '2026-11-13'), '2026-11-13 10:35 abc\n- 2026-11-13 11:00 箇条書き\n```\n10:35 コード\n```\n12:99 時刻ではない');
+});
+
+test('行ごとの日時: 秒までの日時も、先頭で読める', () => {
+  assert.strictEqual(S.stampOf('- 2026-11-13 12:54:30 買い物'), '2026-11-13 12:54:30');
+  assert.deepStrictEqual(S.parse('2026-11-13 12:54:30 本文'), { p: 0, at: '2026-11-13 12:54:30', end: 20 });
+  assert.strictEqual(S.strip('# 2026-11-13 12:54:30 題\n2026-11-13 12:54 分まで'), '# 題\n分まで');
+  assert.strictEqual(S.add('本文', '2026-11-13 12:54:30'), '2026-11-13 12:54:30 本文');
 });

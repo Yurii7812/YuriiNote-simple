@@ -171,3 +171,8 @@ test('スマホのデータが外部領域（Android/data）にある新しい�
     assert.ok(fs.existsSync(path.join(ph.data, 'files/paper_index_pc.json')));
   } finally { delete process.env.EXT; }
 });
+
+test('スマホの受信箱: ls の出力から、取り込めるファイル名だけを選ぶ', () => {
+  const P = require('../phone');
+  assert.deepStrictEqual(P.parseLs('memo-1-a.json\npaper-2-b.jpg\nmemo-3.json.tmp\n.hidden\nx y.json\n\nnote-4.json\r\n'), ['memo-1-a.json', 'paper-2-b.jpg', 'note-4.json']);
+});

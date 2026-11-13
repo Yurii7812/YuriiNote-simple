@@ -10,7 +10,7 @@ import * as ReferencePicker from './reference-picker.js';
 import { plainDoc } from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
 import { boardTemplate, focusBoardAt } from './board.js';
-import { stampsShown, setStampsShown } from './stamps.js';
+import { stampsShown, setStampsShown, stampFormat, setStampFormat } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -1942,6 +1942,15 @@ $('#more').onclick = () => {
   ]);
 };
 $('#stamp-toggle').onclick = () => toggleStamp(lastView);
+// ⏱️ を右クリック: 時刻の見せ方（保存は、いつも秒まで）
+$('#stamp-toggle').oncontextmenu = e => {
+  e.preventDefault(); const f = stampFormat(), r = $('#stamp-toggle').getBoundingClientRect(), mark = on => on ? '✔ ' : '　 ';
+  popMenu({ clientX: Math.max(8, r.right - 230), clientY: r.bottom + 4 }, [
+    [mark(stampsShown()) + '行ごとの時刻を表示', () => toggleStamp(lastView)],
+    [mark(f.sec) + '秒まで出す（2026-11-13 12:54:30）', () => setStampFormat({ sec: !f.sec })],
+    [mark(f.short) + '今日の行は、年月日を省く（12:54:30）', () => setStampFormat({ short: !f.short })]
+  ]);
+};
 
 // ===== 設定（vault の中の K_settings.json に。vault を別の PC に写しても、同じ見た目・同じ設定）=====
 const DEFAULT_SETTINGS = { autoPhone: true, lang: 'en', theme: 'light', accent: '#3b5bdb', scale: 100, bodySize: 16, uiFont: '', bodyFont: 'default', bodyFontCustom: '', dayStart: 5 };

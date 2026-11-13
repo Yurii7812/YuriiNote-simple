@@ -22,7 +22,7 @@ test('スマホの受信箱: メモ帳・日記・ノート・紙を取り込み
   assert.deepStrictEqual(r.sum, { memos: 3, diaries: 1, notes: 1, papers: 1, skipped: 2, already: 0 });
   const memo = v.state().diaries.find(d => d.kind === 'メモ帳' && d.date === '2026-11-13').body;
   assert.strictEqual(memo, '2026-11-13 08:12 朝の考え\n2026-11-13 10:40 二つ目 の続き\n2026-11-13 11:00 時刻なし');   // 1件1行・改行は空白に・全部に年月日と時刻
-  assert.match(v.state().diaries.find(d => d.kind === '日記' && d.date === '2026-11-13').body, /\d{4}-\d{2}-\d{2} \d{2}:\d{2} 今日は読書をした。/);
+  assert.match(v.state().diaries.find(d => d.kind === '日記' && d.date === '2026-11-13').body, /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} 今日は読書をした。/);
   const note = v.state().notes.find(n => /読書メモの書き方/.test(n.body));
   assert.ok(note && note.s === 'd' && note.id === note.stem && /^\d{14}$/.test(note.id));   // ID なし（ファイル名が ID 代わり）＝未所属
   assert.deepStrictEqual(got, [['paper-6-f.jpg', 3]]);
