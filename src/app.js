@@ -6,7 +6,7 @@ import LinkCore from '../link-core.js';
 import TopicRanking from '../topic-ranking.js';
 import * as LC from './linked-content.js';
 import * as ReferencePicker from './reference-picker.js';
-import { mdExtensions, tableTemplate, searchExt, setSearch } from './md.js';
+import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -1098,7 +1098,7 @@ $('#pane').addEventListener('click', async e => {
   if (act === 'table' && lastView) {
     const v = lastView, h = v.state.selection.main.head, at = v.state.doc.lineAt(h);
     const ins = (h === at.from ? '' : '\n') + tableTemplate;
-    v.dispatch({ changes: { from: h, insert: ins }, selection: { anchor: h + ins.length - 8 } }); v.focus();
+    v.dispatch({ changes: { from: h, insert: ins }, selection: { anchor: h + ins.length } }); focusTableAt(v, h + (h === at.from ? 0 : 1));
   }
   if (act === 'tadd') topicAddDialog(note);
   if (act === 'img') pick(false, async f => { const r = await api.saveImage(s, id, await shrink(f[0])); Object.assign(get(s, id), r); openNote(s, id); });
@@ -1712,7 +1712,7 @@ async function diaryAct(act) {
 function insertTable() {
   if (!lastView) return;
   const v = lastView, h = v.state.selection.main.head, at = v.state.doc.lineAt(h), ins = (h === at.from ? '' : '\n') + tableTemplate;
-  v.dispatch({ changes: { from: h, insert: ins }, selection: { anchor: h + ins.length - 8 } }); v.focus();
+  v.dispatch({ changes: { from: h, insert: ins }, selection: { anchor: h + ins.length } }); focusTableAt(v, h + (h === at.from ? 0 : 1));
 }
 
 // ===== スキャン取り込み（紙）=====

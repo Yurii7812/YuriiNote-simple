@@ -4,6 +4,7 @@ import { Prec, RangeSetBuilder, StateField, StateEffect } from '@codemirror/stat
 import { foldService, foldGutter, foldKeymap, codeFolding, foldEffect, unfoldEffect, foldedRanges } from '@codemirror/language';
 import { indentLess } from '@codemirror/commands';
 import { mermaidPlaceholder } from './mermaid.js';
+import { popMenu } from './shared.js';
 
 const INDENT = '  ';
 const BULLET = /^(\s*)([-*+]|\d+[.)])(\s+)(\[[ xX]\]\s+)?/;
@@ -96,23 +97,111 @@ const linePlugin = ViewPlugin.fromClass(class {
   }
 }, { decorations: v => v.decorations, eventHandlers: { compositionend(_e, view) { setTimeout(() => view.dispatch({}), 0); } } });
 
-// ===== 表（カーソルが外にあるとき、整形して表示）=====
-const splitRow = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+// ===== 表（そのままの画面で編集。下にも右にも広げられる）=====
+// マス（セル）を押して、そのまま書く。Tab / Enter / 矢印で動く。最後のマスで Tab / Enter を押すと、行が増える。
+// 右端の「＋」で列、下の「＋」で行を足す。マスを右クリックで、行・列の足し引き。見出しの行は、特別にしない（ふつうの行）
+const splitRow = l => {   // 区切りの | で分ける。\| は、文字の |
+  const s = l.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, ''), out = []; let cur = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\' && s[i + 1] === '|') { cur += '|'; i++; }
+    else if (s[i] === '|') { out.push(cur.trim()); cur = ''; }
+    else cur += s[i];
+  }
+  out.push(cur.trim()); return out;
+};
 const isSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l);
+const escCell = c => String(c).replace(/\r?\n/g, ' ').replace(/\|/g, '\\|').trim();
+const rowMd = r => '| ' + r.map(escCell).join(' | ') + ' |';
+const sepMd = align => '| ' + align.map(a => a === 'center' ? ':---:' : a === 'right' ? '---:' : '---').join(' | ') + ' |';
+const tableMd = (rows, align) => [rowMd(rows[0]), sepMd(align), ...rows.slice(1).map(rowMd)].join('\n');
+const readRows = dom => [...dom.querySelectorAll('tr')].map(tr => [...tr.children].map(td => td.textContent.replace(/\n/g, ' ')));
+const norm = rows => JSON.stringify(rows.map(r => r.map(c => c.trim())));
+function makeCell(text) { const td = document.createElement('td'); td.contentEditable = 'plaintext-only'; td.spellcheck = false; td.textContent = text; return td; }
+function makeRow(cells) { const tr = document.createElement('tr'); for (const c of cells) tr.append(makeCell(c)); return tr; }
 class TableWidget extends WidgetType {
-  constructor(rows, align, from) { super(); this.rows = rows; this.align = align; this.from = from; }
-  eq(o) { return JSON.stringify(o.rows) === JSON.stringify(this.rows) && o.from === this.from; }
+  constructor(rows, align, from, to) { super(); this.rows = rows; this.align = align; this.from = from; this.to = to; }
+  eq(o) { return norm(o.rows) === norm(this.rows) && o.from === this.from && o.to === this.to; }
   toDOM(view) {
-    const t = document.createElement('table'); t.className = 'md-table';
-    this.rows.forEach((r, i) => {
-      const tr = document.createElement('tr');
-      r.forEach((c, j) => { const td = document.createElement(i ? 'td' : 'th'); td.textContent = c; if (this.align[j]) td.style.textAlign = this.align[j]; tr.append(td); });
-      t.append(tr);
-    });
-    t.onmousedown = e => { e.preventDefault(); view.dispatch({ selection: { anchor: this.from } }); view.focus(); }; // 押すと、元の記述を編集できる
-    return t;
+    const wrap = document.createElement('div'); wrap.className = 'md-tw'; wrap._ctx = { from: this.from, to: this.to, align: [...this.align] };
+    const table = document.createElement('table'); table.className = 'md-table';
+    for (const r of this.rows) table.append(makeRow(r));
+    const col = document.createElement('button'), row = document.createElement('button');
+    col.className = 'md-tadd-col'; col.textContent = '＋'; col.title = '列を足す'; col.tabIndex = -1; col.contentEditable = 'false';
+    row.className = 'md-tadd-row'; row.textContent = '＋'; row.title = '行を足す'; row.tabIndex = -1; row.contentEditable = 'false';
+    wrap.append(table, col, row);
+    wireTable(wrap, view); return wrap;
+  }
+  updateDOM(dom) {   // 自分で書いた変更のあとは、DOM をそのまま使う（入力中のカーソルが動かない）
+    if (!dom.classList || !dom.classList.contains('md-tw') || norm(readRows(dom)) !== norm(this.rows)) return false;
+    dom._ctx.from = this.from; dom._ctx.to = this.to; dom._ctx.align = [...this.align]; return true;
   }
   ignoreEvent() { return true; }
+}
+function wireTable(wrap, view) {
+  const table = wrap.querySelector('table'), cols = () => Math.max(...[...table.rows].map(r => r.children.length));
+  const cell = (r, c) => table.rows[r] && table.rows[r].children[c];
+  const focusCell = (r, c, where = 'end') => {
+    const td = cell(r, c); if (!td) return; td.focus();
+    const sel = getSelection(), range = document.createRange(); range.selectNodeContents(td); range.collapse(where === 'start'); sel.removeAllRanges(); sel.addRange(range);
+  };
+  const commit = () => {
+    const ctx = wrap._ctx, rows = readRows(wrap), n = Math.max(...rows.map(r => r.length));
+    rows.forEach(r => { while (r.length < n) r.push(''); });
+    const align = Array.from({ length: n }, (_, j) => ctx.align[j] || ''); ctx.align = align;
+    const md = tableMd(rows, align);
+    if (md === view.state.doc.sliceString(ctx.from, ctx.to)) return;
+    view.dispatch({ changes: { from: ctx.from, to: ctx.to, insert: md } }); ctx.to = ctx.from + md.length;
+  };
+  const addRow = (at) => { const n = cols(), tr = makeRow(Array(n).fill('')); const ref = table.rows[at]; if (ref) ref.before(tr); else table.append(tr); commit(); return [...table.rows].indexOf(tr); };
+  const addCol = (at) => { for (const tr of table.rows) { const td = makeCell(''); const ref = tr.children[at]; if (ref) ref.before(td); else tr.append(td); } commit(); };
+  const removeTable = () => { const { from, to } = wrap._ctx, doc = view.state.doc; view.dispatch({ changes: { from, to: Math.min(doc.length, to + 1), insert: '' } }); view.focus(); };
+  const exit = up => {   // 表の外へ（上は、表の前の行。下は、表の次の行）
+    const { from, to } = wrap._ctx;
+    if (up) { if (from === 0) { view.dispatch({ changes: { from: 0, insert: '\n' }, selection: { anchor: 0 } }); } else view.dispatch({ selection: { anchor: from - 1 } }); }
+    else { const len = view.state.doc.length; if (to >= len) { view.dispatch({ changes: { from: len, insert: '\n' }, selection: { anchor: len + 1 } }); } else view.dispatch({ selection: { anchor: to + 1 } }); }
+    view.focus();
+  };
+  wrap.addEventListener('input', e => { if (!e.isComposing) commit(); });
+  wrap.addEventListener('compositionend', commit);
+  wrap.addEventListener('paste', e => { e.preventDefault(); const t = (e.clipboardData.getData('text/plain') || '').replace(/\r?\n/g, ' '); document.execCommand('insertText', false, t); });
+  wrap.addEventListener('keydown', e => {
+    const td = e.target.closest && e.target.closest('td'); if (!td || e.isComposing || e.keyCode === 229) return;
+    e.stopPropagation();
+    const tr = td.parentElement, r = [...table.rows].indexOf(tr), c = [...tr.children].indexOf(td), nr = table.rows.length, nc = tr.children.length;
+    const sel = getSelection(), off = sel.rangeCount ? sel.getRangeAt(0).startOffset : 0, len = td.textContent.length, ctl = e.ctrlKey || e.metaKey || e.altKey;
+    const down = () => { if (r + 1 < nr) focusCell(r + 1, c, 'start'); else { const i = addRow(nr); focusCell(i, c, 'start'); } };
+    if (e.key === 'Tab') { e.preventDefault(); if (e.shiftKey) { if (c > 0) focusCell(r, c - 1); else if (r > 0) focusCell(r - 1, cols() - 1); } else if (c + 1 < nc) focusCell(r, c + 1, 'start'); else if (r + 1 < nr) focusCell(r + 1, 0, 'start'); else { const i = addRow(nr); focusCell(i, 0, 'start'); } }
+    else if (e.key === 'Enter' && !ctl) { e.preventDefault(); down(); }
+    else if (e.key === 'ArrowDown' && !ctl) { e.preventDefault(); if (r + 1 < nr) focusCell(r + 1, c, 'start'); else exit(false); }
+    else if (e.key === 'ArrowUp' && !ctl) { e.preventDefault(); if (r > 0) focusCell(r - 1, c, 'start'); else exit(true); }
+    else if (e.key === 'ArrowRight' && !ctl && off >= len && !e.shiftKey) { if (c + 1 < nc) { e.preventDefault(); focusCell(r, c + 1, 'start'); } }
+    else if (e.key === 'ArrowLeft' && !ctl && off === 0 && !e.shiftKey) { if (c > 0) { e.preventDefault(); focusCell(r, c - 1); } }
+    else if (e.key === 'Escape') { e.preventDefault(); exit(false); }
+  });
+  wrap.addEventListener('click', e => {
+    if (e.target.closest('.md-tadd-row')) { const i = addRow(table.rows.length); focusCell(i, 0, 'start'); }
+    else if (e.target.closest('.md-tadd-col')) { addCol(cols()); focusCell(0, cols() - 1, 'start'); }
+  });
+  wrap.addEventListener('contextmenu', e => {
+    const td = e.target.closest && e.target.closest('td'); if (!td) return;
+    e.preventDefault(); e.stopPropagation();
+    const tr = td.parentElement, r = [...table.rows].indexOf(tr), c = [...tr.children].indexOf(td);
+    popMenu(e, [
+      ['⬆️ 上に行を足す', () => { const i = addRow(r); focusCell(i, c, 'start'); }],
+      ['⬇️ 下に行を足す', () => { const i = addRow(r + 1); focusCell(i, c, 'start'); }],
+      ['⬅️ 左に列を足す', () => { addCol(c); focusCell(r, c, 'start'); }],
+      ['➡️ 右に列を足す', () => { addCol(c + 1); focusCell(r, c + 1, 'start'); }],
+      ['🗑️ この行を消す', () => { if (table.rows.length <= 1) return removeTable(); tr.remove(); commit(); focusCell(Math.min(r, table.rows.length - 1), c, 'start'); }, true],
+      ['🗑️ この列を消す', () => { if (cols() <= 1) return removeTable(); for (const row of table.rows) row.children[c] && row.children[c].remove(); commit(); focusCell(r, Math.min(c, cols() - 1), 'start'); }, true],
+      ['🗑️ 表を消す', removeTable, true]
+    ]);
+  });
+}
+// 表を入れた直後に、最初のマスへ
+export function focusTableAt(view, pos, tries = 8) {
+  const ws = [...view.dom.querySelectorAll('.md-tw')], w = ws.find(x => x._ctx && x._ctx.from === pos);
+  if (w) { const td = w.querySelector('td'); if (td) { td.focus(); return; } }
+  if (tries > 0) setTimeout(() => focusTableAt(view, pos, tries - 1), 40);
 }
 function tables(state) {
   const b = new RangeSetBuilder(), doc = state.doc, sel = state.selection.main;
@@ -122,10 +211,11 @@ function tables(state) {
       let end = n + 1;
       while (end + 1 <= doc.lines && doc.line(end + 1).text.includes('|') && doc.line(end + 1).text.trim()) end++;
       const from = h.from, to = doc.line(end).to;
-      if (!(sel.from <= to && sel.to >= from)) {
-        const rows = [splitRow(h.text)]; for (let k = n + 2; k <= end; k++) rows.push(splitRow(doc.line(k).text));
+      if (!(sel.from <= to && sel.to >= from)) {   // カーソルが表の中（元の記述）にあるときだけ、元の記述を出す
+        const cols = splitRow(h.text).length, rows = [splitRow(h.text)]; for (let k = n + 2; k <= end; k++) rows.push(splitRow(doc.line(k).text));
+        rows.forEach(r => { while (r.length < cols) r.push(''); r.length = cols; });
         const align = splitRow(s.text).map(c => /^:-+:$/.test(c) ? 'center' : /-:$/.test(c) ? 'right' : '');
-        b.add(from, to, Decoration.replace({ widget: new TableWidget(rows, align, from), block: true }));
+        b.add(from, to, Decoration.replace({ widget: new TableWidget(rows, align, from, to), block: true }));
       }
       n = end + 1;
     } else n++;
@@ -315,7 +405,7 @@ export const mdExtensions = [noMiddlePaste, margins,
   outlineFold, listKeys, clickBelow, fenceClose, keymap.of(foldKeymap)
 ];
 // 表のひな形
-export const tableTemplate = '| 見出し1 | 見出し2 | 見出し3 |\n| --- | --- | --- |\n|  |  |  |\n';
+export const tableTemplate = '|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |\n';   // 見出しの行は無し（ふつうの行）
 
 // ===== 検索した語の印（開いたノートの本文の中）=====
 export const setSearch = StateEffect.define();
