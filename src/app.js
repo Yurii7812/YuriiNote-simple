@@ -11,7 +11,7 @@ import { plainDoc } from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
 import { boardTemplate, focusBoardAt } from './board.js';
 import * as Q from './query.js';
-import { search, searchKeymap } from '@codemirror/search';
+import { search, searchKeymap, openSearchPanel } from '@codemirror/search';
 import { stampsShown, setStampsShown, stampPresets, useStampPreset, saveStampPreset, deleteStampPreset } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
@@ -348,6 +348,8 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
       doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(EditorView.domEventHandlers({   // Ctrl+M（新しい (n)）、Ctrl+R（時刻のオン・オフ）。キーの位置で見るので、日本語入力がオンでも効く
         keydown(e, v) {
           const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+          if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyF') { e.preventDefault(); $('#q').focus(); $('#q').select(); return true; }   // Ctrl+F: 左の検索
+          if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openSearchPanel(v); return true; }   // Ctrl+E: 今のページの中の検索・置換
           if (ctl && e.code === 'KeyG') { e.preventDefault(); insertBoard(); return true; }
           if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
           if (ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
@@ -652,7 +654,8 @@ $('#q').oninput = renderList;
 $('#q').onkeydown = e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').blur(); renderList(); if (lastView && cur && cur.k === 'note') lastView.focus(); searchMark(); } };
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || $('#modal').style.display === 'flex' || $('#scan').style.display === 'flex') return;
-  if ((e.key === 'f' || e.key === 'F') && !e.defaultPrevented) { e.preventDefault(); $('#q').focus(); $('#q').select(); }   // ページ内検索（エディタの中の Ctrl+F）が開いたときは、そちら。Ctrl+Shift+F と、エディタの外の Ctrl+F は、左の検索
+  if ((e.key === 'f' || e.key === 'F') && !e.defaultPrevented) { e.preventDefault(); $('#q').focus(); $('#q').select(); }   // Ctrl+F: 左の検索
+  if ((e.key === 'e' || e.key === 'E') && !e.shiftKey && !e.defaultPrevented) { e.preventDefault(); if (lastView && lastView.dom.isConnected) openSearchPanel(lastView); }   // Ctrl+E: 今のページの中の検索・置換
   if (e.key === 'w') { e.preventDefault(); closeTab(active); }
   if (e.key === 't') { e.preventDefault(); tabs.push({ k: 'empty' }); show(tabs.length - 1); }
   if (e.key === 'Tab' && tabs.length) { e.preventDefault(); show((active + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length); }
