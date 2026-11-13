@@ -37,6 +37,7 @@ test('reference search directions are determined by Enter/Shift+Enter, with pape
  assert.equal(R.insertion({...memos[0],kind:'memo'},false),'->[新しいメモ](memo:m1)');assert.equal(R.insertion({...memos[0],kind:'memo'},true),'[新しいメモ](memo:m1)->');
  const s=new R.Session();assert.equal(s.update(':',1,':').query,'');assert.equal(s.update(':哲学',3,'哲学').query,'哲学');
  s.close();assert.equal(s.update(':哲学の続き',7,'の続き'),null);assert.equal(s.update(':哲学',2,''),null);assert.ok(s.update(':哲学\n:',5,':'));
+ const ar=new R.Session();let a=ar.update('続き ->',5,'>');assert.ok(a);assert.deepEqual([a.colon,a.len,a.query],[3,2,'']);assert.equal(ar.update('続き ->哲学',7,'哲学').query,'哲学');assert.equal(new R.Session().update('→',1,'→').len,1);assert.equal(new R.Session().update('a -->',5,'>'),null);assert.equal(new R.Session().update('1a->',4,'>'),null);
  const p=new R.Session();const state=p.update('ヘーゲル:',5,':');assert.equal(state.from,0);assert.equal(state.query,'ヘーゲル');
 });
 test('reference triggers ignore code fences, inline code, URLs, time and existing references',()=>{

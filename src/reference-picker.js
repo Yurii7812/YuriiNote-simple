@@ -50,7 +50,7 @@ export function extension(space='d') {
     let inserted='';u.changes.iterChanges((_a,_b,_c,_d,text)=>{inserted+=text.toString();});
     const state=session.update(u.state.doc.toString(),u.state.selection.main.head,inserted);
     if(!state){if(controller&&controller.owner===view)close();return;}
-    const doc=plainDoc(u.state.doc.toString()),after=doc.slice(state.colon+1,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
+    const doc=plainDoc(u.state.doc.toString()),after=doc.slice(state.colon+state.len,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
     const choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
     if(!choices.length){close();return;}
     show(state,choices,()=>view.coordsAtPos(view.state.selection.main.head), (item,post)=>{
@@ -86,7 +86,7 @@ export function attachEditable(el,getDoc,space='d'){
     if(e.isComposing)return;
     const value=el.textContent,state=session.update(value,caret(),e.data||'');
     if(!state){if(controller?.owner===el)close();return;}
-    const doc=getDoc(),after=value.slice(state.colon+1,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
+    const doc=getDoc(),after=value.slice(state.colon+state.len,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
     const choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
     if(!choices.length){close();return;}
     show(state,choices,()=>{const s=getSelection();const r=s.rangeCount?s.getRangeAt(0).getBoundingClientRect():null;return r&&(r.width||r.height)?r:el.getBoundingClientRect();},(item,post)=>{
