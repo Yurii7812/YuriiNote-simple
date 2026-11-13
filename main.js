@@ -55,6 +55,13 @@ ipcMain.handle('trashRestore', (_e, f) => { const ok = v.trashRestore(f); return
 let mainWin = null;
 const flushRenderer = () => requestFlush(mainWin, ipcMain);
 
+// スマホで撮った紙のカード（取り込み済みの写真）。PC の紙の取り込み画面で、番号を付けて、ノートにする
+const papersDir = () => path.join(vault, '.phone-papers');
+ipcMain.handle('phonePapers', () => {
+  try { return fs.readdirSync(papersDir()).filter(f => /^[\w.-]+\.(jpe?g|png)$/i.test(f)).sort().map(name => ({ name, bytes: fs.readFileSync(path.join(papersDir(), name)) })); } catch { return []; }
+});
+ipcMain.handle('phonePapersCount', () => { try { return fs.readdirSync(papersDir()).filter(f => /^[\w.-]+\.(jpe?g|png)$/i.test(f)).length; } catch { return 0; } });
+ipcMain.handle('phonePaperDone', (_e, name) => { try { if (/^[\w.-]+$/.test(String(name))) fs.unlinkSync(path.join(papersDir(), String(name))); return true; } catch { return false; } });
 // ===== 意味の見方（AI）: モデルのダウンロードと、ノートのベクトル（ai-embed.js）=====
 let aiEmb = null, aiIdx = null, aiIdxVault = '';
 const aiMod = () => require('./ai-embed');
@@ -118,7 +125,7 @@ async function phoneTick() {
       else updateFail = 'スマホのアプリを更新できませんでした。' + r.message;
     }
     const r = await runPhoneImport();
-    const got = r.ok && r.sum && (r.sum.chats || r.sum.days || r.sum.scans || r.sum.updated || r.sum.removed);
+    const got = r.ok && r.sum && (r.sum.chats || r.sum.days || r.sum.scans || r.sum.notes || r.sum.papers);
     send({ ok: r.ok, state: r.ok ? r.state : null, message: [updated ? 'スマホのアプリを更新しました。' : '', updateFail, r.ok ? (got ? r.message.split('\n')[0] : '') : ''].filter(Boolean).join(' '), quiet: !updated && !updateFail && !got });
   } catch (e) { send({ ok: false, message: 'スマホの自動取り込みでエラー: ' + e.message }); }
   finally { phoneBusy = false; }

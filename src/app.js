@@ -1819,6 +1819,16 @@ const startScan = fs => {
   $('#scan').style.display = 'flex'; $('#scan').classList.remove('zoomed'); showScan();
 };
 $('#imp').onclick = () => pick(true, startScan);
+// スマホで撮った紙のカード: 📷 を押すと、取り込み画面で、番号を付けられる
+async function refreshPhonePapers() {
+  const n = await api.phonePapersCount().catch(() => 0), b = $('#phone-papers'); if (!b) return;
+  b.hidden = !n; b.textContent = '📷' + (n ? ` ${n}` : ''); b.title = `スマホで撮った紙のカード ${n} 枚（押すと、取り込み画面）`;
+}
+$('#phone-papers').onclick = async () => {
+  const list = await api.phonePapers(); if (!list.length) return refreshPhonePapers();
+  startScan(list.map(p => { const f = new File([p.bytes], p.name, { type: /png$/i.test(p.name) ? 'image/png' : 'image/jpeg' }); f._phone = true; return f; }));
+};
+refreshPhonePapers();
 const scanNext = from => { for (let i = Math.max(0, from); i < queue.length; i++) if (!scanSt[i]) return i; return -1; };
 const scanPrevious = from => { for (let i = from; i >= 0; i--) if (!scanSt[i]) return i; return -1; };
 const scanSuggest = {
@@ -1861,12 +1871,12 @@ async function scanOk() {
   if (!scanCheck()) { $('#sc-id').focus(); return; }
   scanBusy = true;
   try {
-    const id = $('#sc-id').value.trim().toLowerCase();
+    const id = $('#sc-id').value.trim().toLowerCase(), srcFile = queue[qi];
     await api.saveImage('p', id, await shrink(queue[qi]));
     const kws = L.splitKw($('#sc-kw').value);
     for (const k of kws) if (!readings[k]) { readings[k] = await api.suggest(k); await api.setReading(k, readings[k]); }
     const n = await api.saveNote({ s: 'p', id, keywords: kws, body: '' });
-    notes.push(n); lastId = id; lastKws = kws.join('、'); scanSt[qi] = 'done'; scanBatch = 'note';
+    notes.push(n); lastId = id; lastKws = kws.join('、'); scanSt[qi] = 'done'; scanBatch = 'note'; if (srcFile._phone) api.phonePaperDone(srcFile.name);   // スマホの写真は、ノートにしたら、PC の置き場から外す
     scanFlash(`✅ 紙 ${id} を保存しました`); renderList();
     qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
   } finally { scanBusy = false; }
@@ -1877,7 +1887,9 @@ async function diaryScanOk() { // 紙の日記: ID は付けず、日付の日�
   if (!L.isDate(date)) { scanFlash('日付を入れてください'); $('#sc-msg').className = 'bad'; return $('#sc-date').focus(); }
   scanBusy = true;
   try {
+    const srcFile = queue[qi];
     upsertDiary(await api.addDiaryScan(date, await shrink(queue[qi])));
+    if (srcFile._phone) api.phonePaperDone(srcFile.name);
     lastDiary = date; scanSt[qi] = 'diary'; scanBatch = 'diary'; scanFlash(`📔 ${date} の日記に入れました`); renderList();
     qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
   } finally { scanBusy = false; }
@@ -1888,6 +1900,7 @@ function scanGo(dir) {
   if (to < 0) return; qi = to; showScan();
 }
 function closeScan() {
+  refreshPhonePapers();
   clearTimeout(scanTimer); $('#scan').style.display = 'none';
   scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = [];
   if (scanBatch === 'diary' && lastDiary) { renderList(); return openDiary(lastDiary); }
@@ -2075,7 +2088,7 @@ api.onPhoneAuto(async m => {   // スマホがつながったら、自動で取�
   if (m.ok && m.state) {
     try {
       const since = saves.revision; await flush(); const st = await api.state();
-      applyState(st, since); refreshFiles();
+      applyState(st, since); refreshFiles(); refreshPhonePapers();
     } catch { toast('保存が完了していないため、取り込み結果の表示を保留しています'); }
   }
   if (m.message && !m.quiet) toast(m.message);
@@ -2086,7 +2099,7 @@ async function phoneImport() {
   const r = await api.phoneImport();
   if (r.ok) {
     const since = saves.revision; await flush(); const st = await api.state();
-    applyState(st, since); refreshFiles();
+    applyState(st, since); refreshFiles(); refreshPhonePapers();
   }
   alert(r.message);
 }
