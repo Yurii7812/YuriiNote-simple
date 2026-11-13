@@ -430,23 +430,22 @@ const firstLineOf = b => (b.split('\n').find(x => x.trim() && !/^##\s/.test(x)) 
 // 左の一覧の行: タイトル（無ければ本文の最初の行）と、その下に小さく ID（IDなしは日時）とキーワード
 // ===== 左の一覧の折りたたみ（Folgezettel の親子）。親のノートの ▾ を押すと、子孫が隠れる。Ctrl+J で全部たたむ／ひらく =====
 let foldIds = new Set((() => { try { return JSON.parse(localStorage.getItem('ysimple.fold') || '[]'); } catch { return []; } })());
-let foldMode = (() => { try { return localStorage.getItem('ysimple.foldMode') === '1'; } catch { return false; } })();   // 折りたたみのときだけ、特殊な表示（▾ ▸）。ふだんは、今までどおり
-const saveFold = () => { try { localStorage.setItem('ysimple.fold', JSON.stringify([...foldIds])); localStorage.setItem('ysimple.foldMode', foldMode ? '1' : '0'); } catch { } };
+const saveFold = () => { try { localStorage.setItem('ysimple.fold', JSON.stringify([...foldIds])); } catch { } };
 const fzKids = n => { const has = x => !!get(n.s, x); return notes.some(m => m.s === n.s && !m.noid && m.id !== n.id && L.parentIn(m.id, has) === n.id); };
 const fzHidden = n => {   // 先祖のどれかがたたまれていれば、隠す
   const has = x => !!get(n.s, x); let p = L.parentIn(n.id, has), guard = 0;
   while (p && guard++ < 64) { if (foldIds.has(n.s + ':' + p)) return true; p = L.parentIn(p, has); }
   return false;
 };
-function toggleFoldAll() {   // Ctrl+J: 折りたたみの表示に入る（親を全部たたむ）／出る（ふだんの表示に戻る）
-  if (foldMode) { foldMode = false; foldIds.clear(); toast('折りたたみをやめました'); }
-  else { foldMode = true; foldIds.clear(); for (const n of notes) if (!n.noid && fzKids(n)) foldIds.add(n.s + ':' + n.id); toast('折りたたみ表示（▾ ▸ で、ひらく・たたむ。Ctrl+J でやめる）'); }
+function toggleFoldAll() {   // Ctrl+J: 全部たたむ／全部ひらく
+  if (foldIds.size) { foldIds.clear(); toast('折りたたみを、全部ひらきました'); }
+  else { for (const n of notes) if (!n.noid && fzKids(n)) foldIds.add(n.s + ':' + n.id); toast('折りたたみました（親のノートだけ。Ctrl+J でひらく）'); }
   saveFold(); renderList();
 }
 const noteRow = (n, label = false, q = '') =>
   `<div class="item note${cur && cur.k === 'note' && cur.s === n.s && cur.id === n.id ? ' on' : ''}${isDecided(n.s, n.id) ? ' decided' : ''}" draggable="true" data-s="${n.s}" data-id="${esc(n.id)}">` +
   `${selMode ? `<input type="checkbox" class="ck" ${picked.has(n.s + ':' + n.id) ? 'checked' : ''}>` : ''}<div class="nrow">` +
-  `<div class="nt">${foldMode && !n.noid && sortBy === 'fz' && fzKids(n) ? `<i class="fzf" data-fold="${n.s}:${esc(n.id)}" title="子孫を、たたむ・ひらく">${foldIds.has(n.s + ':' + n.id) ? '▸' : '▾'}</i>` : ''}${label && n.s === 'p' ? `<span class="sp ${n.s}">${SP[n.s]}</span>` : ''}${icon(n) ? icon(n) + ' ' : ''}${n.image ? '📷 ' : ''}${mk(titleOf(n), q)}</div>` +
+  `<div class="nt">${!n.noid && sortBy === 'fz' && fzKids(n) ? `<i class="fzf" data-fold="${n.s}:${esc(n.id)}" title="子孫を、たたむ・ひらく">${foldIds.has(n.s + ':' + n.id) ? '▸' : '▾'}</i>` : ''}${label && n.s === 'p' ? `<span class="sp ${n.s}">${SP[n.s]}</span>` : ''}${icon(n) ? icon(n) + ' ' : ''}${n.image ? '📷 ' : ''}${mk(titleOf(n), q)}</div>` +
   `<div class="ns">${n.noid ? `IDなし · ${shortTime(n.created)}` : `${n.s === 'p' ? '紙 ' : ''}${mk(n.id, q)}`}${n.keywords.length ? ` · ${n.keywords.map(k => mk(k, q)).join('・')}` : ''}</div>${q && snippet(Stamp.strip(n.body), q) ? `<div class="sn">${snippet(Stamp.strip(n.body), q)}</div>` : ''}</div></div>`;
 // 索引 の行（その親のノートの手前に出す）
 const topicRow = (t, zero = false) => `<div class="item topicrow${cur && cur.k === 'topic' && cur.name === t.name ? ' on' : ''}${decided && decided.k === 'topic' && decided.name === t.name ? ' decided' : ''}" data-topic="${esc(t.name)}"><div class="nrow"><div class="nt">${esc(topicLabel(t))}</div><div class="ns">${zero ? `${SP[t.entry.s]} ${esc(t.entry.id)}` : '索引'}</div></div></div>`;
@@ -586,7 +585,7 @@ function renderList() {
     const byFz = sortBy === 'fz' && tab !== 'u';
     if (byFz && (tab === 'd' || tab === 'p')) for (const t of topics.filter(x => (!x.entry || !get(x.entry.s, x.entry.id)) && (x.entry ? x.entry.s : 'd') === tab).sort((a, b) => a.name.localeCompare(b.name, 'ja'))) out.push(topicRow(t)); // 親のノートがまだないもの（取り込み前の紙の番号など）は、その側の先頭
     for (const n of list) {
-      if (byFz && foldMode && fzHidden(n)) continue;   // たたまれた親の下は、出さない
+      if (byFz && foldIds.size && fzHidden(n)) continue;   // たたまれた親の下は、出さない
       if (byFz) for (const t of topicsOf(n.s, n.id).filter(topicVisible)) out.push(topicRow(t)); // 「1-1」「1-2」は、ノート 1 の手前
       out.push(noteRow(n));
     }
@@ -626,7 +625,6 @@ document.addEventListener('click', e => {
   const f = e.target.closest('.fzf'); if (!f) return;
   e.preventDefault(); e.stopPropagation();
   const k = f.dataset.fold; if (foldIds.has(k)) foldIds.delete(k); else foldIds.add(k);
-  if (!foldIds.size) foldMode = false;   // 全部ひらいたら、ふだんの表示に戻る
   saveFold(); renderList();
 }, true);
 document.addEventListener('click', onOpenClick);
