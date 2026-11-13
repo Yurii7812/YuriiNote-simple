@@ -12,6 +12,7 @@ import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from 
 import { boardTemplate, focusBoardAt } from './board.js';
 import * as Q from './query.js';
 import { search, searchKeymap, openSearchPanel } from '@codemirror/search';
+import { foldAll, unfoldAll, foldedRanges } from '@codemirror/language';
 import { stampsShown, clipText, setStampsShown, stampPresets, useStampPreset, saveStampPreset, deleteStampPreset } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
@@ -341,6 +342,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
           const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
           if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyF') { e.preventDefault(); $('#q').focus(); $('#q').select(); return true; }   // Ctrl+F: 左の検索
           if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openSearchPanel(v); return true; }   // Ctrl+E: 今のページの中の検索・置換
+          if (ctl && e.code === 'KeyJ') { e.preventDefault(); if (foldedRanges(v.state).size) unfoldAll(v); else foldAll(v); return true; }   // Ctrl+J: 折りたたみを、全部たたむ／全部ひらく
           if (ctl && e.code === 'KeyG') { e.preventDefault(); insertBoard(); return true; }
           if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
           if (ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
