@@ -21,6 +21,9 @@ main{flex:1;display:flex;min-height:0}
 #rail{width:42px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;border-right:1px solid #f0f0f3;background:#fff}
 #rail button{width:30px;height:30px;border:0;border-radius:8px;background:none;padding:0;color:#b7bbc6;display:inline-flex;align-items:center;justify-content:center}
 #rail button:hover{background:var(--hl);color:#666}#rail button.on{color:var(--acc);background:#f0f2fb}
+#rail #more{margin-top:auto}
+#stamp-toggle{width:auto;min-width:78px;padding:0 8px;font-size:12px;font-weight:600;white-space:nowrap}
+#stamp-toggle.on{color:var(--acc);background:var(--acc-bg)}
 #dlist details{border-bottom:1px solid #f2f2f2}#dlist summary{padding:6px 12px;cursor:pointer;font-weight:600;color:#444}
 #dlist .day{padding:4px 12px 4px 26px;cursor:pointer;display:flex;gap:8px}#dlist .day:hover,#dlist .day.on{background:var(--hl)}
 #dlist .day small{color:var(--sub)}#dlist .dtop{padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
@@ -577,7 +580,7 @@ body{-webkit-user-select:none;user-select:none}
 </head>
 <body>
 <main>
-  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="settings-btn" title="設定">⚙️</button></nav>
+  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="settings-btn" title="設定">⚙️</button><button id="more" class="ic" title="メニュー">🧰</button></nav>
   <aside>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>
@@ -589,7 +592,7 @@ body{-webkit-user-select:none;user-select:none}
       <button id="nav-back" class="ic" title="戻る (Ctrl+,)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Ctrl+.)" disabled>➡️</button>
       <div id="tabbar"></div>
       <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
-      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="more" class="ic" title="メニュー">🧰</button>
+      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="stamp-toggle" class="ic" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻表示" aria-pressed="true">⏱️ ON</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
     <div id="idbar" hidden></div>
