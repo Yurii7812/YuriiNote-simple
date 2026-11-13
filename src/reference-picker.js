@@ -4,8 +4,8 @@ import Ref from '../reference-search.js';
 import L from '../lib.js';
 import { ctx, esc } from './shared.js';
 let popup=null, controller=null;
-// 「:(」で、このノートの (n)（番号の目印）を、周りの文章つきで選ぶ。前置は :(n) 、後置は (n):
-const insText=(x,post,space)=>x.kind==='anchor'?(x.noteId?(post?`${x.noteId}(${x.n}):`:`:${x.noteId}(${x.n})`):(post?`(${x.n}):`:`:(${x.n})`)):Ref.insertion(x,post,space);
+// 「:」で候補を出し、選ぶと ->ID（Shift+Enter なら ID->）が入る。「:(」で、このノートの (n)（番号の目印）を選ぶと ->(n) / (n)->
+const insText=(x,post,space)=>x.kind==='anchor'?(x.noteId?(post?`${x.noteId}(${x.n})->`:`->${x.noteId}(${x.n})`):(post?`(${x.n})->`:`->(${x.n})`)):Ref.insertion(x,post,space);
 export function anchorChoices(doc,after,noteId=''){
   const q=(after.match(/^\((\d*)/)||[])[1]||'',seen=new Set(),out=[];
   for(const t of L.tokens(doc)){
@@ -29,6 +29,19 @@ function show(session,items,anchor,choose,onCancel,space='d') {
   popup.onmousedown=e=>{const b=e.target.closest('[data-ref]');if(b){e.preventDefault();pick(+b.dataset.ref,!!b.dataset.post);}};
   const rect=anchor()||{left:100,bottom:100};popup.style.left=Math.max(8,Math.min(rect.left,innerWidth-460))+'px';popup.style.top=Math.min(rect.bottom+4,innerHeight-240)+'px';document.body.append(popup);draw();
 }
+// 「:1b 」「1a: 」と打って空白を押したら、->1b / 1a-> に直す（-> を打つより、: のほうが楽なので）
+const IDRE='[0-9]+[a-z0-9]*',IDS=`${IDRE}(?:[,，、]${IDRE})*`;
+const toArrowTyped=(before)=>{
+  let m=before.match(new RegExp(`(^|[\\s、。（(])[:：](${IDS})$`));if(m)return {from:before.length-m[0].length+m[1].length,text:'->'+m[2]};
+  m=before.match(new RegExp(`(^|[\\s、。（(])(${IDS})[:：]$`));if(m)return {from:before.length-m[0].length+m[1].length,text:m[2]+'->'};
+  return null;
+};
+export const arrowInput=EditorView.inputHandler.of((view,from,to,text)=>{
+  if(text!==' '&&text!=='　')return false;
+  const ln=view.state.doc.lineAt(from),before=ln.text.slice(0,from-ln.from),r=toArrowTyped(before);if(!r)return false;
+  const start=ln.from+r.from;
+  view.dispatch({changes:{from:start,to,insert:r.text+text},selection:{anchor:start+r.text.length+text.length},userEvent:'input.type'});return true;
+});
 export function extension(space='d') {
   const session=new Ref.Session();let view;
   const cancel=()=>{session.close();close();};
@@ -46,7 +59,7 @@ export function extension(space='d') {
     },cancel,space);controller.owner=view;
   };
   const handle=(v,post,key)=>{if(controller?.owner!==v)return false;return controller.key({key,shiftKey:post});};
-  return [EditorView.updateListener.of(update),Prec.highest(keymap.of([{key:'Enter',run:v=>handle(v,false,'Enter')},{key:'Shift-Enter',run:v=>handle(v,true,'Enter')},{key:'ArrowDown',run:v=>handle(v,false,'ArrowDown')},{key:'ArrowUp',run:v=>handle(v,false,'ArrowUp')},{key:'Escape',run:v=>handle(v,false,'Escape')}])),EditorView.domEventHandlers({blur(){cancel();}})];
+  return [arrowInput,EditorView.updateListener.of(update),Prec.highest(keymap.of([{key:'Enter',run:v=>handle(v,false,'Enter')},{key:'Shift-Enter',run:v=>handle(v,true,'Enter')},{key:'ArrowDown',run:v=>handle(v,false,'ArrowDown')},{key:'ArrowUp',run:v=>handle(v,false,'ArrowUp')},{key:'Escape',run:v=>handle(v,false,'Escape')}])),EditorView.domEventHandlers({blur(){cancel();}})];
 }
 const fields=new WeakMap();
 export function attachTextareas() {

@@ -125,11 +125,13 @@ function links(mode, space) {
     const b = new RangeSetBuilder(), text = view.state.doc.toString();
     const add = (from, to, data, ok) => b.add(from, to, Decoration.mark({ class: 'lk' + (data && data.t === 'ref' ? ' ref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(data) } }));
     if (mode === 'note') {
-      const items = [];
+      const items = [], syms = [];
       for (const t of L.tokens(text)) {
         if (t.k === 'ref') items.push([t.from, t.to, { t: 'ref', s: t.sp || space, id: t.id, n: t.n }, !!get(t.sp || space, t.id)]);   // (p) 紙・(d) デジタル。書かなければ、いまのノートと同じ側
         else if (t.bare) items.push([t.from, t.to, 'mk']); // 素の (1) は赤いだけ
         else items.push([t.from, t.to, { t: 'self', n: t.n, bare: t.bare }, L.selfTarget(text, t.n, t.bare) >= 0]);
+        if (t.arrow) syms.push([t.arrow, 'arrow', t]);   // -> は、見た目では → に。コンマも赤
+        if (t.sep) syms.push([t.sep, 'sep', t]);
       }
       const markdownLinks = [...text.matchAll(new RegExp(L.MDLINK.source, 'g'))]
         .map(m => ({from: m.index, to: m.index + m[0].length, rel: m[0].slice(m[0].lastIndexOf('](') + 2, -1)}))
@@ -162,6 +164,11 @@ function links(mode, space) {
             rs.push(Decoration.replace({ widget: new NameWidget(nm) }).range(f, t));
           } else rs.push(Decoration.replace({}).range(f, f + open), Decoration.replace({}).range(close, t));
         }
+      }
+      for (const [[f, t], kind, tk] of syms) {   // カーソルが近くにあるとき（編集中）は、書いたとおりの -> を赤で。外にあるときは、赤い → にする
+        const near = sel.from <= tk.to && sel.to >= tk.from;
+        if (kind === 'arrow' && !near && text.startsWith('->', f)) rs.push(Decoration.replace({ widget: new ArrowWidget(tk) }).range(f, t));
+        else rs.push(Decoration.mark({ class: 'lksym' }).range(f, t));
       }
       return Decoration.set(rs, true);
     } else {
@@ -206,6 +213,12 @@ class TitleWidget extends WidgetType {
   constructor(title, d) { super(); this.title = title; this.d = d; }
   eq(o) { return o.title === this.title && o.d.s === this.d.s && o.d.id === this.d.id; }
   toDOM() { const e = document.createElement('span'); e.className = 'lk ref-title'; e.setAttribute('data-l', JSON.stringify(this.d)); e.textContent = this.title; return e; }
+  ignoreEvent() { return false; }
+}
+class ArrowWidget extends WidgetType {   // ->  を、見た目だけ → にする（ファイルの中は -> のまま）
+  constructor(t) { super(); this.t = t; }
+  eq(o) { return o.t.id === this.t.id && o.t.from === this.t.from; }
+  toDOM() { const e = document.createElement('span'); e.className = 'lksym'; e.textContent = '→'; return e; }
   ignoreEvent() { return false; }
 }
 class NameWidget extends WidgetType {
@@ -729,9 +742,9 @@ function idPopup(n) {
   const opts = [{ k: 'b', name: '分岐', id: freeIn(L.child(n.id)) }, { k: 'h', name: '並列', id: freeIn(L.sibling(n.id)) }];
   const head = v.state.selection.main.head, c = v.coordsAtPos(head) || v.dom.getBoundingClientRect();
   const pop = document.createElement('div'); pop.id = 'idpop'; let sel = 0;
-  const draw = () => { pop.innerHTML = opts.map((o, i) => `<div class="${i === sel ? 'on' : ''}" data-i="${i}"><kbd>${o.k}</kbd> ${o.name} <b>:${esc(o.id)}</b></div>`).join(''); };
+  const draw = () => { pop.innerHTML = opts.map((o, i) => `<div class="${i === sel ? 'on' : ''}" data-i="${i}"><kbd>${o.k}</kbd> ${o.name} <b>->${esc(o.id)}</b></div>`).join(''); };
   const close = () => { pop.remove(); document.removeEventListener('keydown', key, true); document.removeEventListener('mousedown', out, true); v.focus(); };
-  const pick = i => { const o = opts[i], at = v.state.selection.main.head, ins = ':' + o.id; close(); v.dispatch({ changes: { from: at, insert: ins }, selection: { anchor: at + ins.length } }); };
+  const pick = i => { const o = opts[i], at = v.state.selection.main.head, ins = '->' + o.id; close(); v.dispatch({ changes: { from: at, insert: ins }, selection: { anchor: at + ins.length } }); };
   const key = ev => {
     ev.preventDefault(); ev.stopPropagation();
     if (ev.key === 'Escape') return close();
@@ -876,7 +889,7 @@ function openNote(s, id, n, keep, mid) {
     return;
   }
   const view = editor($('#ed'), note.body, 'note', s, v => { note.body = v; saveNote(note); renderList(); },
-    s === 'p' ? '紙の内容を文字で（テキスト化）' : '本文。続き :1a1　引用 (1) と (1):　別ノート 1a(1)　全体 1a:', () => note.body);
+    s === 'p' ? '紙の内容を文字で（テキスト化）' : '本文。続き ->1a1　元 1a->　位置 (1)　別ノートの位置 ->1a(1)', () => note.body);
   searchMark();
   const hitAt = searchQ ? note.body.toLowerCase().indexOf(searchQ) : -1;
   if (n) { const p = L.anchorPos(note.body, n); if (p >= 0) jump(view, p); }

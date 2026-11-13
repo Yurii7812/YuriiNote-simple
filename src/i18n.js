@@ -212,7 +212,7 @@ const EN = {
 '既存のノート': 'Existing note', '最近': 'Recent', '前のID (Tab)': 'Previous ID (Tab)', '決定して次へ (Enter)': 'Confirm and next (Enter)', '← ここに入ります': '← goes here',
 '手前に出す': 'Bring forward', '案内 (?)': 'Help (?)', '色': 'Color', '例: アイデア': 'e.g. Idea', '例: GUI': 'e.g. GUI', '例: 1a': 'e.g. 1a',
 '例: 図でわかる知識管理術の表紙': 'e.g. Cover of a knowledge-management book', '例: 英雄伝': 'e.g. Lives of heroes', '任意（、で区切る）': 'Optional (comma-separated)',
-'本文。続き :1a1　引用 (1) と (1):　別ノート 1a(1)　全体 1a:': 'Body. Continue :1a1  Quote (1) and (1):  Other note 1a(1)  Whole 1a:',
+'本文。続き ->1a1　元 1a->　位置 (1)　別ノートの位置 ->1a(1)': 'Body. Continue ->1a1  From 1a->  Position (1)  Other note position ->1a(1)',
 '本文の言葉': 'Body words', '— 中身があるので、型は変えられません': '— it has content, so its type cannot be changed',
 'ノートは、まだ': 'Note is not yet', '|': '|',
 '新しい変更があります（': 'There are new changes (',

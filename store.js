@@ -599,6 +599,13 @@ function openVault(vault) {
     }
     put(abs(MARK), fs.readFileSync(abs(MARK), 'utf8').replace(/\n*$/, '\n') + 'stamp1\n');
   }
+  // 昔の :ID / ID: / :(n) / (n): を、->ID / ID-> / ->(n) / (n)-> に直す（一度だけ）。日記の「- :ID」だけの行は、別の仕組みで直るので、そのまま
+  if (!fs.readFileSync(abs(MARK), 'utf8').includes('arrow1')) {
+    const conv = body => L.colonToArrowKeep(body);
+    for (const n of notes.values()) if ((!n.kind || n.kind === 'text') && n.body) n.body = conv(n.body);
+    for (const d of diaries.values()) if (d.body) d.body = conv(d.body);
+    put(abs(MARK), fs.readFileSync(abs(MARK), 'utf8').replace(/\n*$/, '\n') + 'arrow1\n');
+  }
   rebuild();
   return {
     vault,

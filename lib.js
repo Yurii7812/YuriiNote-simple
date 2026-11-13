@@ -39,9 +39,13 @@ const root = id => tok(id)[0] || id;
 const splitAnchor = raw => { const m = String(raw).match(/^(.*?)(?:[(（](\d+)[)）])?$/); return { id: m[1], n: m[2] }; };
 
 // ===== 本文のリンク =====
-// :1a（続き） 1a:（全体） 1a(1) :1a(1) 1a(1):（別ノートの (1)） (1) :(1) (1):（同じノートの (1)）
-const C = '[:：]', LP = '[(（]', RP = '[)）]';
-const RE = `(?<![0-9A-Za-z])(?:(${C})?(${ID})?${LP}(\\d+)${RP}(${C})?|${C}(${ID})(?![0-9A-Za-z])|(${ID})${C}(?![0-9]))`;
+// ->1b（この箇所から 1b へ続く）　1a->（1a からこの箇所へ続く）　->1b,1c,1d　1a,1b->　->1a(2) 1a(2)->（別ノートの (2)）　->(1) (1)->（同じノートの (1)）
+// (1) は位置ID。リンクとは別の仕組み（素の (1) は、ただの目印）。昔の :ID と ID: は ->ID と ID-> に直した（colonToArrow）
+const A = '(?:->|→)', LP = '[(（]', RP = '[)）]';
+const SEP0 = '[,，、]';
+const RE = `(?<![0-9A-Za-z])(?:(${A})?(${ID})?${LP}(\\d+)${RP}(${A})?|${A}(${ID})(?![0-9A-Za-z])|(${ID}(?:${SEP0}${ID})*)${A}(?![0-9A-Za-z]))`;
+const OLD_C = '[:：]';
+const OLD_RE = `(?<![0-9A-Za-z])(?:(${OLD_C})?(${ID})?${LP}(\\d+)${RP}(${OLD_C})?|${OLD_C}(${ID})(?![0-9A-Za-z])|(${ID})${OLD_C}(?![0-9]))`;
 
 const MDLINK = /!?\[[^\]\n]*\]\([^)\s]*\)/g; // [名前](パス) と ![名前](パス)
 // コードの範囲（``` で囲んだ行・`コード`・``コード``）。この中は、リンクにしない
@@ -57,8 +61,9 @@ function codeRanges(text) {
   return r;
 }
 const SEP = '[,，、]';
-// :1a(p)  :1a(p)(2)  :1a(2)(p)  — ID のあとの (p)（紙）・(d)（デジタル）と、(番号)（ノートの中の場所）。書かなければ、いまのノートと同じ側
+// ->1a(p)  ->1a(p)(2)  ->1a(2)(p)  — ID のあとの (p)（紙）・(d)（デジタル）と、(番号)（ノートの中の場所）。書かなければ、いまのノートと同じ側
 const SPN = /^[(（]([pdPD])[)）]/, NN = /^[(（](\d+)[)）]/;
+// 各リンクは { k:'ref'|'self', ... from, to, text }。矢印は arrow:[from,to]、リストのコンマは sep:[from,to]、向きは dir:'to'（->ID）か 'from'（ID->）
 function tokens(text) {
   const re = new RegExp(RE, 'g'), out = [], skip = [...text.matchAll(MDLINK)].map(m => [m.index, m.index + m[0].length]).concat(codeRanges(text)); let m;
   const hit = (a, b) => skip.some(([x, y]) => a < y && b > x);
@@ -72,22 +77,61 @@ function tokens(text) {
     }
     t.to = end; t.text = text.slice(t.from, end); return t;
   };
+  const A_OK = 'x', arrowLen = (pos) => text.startsWith('->', pos) ? 2 : text.startsWith('→', pos) ? 1 : 0;
   while ((m = re.exec(text))) {
     if (hit(m.index, m.index + m[0].length)) continue;
     const [all, c1, id1, n, c2, idB, idC] = m; let t;
+    if (idC !== undefined) {   // 1a,1b,1c->  （矢印は最後に一度だけ）
+      let p = m.index;
+      const parts = idC.split(new RegExp(`(${SEP0})`));
+      const ids = []; for (let i = 0; i < parts.length; i += 2) ids.push([parts[i], parts[i + 1] || '']);
+      ids.forEach(([id, sep], i) => {
+        const last = i === ids.length - 1, to = p + id.length + (last ? arrowLen(p + id.length) : 0);
+        const tk = { k: 'ref', id, dir: 'from', from: p, to: last ? to : p + id.length, text: text.slice(p, last ? to : p + id.length) };
+        if (last) tk.arrow = [p + id.length, to];
+        if (i > 0) tk.sep = [p - 1, p];
+        out.push(tk); p += id.length + sep.length;
+      });
+      re.lastIndex = Math.max(re.lastIndex, m.index + all.length); continue;
+    }
     if (n !== undefined) t = id1 ? { k: 'ref', id: id1, n } : { k: 'self', n, bare: !c1 && !c2 };
-    else t = { k: 'ref', id: idB || idC };
+    else t = { k: 'ref', id: idB };
     t.from = m.index; t.to = m.index + all.length; t.text = all;
     if (t.k === 'ref') extend(t);
+    const lead = c1 || (n === undefined ? A_OK : ''), trail = c2;
+    if (lead) { t.arrow = [m.index, m.index + arrowLen(m.index)]; t.dir = 'to'; }
+    else if (trail) { const al = all.endsWith('->') ? 2 : 1; t.arrow = [t.to - al, t.to]; t.dir = 'from'; }
     out.push(t); re.lastIndex = Math.max(re.lastIndex, t.to);
-    if (idB && n === undefined && t.k === 'ref') { // :1a,1b,1c のように、ひとつの : で複数のID（それぞれに (p) (番号) もつけられる）
+    if (idB && n === undefined && t.k === 'ref') { // ->1a,1b,1c のように、ひとつの -> で複数のID（それぞれに (p) (番号) もつけられる）
       const more = new RegExp(`^${SEP}(${ID})(?![0-9A-Za-z])`);
       for (let p = t.to, x; (x = text.slice(p).match(more)) && !hit(p, p + x[0].length);) {
-        const t2 = extend({ k: 'ref', id: x[1], from: p + 1, to: p + x[0].length, text: x[1] }); out.push(t2); p = t2.to; re.lastIndex = p;
+        const t2 = extend({ k: 'ref', id: x[1], dir: 'to', from: p + 1, to: p + x[0].length, text: x[1], sep: [p, p + 1] }); out.push(t2); p = t2.to; re.lastIndex = p;
       }
     }
   }
   return out;
+}
+// 昔の :ID / ID: / :(n) / (n): を、->ID / ID-> / ->(n) / (n)-> に直す（コードやリンクの中は変えない）
+function colonToArrow(text) {
+  const skip = [...text.matchAll(MDLINK)].map(m => [m.index, m.index + m[0].length]).concat(codeRanges(text));
+  const hit = (a, b) => skip.some(([x, y]) => a < y && b > x);
+  const re = new RegExp(OLD_RE, 'g'); let out = '', last = 0, m;
+  while ((m = re.exec(text))) {
+    if (hit(m.index, m.index + m[0].length)) continue;
+    const [all, c1, , , c2, idB, idC] = m, lead = !!c1 || idB !== undefined, trail = !!c2 || idC !== undefined;
+    let t = all; if (lead) t = '->' + t.slice(1); if (trail) t = t.slice(0, -1) + '->';
+    out += text.slice(last, m.index) + t; last = m.index + all.length;
+    if (idB !== undefined) {   // :1a,1b,1c のコンマ続きは、そのまま
+      const more = new RegExp(`^(?:${SEP}(?:${ID}))*`); const x = text.slice(last).match(more); if (x && x[0]) { out += x[0]; last += x[0].length; re.lastIndex = last; }
+    }
+  }
+  return out + text.slice(last);
+}
+// colonToArrow のうち、「- :ID」だけの行（昔の日記の「今日のノート」）は、そのままにする
+function colonToArrowKeep(text) { return text.split('\n').map(line => /^\s*(-\s+)?:[0-9a-z]+\s*$/.test(line) ? line : null).every(x => x === null) ? colonToArrow(text) : colonToArrowLines(text); }
+function colonToArrowLines(text) {   // 行ごとに直す。コードの囲みの中は、まとめて見るため、全体を先に直してから、除外行だけを元に戻す
+  const keep = new Set(); const lines = text.split('\n'); lines.forEach((x, i) => { if (/^\s*(-\s+)?:[0-9a-z]+\s*$/.test(x)) keep.add(i); });
+  return colonToArrow(text).split('\n').map((x, i) => keep.has(i) ? lines[i] : x).join('\n');
 }
 // ノートの中で (n) の位置（素の (n) を優先）
 function anchorPos(text, n) {
@@ -126,9 +170,12 @@ function mdToBody(md) {
   return md
     .replace(/<a id="c[^"]*"><\/a>/g, '')
     .replace(/<span style="color:#c0392b">([^<]*)<\/span>/g, '$1')
-    .replace(/\[([^\]\n]+)\]\(([^)\s]*)\)/g, (all, t) => {
+    .replace(/\[([^\]\n]+)\]\(([^)\s]*)\)/g, (all, t, href, at, whole) => {
       const k = tokens(t);
-      return k.length === 1 && k[0].from === 0 && k[0].to === t.length ? t : all;
+      if (k.length === 1 && k[0].from === 0 && k[0].to === t.length) return t;
+      // ->1a,1b,1c や 1a,1b,1c-> の、矢印の付かない ID（コンマの前後）も、リンクの外へ戻す
+      if (new RegExp('^' + ID + '(?:[(（](?:\\d+|[pdPD])[)）]){0,2}$').test(t) && /(?:\.md|#)(?:#c\d+)?$|^#/.test(href) && (/[,，、]$/.test(whole.slice(0, at)) || /^[,，、]/.test(whole.slice(at + all.length)))) return t;
+      return all;
     })
     .split('\n').map(l => l.replace(/ {2}$/, '')).join('\n')
     .replace(/\n+$/, '');
@@ -150,7 +197,7 @@ function exportMd(items) {
   const has = new Set(items.filter(n => !n.noid).map(n => n.s + ':' + n.id));
   const plain = (body, s) => {
     const toks = tokens(body).filter(t => t.k === 'ref' && !has.has(s + ':' + t.id)).sort((a, b) => b.from - a.from);
-    let out = body; for (const t of toks) out = out.slice(0, t.from) + t.text.replace(/[:：]/g, '') + out.slice(t.to);
+    let out = body; for (const t of toks) out = out.slice(0, t.from) + t.text.replace(/->|→/g, '') + out.slice(t.to);
     return out;
   };
   return items.map(n => {
@@ -379,7 +426,7 @@ const now = (d = new Date()) => {
 };
 const parseTime = c => { const m = (c || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) : null; };
 
-module.exports = {
+module.exports = { colonToArrow, colonToArrowKeep,
   codeRanges, MDLINK, ID, isId, splitAnchor, tok, cmpId, sibling, child, parentIn, root,
   tokens, anchorPos, selfTarget, bodyToMd, mdToBody,
   fzRange, fzSubtree, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now

@@ -10,10 +10,10 @@ const ls = dir => fs.readdirSync(dir).filter(f => f !== '.trash' && f !== '.hist
 test('全部が1つのフォルダに平らに置かれ、リンクは同じフォルダの中', () => {
   const dir = tmp();
   let v = openVault(dir);
-  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: ['PKM'], body: '最初(1)\n(1):説明 :1a' });
+  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: ['PKM'], body: '最初(1)\n(1)->説明 ->1a' });
   v.saveNote({ s: 'd', id: '1a', created: '2026-10-10 11:13:00', keywords: [], body: '1(1) を引用' });
   v.saveImage('p', '1', Buffer.from([0xff, 0xd8, 0xff]));
-  v.saveNote({ s: 'p', id: '1', keywords: ['PKM', '紙'], body: '紙の文字 :1a' });
+  v.saveNote({ s: 'p', id: '1', keywords: ['PKM', '紙'], body: '紙の文字 ->1a' });
   v.saveTopic({ name: '1-PKM', entry: { s: 'd', id: '1' }, d: 'PKM 1 1a\n★ 2-x', p: 'PKM 1' });
 
   const F = (s, id) => v.state().notes.find(n => n.s === s && n.id === id).stem; // ファイル名は作った日時
@@ -29,7 +29,7 @@ test('全部が1つのフォルダに平らに置かれ、リンクは同じフ�
   assert.match(d1, /\n# 1\n\nTopicBranch: \[1-PKM\]\(T_1-PKM\.md\)  \nTopic: \[1-PKM\]\(T_1-PKM\.md\)\n\n<!-- body -->/);   // 自分が入口のトピックIndex・載っているトピックIndex。親は無いので ParentBranch の行は出ない
   assert.ok(d1.endsWith(`\nChildBranch: [1a](${D1a})\n`));
   assert.doesNotMatch(d1, /<hr>|Index\.md|デジタル一覧|<p /);
-  assert.ok(d1.includes(`[:1a](${D1a})`));
+  assert.ok(d1.includes(`[->1a](${D1a})`));
   assert.ok(r(D1a).includes(`[1(1)](${D1}#c1)`));
   assert.ok(r(D1a).includes(`\nParentBranch: [1](${D1})  \nTopic: [1-PKM](T_1-PKM.md)\n`));   // 親・自分が載っているトピックIndex
   assert.ok(r(P1 + '.md').includes(`![1](${P1}.jpg)`));
@@ -48,7 +48,7 @@ test('全部が1つのフォルダに平らに置かれ、リンクは同じフ�
 
   v = openVault(dir); // 読み直し
   const st = v.state(), n = st.notes.find(x => x.s === 'd' && x.id === '1');
-  assert.strictEqual(n.body, '最初(1)\n(1):説明 :1a');
+  assert.strictEqual(n.body, '最初(1)\n(1)->説明 ->1a');
   assert.deepStrictEqual(n.keywords, ['PKM']);
   assert.strictEqual(n.created, '2026-10-10 11:12:30'); assert.strictEqual(n.stem, '20261010111230');
   assert.ok(st.notes.find(x => x.s === 'p' && x.id === '1').image.startsWith('file://'));
@@ -234,14 +234,14 @@ test('IDを消してIDなしに。このノートを指すリンクは、ファ�
   const v = openVault(dir);
   v.saveNote({ s: 'd', id: '1', created: '2026-11-07 10:00', keywords: [], body: 'PKMの本文', title: 'PKMとは' });
   v.saveNote({ s: 'd', id: '1a', created: '2026-11-07 10:05', keywords: [], body: '子のノート' });
-  v.saveNote({ s: 'd', id: '2', created: '2026-11-07 10:10', keywords: [], body: '参照 :1 と 1(1) と、:1a' });
+  v.saveNote({ s: 'd', id: '2', created: '2026-11-07 10:10', keywords: [], body: '参照 ->1 と 1(1) と、->1a' });
   v.saveTopic({ name: 'PKM', entry: { s: 'd', id: '1' }, d: '基本 1 1a', p: '' });
   const st = v.clearId('d', '1');
   const n = st.notes.find(x => x.title === 'PKMとは');
   assert.ok(n.noid && /^\d{14}$/.test(n.id) && n.id === n.stem);
   assert.ok(fs.existsSync(path.join(dir, `${n.id}.md`)) && !/folgezettel/.test(r(`${n.id}.md`)));   // ファイルはそのまま、YAML から folgezettel が消える
   const b2 = st.notes.find(x => x.id === '2').body;
-  assert.strictEqual(b2, `参照 [PKMとは](${n.id}.md) と [PKMとは](${n.id}.md) と、:1a`); // :1a は別のノートなのでそのまま
+  assert.strictEqual(b2, `参照 [PKMとは](${n.id}.md) と [PKMとは](${n.id}.md) と、->1a`); // ->1a は別のノートなのでそのまま
   assert.ok(st.notes.find(x => x.id === '1a'));                                                   // 子はそのまま
   assert.strictEqual(st.topics[0].entry, null); assert.strictEqual(st.topics[0].text, '基本 1a');      // 入口なし・索引の行から外れる
   assert.ok(st.diaries[0].body.includes(`](${n.id}.md)`)); // 日記のリンクは、ファイル名なので、そのまま
@@ -437,16 +437,16 @@ test('チャットメモ: 日ごとの md（## 日付・時刻つきの段落・
 
 test('紙のトピックIndex: 入口の紙のノートが、まだ無くても作れる。1 つの欄に、紙とデジタルを (p) で書き分ける', () => {
   const dir = tmp(), v = openVault(dir), r = f => fs.readFileSync(path.join(dir, f), 'utf8');
-  v.saveNote({ s: 'd', id: '1', keywords: [], body: 'デジタル' }); v.saveNote({ s: 'p', id: '3', keywords: [], body: '紙の文字 :1(d) と :1' });
+  v.saveNote({ s: 'd', id: '1', keywords: [], body: 'デジタル' }); v.saveNote({ s: 'p', id: '3', keywords: [], body: '紙の文字 ->1(d) と ->1' });
   assert.ok(v.saveTopic({ name: '12-紙の索引', entry: { s: 'p', id: '12' }, keyword: '', text: '書き分け 3 1(d)\n+hoge 3' }));   // 紙の 12 は、まだ取り込んでいない
   const st = openVault(dir).state(), t = st.topics.find(x => x.name === '12-紙の索引');
   assert.deepStrictEqual(t.entry, { s: 'p', id: '12' }); const m = require('../lib').mergeTopic(t);
   assert.deepStrictEqual([m.rows[0].p, m.rows[0].d, m.refs], [['3'], ['1'], [{ s: 'p', label: 'hoge', id: '3' }]]);   // 入口が紙なので、印なしは紙。(d) はデジタル
   const md = r('T_12-紙の索引.md');
   assert.match(md, /\| 書き分け \| \[1\]\([^)]*\.md\) \[紙3\]\([^)]*\.md\) \|/);
-  // 紙のノートの md: 印なしの :1 は紙の 1（まだ無いので # のリンク）、:1(d) はデジタルの 1
+  // 紙のノートの md: 印なしの ->1 は紙の 1（まだ無いので # のリンク）、->1(d) はデジタルの 1
   const p3 = st.notes.find(n => n.s === 'p' && n.id === '3'), d1 = st.notes.find(n => n.s === 'd' && n.id === '1');
-  assert.ok(r(p3.stem + '.md').includes(`[:1(d)](${d1.stem}.md)`));
+  assert.ok(r(p3.stem + '.md').includes(`[->1(d)](${d1.stem}.md)`));
   assert.match(r(p3.stem + '.md'), /Topic: \[12-紙の索引\]/);   // 紙の 3 が載っているトピックIndex
   // 昔の 2 つの欄（d・p）のトピックIndex は、1 つの欄に直る
   const old = v.saveTopic({ name: '古い', entry: { s: 'd', id: '1' }, keyword: '', d: 'PKM 1', p: 'PKM 3' });
@@ -510,7 +510,7 @@ test('ノート化: 元のチャットを残したまま通常のノートとし
   assert.match(read(n.stem + '.md'), /C_2026-11-09\.md#m-m1/);
   assert.match(read('キーワード.md'), /政治哲学/);
   v.saveTopic({ name: '1a-政治哲学', entry: { s: 'd', id: '1a' }, keyword: '', text: '政治哲学 1a' });
-  const child = v.createNote({ kind: 'text', id: '1a1', title: '派生したノート', body: ':1a' });
+  const child = v.createNote({ kind: 'text', id: '1a1', title: '派生したノート', body: '->1a' });
   assert.match(read(n.stem + '.md'), /ChildBranch:/);
   assert.match(read(n.stem + '.md'), /TopicBranch:/);
   const original = v.state().docs['C_チャット'].messages[0].text;
@@ -677,4 +677,16 @@ test('日付の無い行には、そのノート（日記はその日）の日�
   assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('stamp1'));
   const again = openVault(dir).state().notes.find(x => x.id === '1');   // 二度目は、変えない
   assert.strictEqual(again.body, n.body);
+});
+
+test('昔の :ID / ID: は、一度だけ ->ID / ID-> に直る（日記の「- :ID」だけの行は別の仕組み）', () => {
+  const dir = tmp();
+  let v = openVault(dir);
+  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: [], body: '続き :1a と 1a: と :(1) (1): と `:1a` 12:30' });
+  v.close && v.close();
+  fs.writeFileSync(path.join(dir, '.pkm-layout'), 'flat1\nstamp1\n');   // 昔の vault に戻す
+  v = openVault(dir);
+  assert.strictEqual(v.state().notes.find(x => x.id === '1').body, '続き ->1a と 1a-> と ->(1) (1)-> と `:1a` 12:30');
+  assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('arrow1'));
+  assert.strictEqual(openVault(dir).state().notes.find(x => x.id === '1').body, '続き ->1a と 1a-> と ->(1) (1)-> と `:1a` 12:30');   // 二度目は変えない
 });

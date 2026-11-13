@@ -2,32 +2,32 @@ const test = require('node:test');
 const assert = require('node:assert');
 const L = require('../lib');
 
-const kinds = s => L.tokens(s).map(t => t.k === 'ref' ? `ref:${t.id}${t.n ? '(' + t.n + ')' : ''}` : `self:${t.n}${t.bare ? '' : ':'}`);
+const kinds = s => L.tokens(s).map(t => t.k === 'ref' ? `ref:${t.id}${t.n ? '(' + t.n + ')' : ''}` : `self:${t.n}${t.bare ? '' : '>'}`);
 
 test('リンクの読み取り', () => {
-  assert.deepStrictEqual(kinds('続き :1a1 へ'), ['ref:1a1']);
-  assert.deepStrictEqual(kinds('7a: を見る'), ['ref:7a']);
-  assert.deepStrictEqual(kinds('引用(1) あとで (1):説明 :(2)'), ['self:1', 'self:1:', 'self:2:']);
-  assert.deepStrictEqual(kinds('1(1): と :1(1) と 7a(3)'), ['ref:1(1)', 'ref:1(1)', 'ref:7a(3)']);
-  assert.deepStrictEqual(kinds('全角 ：2b と（3）'), ['ref:2b', 'self:3']);
-  assert.deepStrictEqual(kinds('時刻 11:12 や f(1) や abc1: はリンクにしない'), []);
+  assert.deepStrictEqual(kinds('続き ->1a1 へ'), ['ref:1a1']);
+  assert.deepStrictEqual(kinds('7a-> を見る'), ['ref:7a']);
+  assert.deepStrictEqual(kinds('引用(1) あとで (1)->説明 ->(2)'), ['self:1', 'self:1>', 'self:2>']);
+  assert.deepStrictEqual(kinds('1(1)-> と ->1(1) と 7a(3)'), ['ref:1(1)', 'ref:1(1)', 'ref:7a(3)']);
+  assert.deepStrictEqual(kinds('全角 →2b と（3）'), ['ref:2b', 'self:3']);
+  assert.deepStrictEqual(kinds('時刻 11:12 や f(1) や abc1-> や :1a はリンクにしない'), []);
 });
 
 test('(1) の行き先', () => {
-  const s = 'あいう(1)。\n(1):説明';
-  assert.strictEqual(L.selfTarget(s, '1', true), s.indexOf('(1):'));
+  const s = 'あいう(1)。\n(1)->説明';
+  assert.strictEqual(L.selfTarget(s, '1', true), s.indexOf('(1)->'));
   assert.strictEqual(L.selfTarget(s, '1', false), s.indexOf('(1)'));
   assert.strictEqual(L.anchorPos(s, '1'), s.indexOf('(1)'));
 });
 
 test('Markdown との行き来', () => {
-  const body = '最初(1)。:1a へ\n(1):説明 7a(2) と 3:\n普通の [リンク](http://x) は残す';
+  const body = '最初(1)。->1a へ\n(1)->説明 7a(2) と 3->\n普通の [リンク](http://x) は残す';
   const md = L.bodyToMd(body, id => id + '.md');
   assert.match(md, /<a id="c1"><\/a><span style="color:#c0392b">\(1\)<\/span>/);
-  assert.match(md, /<a id="c1-"><\/a>\[\(1\):\]\(#c1\)/);
-  assert.match(md, /\[:1a\]\(1a\.md\)/);
+  assert.match(md, /<a id="c1-"><\/a>\[\(1\)->\]\(#c1\)/);
+  assert.match(md, /\[->1a\]\(1a\.md\)/);
   assert.match(md, /\[7a\(2\)\]\(7a\.md#c2\)/);
-  assert.match(md, /\[3:\]\(3\.md\)/);
+  assert.match(md, /\[3->\]\(3\.md\)/);
   assert.strictEqual(L.mdToBody(md), body);
 });
 
@@ -104,8 +104,8 @@ test('エクスポート: 番号の範囲・枝、リンクは選んだ中だけ
   assert.deepStrictEqual(L.fzRange(ids, '1a', '1a2'), ['1a', '1a1', '1a2']);
   assert.deepStrictEqual(L.fzSubtree(ids, '1a'), ['1a', '1a1', '1a2']);
   assert.deepStrictEqual(L.fzSubtree(ids, '1'), ['1', '1a', '1a1', '1a2', '1b']);
-  const md = L.exportMd([{ s: 'd', id: '1', title: 'あ', body: '続き :1a と :2' }, { s: 'd', id: '1a', title: 'い', body: '本文' }]);
-  assert.match(md, /## 1 あ/); assert.match(md, /:1a と 2/); assert.match(md, /## 1a い/);
+  const md = L.exportMd([{ s: 'd', id: '1', title: 'あ', body: '続き ->1a と ->2' }, { s: 'd', id: '1a', title: 'い', body: '本文' }]);
+  assert.match(md, /## 1 あ/); assert.match(md, /->1a と 2/); assert.match(md, /## 1a い/);
 });
 
 test('YAML（---）: 書いて読む。手で書いた形も読める', () => {
@@ -118,14 +118,14 @@ test('YAML（---）: 書いて読む。手で書いた形も読める', () => {
   assert.strictEqual(L.now(new Date(2026, 10, 8, 7, 35, 11)), '2026-11-08 07:35:11');
 });
 
-test('リンク: :1a,1b で複数。: 1a（空白）や コードの中はリンクにしない', () => {
+test('リンク: ->1a,1b で複数。-> 1a（空白）や コードの中はリンクにしない', () => {
   const ids = t => L.tokens(t).filter(x => x.k === 'ref').map(x => x.id);
-  assert.deepStrictEqual(ids(':1a,1b、2 と :3'), ['1a', '1b', '2', '3']);
-  assert.deepStrictEqual(ids('これは : 1a で、リンクではない'), []);
-  assert.deepStrictEqual(ids('`:3` と ``:4`` と :5'), ['5']);
-  assert.deepStrictEqual(ids('前 :1\n```\n:4 :5\n```\n後 :6'), ['1', '6']);
-  assert.deepStrictEqual(ids('~~~\n:7\n~~~'), []);
-  assert.ok(!L.bodyToMd('`:3`', x => x + '.md').includes('](')); // Markdown にしてもリンクにならない
+  assert.deepStrictEqual(ids('->1a,1b、2 と ->3'), ['1a', '1b', '2', '3']);
+  assert.deepStrictEqual(ids('これは -> 1a で、リンクではない'), []);
+  assert.deepStrictEqual(ids('`->3` と ``->4`` と ->5'), ['5']);
+  assert.deepStrictEqual(ids('前 ->1\n```\n->4 ->5\n```\n後 ->6'), ['1', '6']);
+  assert.deepStrictEqual(ids('~~~\n->7\n~~~'), []);
+  assert.ok(!L.bodyToMd('`->3`', x => x + '.md').includes('](')); // Markdown にしてもリンクにならない
 });
 test('トピックIndex: +hoge 1 は 1 がリンクの星。+GUI だけなら案内', () => {
   const r = L.topicLine('+hoge 1');
@@ -135,12 +135,12 @@ test('トピックIndex: +hoge 1 は 1 がリンクの星。+GUI だけなら案
   assert.deepStrictEqual(m.stars, ['GUI']); assert.strictEqual(m.rows.length, 1);
 });
 
-test('紙とデジタルの書き分け: :ID(p)・(d)・(番号) の順は自由。印なしは、いまの側', () => {
+test('紙とデジタルの書き分け: ->ID(p)・(d)・(番号) の順は自由。印なしは、いまの側', () => {
   const t = x => L.tokens(x).filter(y => y.k === 'ref').map(y => [y.id, y.sp, y.n]);
-  assert.deepStrictEqual(t(':1a(p)(2) と :1a(2)(p) と :3 と :4(d)'), [['1a', 'p', '2'], ['1a', 'p', '2'], ['3', undefined, undefined], ['4', 'd', undefined]]);
-  assert.deepStrictEqual(t(':1a,2(p),3'), [['1a', undefined, undefined], ['2', 'p', undefined], ['3', undefined, undefined]]);
-  assert.strictEqual(L.mdToBody(L.bodyToMd(':1a(p)(2)', (id, sp) => `${sp || 'd'}_${id}.md`)), ':1a(p)(2)');   // md にして、戻しても同じ
-  assert.ok(L.bodyToMd(':1a(p)', (id, sp) => `${sp || 'd'}_${id}.md`).includes('(p_1a.md)'));
+  assert.deepStrictEqual(t('->1a(p)(2) と ->1a(2)(p) と ->3 と ->4(d)'), [['1a', 'p', '2'], ['1a', 'p', '2'], ['3', undefined, undefined], ['4', 'd', undefined]]);
+  assert.deepStrictEqual(t('->1a,2(p),3'), [['1a', undefined, undefined], ['2', 'p', undefined], ['3', undefined, undefined]]);
+  assert.strictEqual(L.mdToBody(L.bodyToMd('->1a(p)(2)', (id, sp) => `${sp || 'd'}_${id}.md`)), '->1a(p)(2)');   // md にして、戻しても同じ
+  assert.ok(L.bodyToMd('->1a(p)', (id, sp) => `${sp || 'd'}_${id}.md`).includes('(p_1a.md)'));
 });
 test('トピックIndex: 1 つの文字に、印つきで。入口が紙なら、印なしは紙', () => {
   const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'デジタルと紙の書き分け 1g(1) 2(p) 3(2)(p)\n+hoge 5(p)' });
@@ -155,4 +155,19 @@ test('日のノート: 書いた文章は「今日のノート」（リンクの
   const L = require('../lib');
   assert.strictEqual(L.normDay('## 今日のノート\n\n:1e\n:1c6\n\n06:38 腹下し\n\n15:11 なんか'), '06:38 腹下し\n\n15:11 なんか\n\n## 今日のノート\n\n:1e\n:1c6');
   assert.strictEqual(L.normDay('text\n\n## 今日のノート\n\n:1\n\n## 紙の日記\n\n![](a.jpg)'), 'text\n\n## 紙の日記\n\n![](a.jpg)\n\n## 今日のノート\n\n:1');   // 紙の日記が、今日のノートの上
+});
+
+test('リンク: ID-> と複数の元・矢印と、コンマの場所・昔の : から直す', () => {
+  const t = x => L.tokens(x).map(y => [y.k, y.id || y.n, y.dir || '', y.arrow ? x.slice(...y.arrow) : '', y.sep ? x.slice(...y.sep) : '']);
+  assert.deepStrictEqual(t('1a,1b,1c-> と ->2,3'), [['ref', '1a', 'from', '', ''], ['ref', '1b', 'from', '', ','], ['ref', '1c', 'from', '->', ','], ['ref', '2', 'to', '->', ''], ['ref', '3', 'to', '', ',']]);
+  assert.deepStrictEqual(t('→1b と 1b→'), [['ref', '1b', 'to', '→', ''], ['ref', '1b', 'from', '→', '']]);
+  assert.deepStrictEqual(t('step1->x と 5->3 と a->1'), []);   // 文字や数字にくっついた矢印は、リンクにしない
+  assert.strictEqual(L.colonToArrow(':1a と 1a: と :1a,1b,1c と :(1) (1): :1a(2) 1a(2): 12:30 と a:b と `:1a`'), '->1a と 1a-> と ->1a,1b,1c と ->(1) (1)-> ->1a(2) 1a(2)-> 12:30 と a:b と `:1a`');
+});
+test('Markdown との行き来: コンマ続きのID（->1a,1b,1c と 1a,1b->）も、元に戻る', () => {
+  for (const body of ['->1a,1b,1c と 1a,1b,1c-> と ->2(p),3(2)']) {
+    const md = L.bodyToMd(body, (id, sp) => `${sp || 'd'}_${id}.md`);
+    assert.strictEqual(L.mdToBody(md), body);
+  }
+  assert.strictEqual(L.mdToBody('[1a](http://x), [題](a.md)'), '[1a](http://x), [題](a.md)');   // ふつうのリンクは、そのまま
 });

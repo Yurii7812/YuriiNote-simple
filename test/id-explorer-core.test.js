@@ -4,7 +4,7 @@ const X = require('../id-explorer-core');
 const notes = [
   { s:'d', id:'1', stem:'s1', title:'哲学入門', body:'ヘーゲルについて考える', keywords:['哲学'] },
   { s:'d', id:'1a', stem:'s2', title:'国家論', body:'国家元首 :1', keywords:['政治哲学'] },
-  { s:'d', id:'1b', stem:'s3', title:'政治', body:':1aを参照', keywords:[] },
+  { s:'d', id:'1b', stem:'s3', title:'政治', body:'->1aを参照', keywords:[] },
   { s:'p', id:'1', stem:'s4', title:'紙の記録', body:'国家論', keywords:['政治哲学'] },
   { s:'d', id:'20261109093000', noid:true, stem:'20261109093000', title:'未整理', body:'新たな発見', keywords:['未分類'] },
   { s:'d', id:'2', kind:'memo-group', title:'ノート化したメモ', body:'チャットの本文', keywords:['学習'] }

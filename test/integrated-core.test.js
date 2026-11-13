@@ -27,14 +27,14 @@ test('links and ranges survive store restart, ID change and deletion without cha
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('backlinks keep occurrence offsets and distinguish mention and reply; code is ignored',()=>{
- const source={id:'n',kind:'note',text:'[参照](link:a) :[メモ](memo:m1) [返信](reply:m1) ` [code](link:a) `'};
+ const source={id:'n',kind:'note',text:'[参照](link:a) ->[メモ](memo:m1) [返信](reply:m1) ` [code](link:a) `'};
  assert.equal(C.backlinks('a',[source]).length,1);assert.equal(C.backlinks('m1',[source],'memo').length,1);assert.equal(C.backlinks('m1',[source],'reply').length,1);
  assert.equal(C.backlinks('a',[source])[0].from,0);
 });
 test('reference search directions are determined by Enter/Shift+Enter, with paper IDs kept distinct',()=>{
- assert.equal(R.insertion(notes[0],false),':1a');assert.equal(R.insertion(notes[0],true),'1a:');
- assert.equal(R.insertion(notes[1],false),':1a(p)');assert.equal(R.insertion(notes[1],true),'1a(p):');
- assert.equal(R.insertion({...memos[0],kind:'memo'},false),':[新しいメモ](memo:m1)');assert.equal(R.insertion({...memos[0],kind:'memo'},true),'[新しいメモ](memo:m1):');
+ assert.equal(R.insertion(notes[0],false),'->1a');assert.equal(R.insertion(notes[0],true),'1a->');
+ assert.equal(R.insertion(notes[1],false),'->1a(p)');assert.equal(R.insertion(notes[1],true),'1a(p)->');
+ assert.equal(R.insertion({...memos[0],kind:'memo'},false),'->[新しいメモ](memo:m1)');assert.equal(R.insertion({...memos[0],kind:'memo'},true),'[新しいメモ](memo:m1)->');
  const s=new R.Session();assert.equal(s.update(':',1,':').query,'');assert.equal(s.update(':哲学',3,'哲学').query,'哲学');
  s.close();assert.equal(s.update(':哲学の続き',7,'の続き'),null);assert.equal(s.update(':哲学',2,''),null);assert.ok(s.update(':哲学\n:',5,':'));
  const p=new R.Session();const state=p.update('ヘーゲル:',5,':');assert.equal(state.from,0);assert.equal(state.query,'ヘーゲル');
@@ -45,7 +45,7 @@ test('reference triggers ignore code fences, inline code, URLs, time and existin
  }
 });
 test('topic proximity prioritizes exact evidence over recency/root, direct parents over remote roots and precise search matches',()=>{
- const n={s:'d',id:'1a1',keywords:['認識論'],body:':8',title:'思想'};
+ const n={s:'d',id:'1a1',keywords:['認識論'],body:'->8',title:'思想'};
  const all=[n,{s:'d',id:'1a',body:'',keywords:[]},{s:'d',id:'1b',body:'',keywords:[]},{s:'d',id:'8',body:'',keywords:[]}];
  const ts=[{name:'最近',entry:{s:'d',id:'4'},text:''},{name:'遠い系統',entry:{s:'d',id:'1b'},text:''},{name:'親',entry:{s:'d',id:'1a'},text:''},{name:'具体',text:'認識論 9'},{name:'直接リンク',entry:{s:'d',id:'8'},text:''}];
  const rank=T.rank(n,ts,all,['最近']);assert.ok(rank.get('具体').score>rank.get('最近').score);assert.ok(rank.get('親').score>rank.get('遠い系統').score);assert.ok(rank.get('直接リンク').score>rank.get('遠い系統').score);
