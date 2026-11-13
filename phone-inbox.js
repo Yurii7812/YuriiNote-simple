@@ -13,12 +13,13 @@ const timeOf = at => { const m = String(at || '').match(/(\d{2}:\d{2})/); return
 const oneLine = t => String(t).replace(/\r?\n+/g, ' ').trim();
 
 // files: [{name, buf}]（buf は Buffer）。papers: 紙の写真の保存先を決める関数 (name, buf) => 保存した名前（省略時は保存しない）
-function importInbox(v, files, { papers } = {}) {
-  const sum = { memos: 0, diaries: 0, notes: 0, papers: 0, skipped: 0 };
+function importInbox(v, files, { papers, seen } = {}) {   // seen: すでに取り込んだファイル名の集まり（消さずに残してあるものを、二度取り込まない）
+  const sum = { memos: 0, diaries: 0, notes: 0, papers: 0, skipped: 0, already: 0 };
   const done = [], bad = [];
   const by = new Map(files.map(f => [f.name, f]));
   const sorted = files.filter(f => /\.json$/.test(f.name)).sort((a, b) => a.name.localeCompare(b.name));   // 名前に時刻が入っているので、書いた順
   for (const f of sorted) {
+    if (seen && seen.has(f.name)) { sum.already++; continue; }
     let d; try { d = JSON.parse(f.buf.toString('utf8')); } catch { bad.push(f.name); sum.skipped++; continue; }
     try {
       if (d.type === 'memo' && String(d.text || '').trim()) {
