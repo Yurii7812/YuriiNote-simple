@@ -1915,7 +1915,7 @@ function loaded(st) {
 $('#more').onclick = () => {
   const r = $('#more').getBoundingClientRect();
   popMenu({ clientX: r.right + 8, clientY: r.top - 80 }, [
-    ['📱 スマホのメモを取り込む…（USB）', phoneImport],
+    ['📱 スマホ取り込み', phoneImport],
     ['⚙️ 設定…', settingsDialog]
   ]);
 };

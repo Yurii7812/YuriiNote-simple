@@ -24,7 +24,7 @@ const EN = {
 '📂 フォルダを選ぶ（既存の vault を開く・新しい場所に作る）': '📂 Choose a folder (open an existing vault / create in a new place)',
 '言語・保存先': 'Language & vault', '言語': 'Language', '日本語': '日本語',
 '設定…': 'Settings…', '⚙️ 設定': '⚙️ Settings', '設定': 'Settings',
-'スマホのメモを取り込む…（USB）': 'Import phone memos… (USB)',
+'スマホ取り込み': 'Import from phone',
 'スマホにアプリを入れる…（USB）': 'Install phone app… (USB)',
 'スマホを USB ケーブルでつないで、「USBデバッグ」をオンにしてから、OK を押してください。\nスマホに YuriiNote のメモのアプリを入れます。': 'Connect the phone with a USB cable, turn on "USB debugging", then press OK.\nThe YuriiNote memo app will be installed on the phone.',
 'スマホのメモを読んでいます…': 'Reading phone memos…',
