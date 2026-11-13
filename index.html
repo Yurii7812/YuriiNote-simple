@@ -225,7 +225,7 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 .idline{display:flex;align-items:center;gap:4px;font-size:12px;color:#a9aebb;min-height:24px}
 
 .idline .idin{border:0;background:none;font:inherit;color:#8b909c;padding:2px 6px;border-radius:4px;overflow-wrap:anywhere}.idline button.idin:hover{background:var(--hl);color:var(--acc)}.idline button.idin:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.idline .dt{margin-left:8px;color:#c0c4cf}.idline .grow{flex:1}.idline .nm{opacity:0}.col:hover .idline .nm,.idline .nm:focus{opacity:1}
+.idline .dt{margin-left:8px;color:#c0c4cf}.idline .grow{flex:1}.idline .nm{opacity:.45}.col:hover .idline .nm,.idline .nm:focus{opacity:1}   /* 右端のボタンを、隠さない（隠すと、分岐・並列のボタンが、端から離れて、ずれて見える） */
 .ixbar{display:flex;align-items:center;gap:8px;padding:6px 4px 10px;font-size:13px}.ixbar .grow{flex:1}
 .exsec{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:8px 0;font-size:14px}.exsec label{display:inline-flex;align-items:center;gap:3px}
 .exlist{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:4px 8px;margin:6px 0}.exrow{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:14px}.exrow b{color:var(--acc);min-width:3.2em}.exrow .grow{flex:1}.exrow i{font-style:normal;color:#b0b4c0;cursor:pointer;padding:0 6px}.exrow i:hover{color:var(--red)}
@@ -450,7 +450,8 @@ textarea.ntitle,textarea#f-title{
 .stage:has(#nbody){display:flex}
 .stage>.col{width:auto;max-width:none;margin:0;grid-column:2;padding:30px 12px 0}
 .stage>.mgn{grid-column:3;position:sticky;top:0;height:var(--ph,100vh);min-height:0;overflow:auto;margin:0;width:290px;align-self:start}
-.stage.nomgn{grid-template-columns:minmax(0,1fr) minmax(0,var(--colw,720px)) minmax(0,1fr)}.stage.nomgn>.mgn{display:none}
+.stage.nomgn{grid-template-columns:minmax(0,1fr) minmax(0,var(--colw,720px)) minmax(0,1fr)}
+.stage.mgnleft{grid-template-columns:minmax(0,1fr) minmax(0,var(--colw,720px)) minmax(0,1fr)}   /* パネルを左に置いたとき、文字を、ノートの真ん中に */.stage.nomgn>.mgn{display:none}
 
 @keyframes kpop{from{opacity:0;transform:translateX(-50%) scale(.92)}to{opacity:1;transform:translateX(-50%) scale(1)}}
 .kedit .kt{width:100%;font:inherit;font-size:20px;font-weight:700;border:0;outline:0;padding:4px 0;background:none}.kedit textarea{width:100%;min-height:120px;border:0;outline:0;font:inherit;line-height:1.7;resize:none;background:none}
