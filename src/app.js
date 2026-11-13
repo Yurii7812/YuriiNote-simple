@@ -1538,7 +1538,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
   else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
-      ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${ups.map(u => `<tr class="trel"><td><span class="tmk">↑</span> 上位　${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${befores.map(u => `<tr class="trel"><td><span class="tmk">↰</span> 独立前　${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${refs.map(x => `<tr class="trel${focus && focus.s === x.s && focus.id === x.id ? ' tfocus' : ''}"><td><span class="tmk">↳</span> 独立　${esc(x.label)}</td><td>${upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })}</td></tr>`).join('')}</table>`;
+      ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${ups.map(u => `<tr class="trel"><td><span class="tmk">↑</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${befores.map(u => `<tr class="trel"><td><span class="tmk">↰</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${refs.map(x => `<tr class="trel${focus && focus.s === x.s && focus.id === x.id ? ' tfocus' : ''}"><td><span class="tmk">↳</span> ${esc(x.label)}</td><td>${upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })}</td></tr>`).join('')}</table>`;
   // 上位トピック（^）・独立前（<|）・独立したもの（|>）: そのキーワードのトピック Index があれば、押して開ける
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
   $('#pane').innerHTML = `
@@ -1549,10 +1549,10 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
       <button class="tbtn ${tmode === 'edit' ? 'p' : ''}" data-act="tedit">${tmode === 'edit' ? '✅ 完了' : '✏️ 編集'}</button>`}
     </div>
     <div class="row tmeta">
-      <span class="tm"><span class="sub">🌳 親</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub"><span class="tmk">↑</span> 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub"><span class="tmk">↰</span> 独立前</span>${befores.length ? befores.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub"><span class="tmk">↳</span> 独立したもの</span>${refs.length ? refs.map(x => upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub" title="親">🌳</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
+      ${ups.length ? `<span class="tm"><span class="tmk" title="上位トピック">↑</span>${ups.map(upChip).join('')}</span>` : ''}
+      ${befores.length ? `<span class="tm"><span class="tmk" title="独立前">↰</span>${befores.map(upChip).join('')}</span>` : ''}
+      ${refs.length ? `<span class="tm"><span class="tmk" title="独立したもの">↳</span>${refs.map(x => upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })).join('')}</span>` : ''}
     </div>${body}`;
   const fr = $('#pane .tfocus'); if (fr) { fr.scrollIntoView({ block: 'center' }); }   // ノートから飛んできたら、そのノートの行を示す
   if (tmode === 'edit') { // 1 つの欄。紙は ID(p)、デジタルは ID（親が紙の索引 なら、紙が ID、デジタルが ID(d)）
