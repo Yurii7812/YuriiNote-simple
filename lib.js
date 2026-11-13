@@ -289,8 +289,9 @@ function addToSection(body, heading, line) {
   if (lines.some(l => norm(l) === norm(line))) return body;
   const i = lines.findIndex(l => l.trim() === H);
   if (i < 0) {
-    const paper = lines.findIndex(l => l.trim() === '## 紙の日記');
-    if (heading !== '紙の日記' && paper >= 0) { lines.splice(paper, 0, H, '', line, ''); return lines.join('\n'); }
+    // 並びは、本文、紙の日記、今日のノートの順。紙の日記は「今日のノート」の前に、それ以外は最後に
+    const notes = lines.findIndex(l => l.trim() === '## 今日のノート');
+    if (heading === '紙の日記' && notes >= 0) { lines.splice(notes, 0, H, '', line, ''); return lines.join('\n'); }
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return (lines.length ? lines.join('\n') + '\n\n' : '') + H + '\n\n' + line;
   }
@@ -298,14 +299,17 @@ function addToSection(body, heading, line) {
   let k = j; while (k > i + 1 && !lines[k - 1].trim()) k--;
   lines.splice(k, 0, line); return lines.join('\n');
 }
-// 日のノートの「## 今日のノート」（その日に作ったノートへのリンクの並び）を、メモ・本文の下（紙の日記の上）へ。書いた文章は、いつも上
+// 日の本文の並び: 今日の記録、書いた文章、「## 紙の日記」、「## 今日のノート」。書いた文章は、いつも上
 function normDay(body) {
-  const lines = (body || '').split('\n'), i = lines.findIndex(l => l.trim() === '## 今日のノート');
-  if (i < 0) return body;
-  let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*(-\s+)?(\[[^\]]*\]\([^)]*\)|:[0-9a-z]+)\s*$/.test(lines[j]))) j++;
-  const sec = lines.slice(i, j), rest = lines.slice(j), pre = lines.slice(0, i), paper = rest.findIndex(l => l.trim() === '## 紙の日記');
-  const mid = paper < 0 ? rest : rest.slice(0, paper), tail = paper < 0 ? [] : rest.slice(paper);
-  return [...pre, ...mid, '', ...sec, '', ...tail].join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');
+  const lines = (body || '').split('\n');
+  const pi = lines.findIndex(l => l.trim() === '## 紙の日記'), ni = lines.findIndex(l => l.trim() === '## 今日のノート');
+  if (pi < 0 && ni < 0) return body;
+  const range = (i, item) => { let j = i + 1; while (j < lines.length && (item ? (!lines[j].trim() || item.test(lines[j])) : !/^##\s/.test(lines[j]))) j++; return [i, j]; };
+  const paper = pi >= 0 ? range(pi, null) : null;
+  const notes = ni >= 0 ? range(ni, /^\s*(-\s+)?(\[[^\]]*\]\([^)]*\)|:[0-9a-z]+)\s*$/) : null;
+  const inside = i => (paper && i >= paper[0] && i < paper[1]) || (notes && i >= notes[0] && i < notes[1]);
+  const rest = lines.filter((_, i) => !inside(i)), take = r => r ? lines.slice(r[0], r[1]).join('\n').replace(/\s+$/, '') : '';
+  return [rest.join('\n').replace(/\s+$/, ''), take(paper), take(notes)].filter(Boolean).join('\n\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').replace(/\s+$/, '');
 }
 // 年・月・日の階層（Gnosis 同様: 月はいつも、年は2つ以上の年にまたがってから）
 function diaryTree(dates) {

@@ -78,10 +78,10 @@ test('日記の日付・節・階層', () => {
   b = L.addToSection(b, '今日のノート', ':1');
   b = L.addToSection(b, '今日のノート', ':2');
   b = L.addToSection(b, '紙の日記', '![](P_2026-11-07.jpg)');
-  b = L.addToSection(b, '今日のノート', ':3'); // 「紙の日記」より前の節に入る
+  b = L.addToSection(b, '今日のノート', ':3');
   b = L.addToSection(b, '紙の日記', '![](P_2026-11-07_2.jpg)');
   assert.strictEqual(L.addToSection(b, '今日のノート', ':1'), b); // 二重に入れない
-  assert.strictEqual(b, '朝の話\n\n## 今日のノート\n\n:1\n:2\n:3\n\n## 紙の日記\n\n![](P_2026-11-07.jpg)\n![](P_2026-11-07_2.jpg)');
+  assert.strictEqual(b, '朝の話\n\n## 紙の日記\n\n![](P_2026-11-07.jpg)\n![](P_2026-11-07_2.jpg)\n\n## 今日のノート\n\n:1\n:2\n:3');   // 並び: 本文、紙の日記、今日のノート
   assert.deepStrictEqual(L.diaryTree(['2026-11-07', '2026-11-05', '2026-10-30']), [{ label: '2026-11', days: ['2026-11-07', '2026-11-05'] }, { label: '2026-10', days: ['2026-10-30'] }]);
   assert.deepStrictEqual(L.diaryTree(['2027-01-02', '2026-12-31']).map(y => y.label), ['2027', '2026']);
 });
@@ -154,5 +154,5 @@ test('トピックIndex: 1 つの文字に、印つきで。入口が紙なら�
 test('日のノート: 書いた文章は「今日のノート」（リンクの並び）の上に', () => {
   const L = require('../lib');
   assert.strictEqual(L.normDay('## 今日のノート\n\n:1e\n:1c6\n\n06:38 腹下し\n\n15:11 なんか'), '06:38 腹下し\n\n15:11 なんか\n\n## 今日のノート\n\n:1e\n:1c6');
-  assert.strictEqual(L.normDay('text\n\n## 今日のノート\n\n:1\n\n## 紙の日記\n\n![](a.jpg)'), 'text\n\n## 今日のノート\n\n:1\n\n## 紙の日記\n\n![](a.jpg)');
+  assert.strictEqual(L.normDay('text\n\n## 今日のノート\n\n:1\n\n## 紙の日記\n\n![](a.jpg)'), 'text\n\n## 紙の日記\n\n![](a.jpg)\n\n## 今日のノート\n\n:1');   // 紙の日記が、今日のノートの上
 });

@@ -129,7 +129,7 @@ test('v1（直下に <ID>.md / <ID>.jpg）も移す。添付の 5.png をノー�
   fs.rmSync(dir, { recursive: true });
 });
 
-test('日記: ノートを作ると作った日の日記に載り、紙の日記が最後に入る', () => {
+test('日記: ノートを作ると作った日の日記に載り、紙の日記は今日のノートの上に入る', () => {
   const dir = tmp(), r = f => fs.readFileSync(path.join(dir, f), 'utf8');
   const v = openVault(dir);
   v.saveNote({ s: 'd', id: '1', created: '2026-11-07 14:20', keywords: [], body: 'x' });
@@ -144,7 +144,7 @@ test('日記: ノートを作ると作った日の日記に載り、紙の日記
   v.addDiaryScan('2026-11-07', Buffer.from([0xff, 0xd8]));
   const d = v.addDiaryScan('2026-11-07', Buffer.from([0xff, 0xd8, 1]));
   assert.deepStrictEqual(d.pages, ['P_2026-11-07.jpg', 'P_2026-11-07_2.jpg']);
-  assert.match(d.body, /## 今日のノート[\s\S]*## 紙の日記\n\n!\[\]\(P_2026-11-07\.jpg\)\n!\[\]\(P_2026-11-07_2\.jpg\)$/);
+  assert.match(d.body, /## 紙の日記\n\n!\[\]\(P_2026-11-07\.jpg\)\n!\[\]\(P_2026-11-07_2\.jpg\)\n\n## 今日のノート/);   // 紙の日記は、今日のノートの上
   assert.match(r(dfile(v, '2026-11-07')), /\[x\]\(\d{14}\.md\)/);
   assert.match(r(dfile(v, '2026-11-07')), /!\[\]\(P_2026-11-07\.jpg\)/);
   assert.ok(r('日記.md').includes(`[2026-11-09（月）](${dfile(v, '2026-11-09')})`) && r('日記.md').includes(`[2026-11-07（土） 旅の話](${dfile(v, '2026-11-07')})`) && /## 2026-11/.test(r('日記.md')));

@@ -1677,7 +1677,7 @@ let scanSt = [], scanThumbs = [], scanBusy = false, scanBatch = '', scanTimer = 
 const startScan = fs => {
   queue = [...fs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = queue.map(f => URL.createObjectURL(f));
-  scanSt = queue.map(() => ''); qi = 0; scanBatch = ''; lastKws = '';
+  scanSt = queue.map(() => ''); qi = 0; scanBatch = ''; lastKws = ''; lastDiary = ''; $('#sc-date').value = '';
   $('#scan').style.display = 'flex'; $('#scan').classList.remove('zoomed'); showScan();
 };
 $('#imp').onclick = () => pick(true, startScan);
@@ -1712,7 +1712,7 @@ function showScan() {
   $('#sc-img').src = scanThumbs[qi]; $('#scan').classList.remove('zoomed');
   $('#sc-id').value = scanSuggest.sib(); $('#sc-kw').value = '';
   $('#q-sib').textContent = scanSuggest.sib(); $('#q-chi').textContent = scanSuggest.chi(); $('#q-up').textContent = scanSuggest.up();
-  if (!$('#sc-date').value) $('#sc-date').value = lastDiary || L.todayStr();
+  if (!$('#sc-date').value && lastDiary) $('#sc-date').value = lastDiary;   // 同じ日の紙の日記が続くときだけ、前の日付が残る。今日には、勝手にしない
   const recent = [...new Set([...L.splitKw(lastKws), ...allKeywords().slice(0, 40)])].slice(0, 12);
   $('#sc-kwchips').innerHTML = recent.map(k => `<span class="sc-kc" data-sc-kw="${esc(k)}" tabindex="-1">${esc(k)}</span>`).join('');
   scanStrip(); scanCheck();
@@ -1757,7 +1757,7 @@ function closeScan() {
   renderList();
 }
 $('#sc-save').onclick = scanOk;
-$('#sc-diary').onclick = diaryScanOk;
+$('#sc-diary').onclick = () => { if (!L.isDate($('#sc-date').value)) { $('#sc-date').focus(); return scanFlash('日記の日付を入れて、Enter'); } diaryScanOk(); };
 $('#sc-skip').onclick = scanSkip;
 $('#sc-close').onclick = closeScan;
 $('#sc-id').addEventListener('input', scanCheck);
@@ -1770,14 +1770,14 @@ $('#scan').addEventListener('click', e => {
 $('#scan').onkeydown = e => {
   if (e.isComposing || e.keyCode === 229) return;
   const alt = e.altKey && !e.ctrlKey && !e.metaKey, k = e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };
-  if (e.key === 'Enter' && e.target.id !== 'sc-date') { stop(); scanOk(); }
-  else if (e.key === 'Escape') { stop(); closeScan(); }
+  if (e.key === 'Enter') { stop(); if (e.target.id === 'sc-date') diaryScanOk(); else scanOk(); }   // 日付の欄で Enter なら、紙の日記に入れる
+  else if (e.key === 'Escape') { stop(); if (e.target.id === 'sc-date') { $('#sc-id').focus(); } else closeScan(); }
   else if (alt && e.key === 'ArrowRight') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
   else if (alt && e.key === 'ArrowDown') { stop(); $('#sc-id').value = scanSuggest.chi(); scanCheck(); $('#sc-id').focus(); }
   else if (alt && e.key === 'ArrowLeft') { stop(); $('#sc-id').value = scanSuggest.up(); scanCheck(); $('#sc-id').focus(); }
   else if (alt && k === 'k') { stop(); $('#sc-kw').value = lastKws; }
   else if (alt && k === 's') { stop(); scanSkip(); }
-  else if (alt && k === 'd') { stop(); diaryScanOk(); }
+  else if (alt && k === 'd') { stop(); $('#sc-date').focus(); scanFlash('日記の日付を入れて、Enter（Esc で戻る）'); }   // 勝手に今日にしない。日付を決めてから Enter
   else if (alt && k === 'z') { stop(); $('#scan').classList.toggle('zoomed'); }
   else if (e.key === 'PageDown') { stop(); scanGo(1); }
   else if (e.key === 'PageUp') { stop(); scanGo(-1); }
