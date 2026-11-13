@@ -22,8 +22,6 @@ main{flex:1;display:flex;min-height:0}
 #rail button{width:30px;height:30px;border:0;border-radius:8px;background:none;padding:0;color:#b7bbc6;display:inline-flex;align-items:center;justify-content:center}
 #rail button:hover{background:var(--hl);color:#666}#rail button.on{color:var(--acc);background:#f0f2fb}
 
-#stamp-toggle{width:auto;min-width:78px;padding:0 8px;font-size:12px;font-weight:600;white-space:nowrap}
-#stamp-toggle.on{color:var(--acc);background:var(--acc-bg)}
 #dlist details{border-bottom:1px solid #f2f2f2}#dlist summary{padding:6px 12px;cursor:pointer;font-weight:600;color:#444}
 #dlist .day{padding:4px 12px 4px 26px;cursor:pointer;display:flex;gap:8px}#dlist .day:hover,#dlist .day.on{background:var(--hl)}
 #dlist .day small{color:var(--sub)}#dlist .dtop{padding:8px 10px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
@@ -134,7 +132,7 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 .rd-acts{display:none;gap:2px;flex:none}.rd-row:hover .rd-acts,.rd-row.on .rd-acts,.rd-acts.on{display:inline-flex}.rd-acts button{width:30px;height:30px;border:0;border-radius:7px;background:transparent;font-size:15px;cursor:pointer;padding:0}.rd-acts button:hover{background:var(--bg)}.rd-row.edit input,.rd-row.edit select{flex:1;min-width:0;height:32px;padding:0 8px;border:1px solid var(--acc);border-radius:8px;font:inherit;background:var(--bg)}
 .rd-add{display:flex;gap:8px;padding-top:6px;border-top:1px solid var(--line)}.rd-add button{width:42px;height:40px;border-radius:10px;font-size:18px}
 .dh-upl{color:var(--sub);font-weight:700}.dh-pen{width:26px;height:26px;border:0;border-radius:7px;background:transparent;font-size:13px;cursor:pointer;padding:0;opacity:.6}.dh-pen:hover{opacity:1;background:var(--hl)}
-#paperonly,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#save-status[hidden]{display:none}#paperonly.on{background:var(--acc-bg);color:var(--acc)}
+#paperonly,#stamp-toggle,#save-status,#new,#more,#nav-back,#nav-fwd{font-size:17px}#save-status[hidden]{display:none}#paperonly.on,#stamp-toggle.on{background:var(--acc-bg);color:var(--acc)}
 i.tix{font-style:normal;cursor:pointer;margin:0 6px 0 -2px;font-size:12px;opacity:.7}i.tix:hover{opacity:1}
 .ti tr.tmark td{color:var(--sub);font-size:13px;padding-top:8px}
 .ix .mk-topic{margin-right:6px}
@@ -542,7 +540,7 @@ button,select,.vseg button,.nb,.tab span,.c-speaker-label{white-space:nowrap}
 .item.topicrow.tc{margin:6px 10px;padding:9px 12px;border-radius:10px}.item.topicrow.tc.on,.item.topicrow.tc.decided{border-radius:10px}   /* カード表示のとき、索引 の行も、カードと同じ幅に */
 body{font-family:var(--uifont,system-ui),"Noto Sans JP","Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif}button,input,select,textarea{font-family:inherit}
 html.dark{filter:invert(.92) hue-rotate(180deg);background:#fff}html.dark img,html.dark .kimg,html.dark video,html.dark .pic img{filter:invert(1) hue-rotate(180deg)}
-#rail #settings-btn{margin-top:auto;font-size:18px}
+#rail #more{margin-top:auto;font-size:20px}
 .sdlg h3{margin:0 0 8px}.sdlg .sec{border-top:1px solid var(--line);padding:10px 0}.sdlg .sec:first-of-type{border-top:0}.sdlg .sec>b{display:block;font-size:12px;color:var(--sub);letter-spacing:.06em;margin-bottom:6px}
 .sdlg .srow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0}.sdlg .srow>span{min-width:110px;font-size:13px}.sdlg .sw{display:inline-block;width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent}.sdlg .sw.on{border-color:#222}
 .sdlg input[type=range]{flex:1;min-width:120px}.sdlg select,.sdlg input[type=text],.sdlg input[type=number]{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:2px 6px}
@@ -581,7 +579,7 @@ body{-webkit-user-select:none;user-select:none}
 </head>
 <body>
 <main>
-  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="settings-btn" title="設定">⚙️</button><button id="more" class="ic" title="メニュー">🧰</button></nav>
+  <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="more" class="ic" title="メニュー">🧰</button></nav>
   <aside>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>
@@ -593,7 +591,7 @@ body{-webkit-user-select:none;user-select:none}
       <button id="nav-back" class="ic" title="戻る (Ctrl+,)" disabled>⬅️</button><button id="nav-fwd" class="ic" title="進む (Ctrl+.)" disabled>➡️</button>
       <div id="tabbar"></div>
       <button id="save-status" class="ic" aria-live="polite" title="保存済み" hidden>⚠️</button>
-      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="new" class="ic" title="新規">➕</button><button id="stamp-toggle" class="ic" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻表示" aria-pressed="true">⏱️ ON</button>
+      <button id="paperonly" class="ic" title="全体を紙だけにする（ノート・Index・トピックIndex）">📜</button><button id="stamp-toggle" class="ic" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻の表示" aria-pressed="true">⏱️</button><button id="new" class="ic" title="新規">➕</button>
       <button id="imp" hidden></button><button id="vault" hidden></button>
     </div>
     <div id="idbar" hidden></div>

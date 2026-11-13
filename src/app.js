@@ -308,7 +308,6 @@ function syncStampToggle() {
   const on = stampsShown();
   b.classList.toggle('on', on);
   b.setAttribute('aria-pressed', String(on));
-  b.textContent = '⏱️ ' + (on ? 'ON' : 'OFF');
   b.title = '行ごとの時刻を' + (on ? '表示中' : '非表示中') + '（Ctrl+R）';
 }
 function toggleStamp(view) {
