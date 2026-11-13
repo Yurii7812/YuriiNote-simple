@@ -908,7 +908,8 @@ function openNote(s, id, n, keep, mid) {
   if (n) { const p = L.anchorPos(note.body, n); if (p >= 0) jump(view, p); }
   else if (hitAt >= 0) view.dispatch({ effects: EditorView.scrollIntoView(hitAt, { y: 'center' }) }); // 検索から開いたら、最初の一致の所へ
   else if (keep && cur.pos != null) jump(view, Math.min(cur.pos, view.state.doc.length));
-  else if (s === 'd' && !note.body) view.focus(); // 新規ノートは題名欄でなく本文にカーソルを置く
+  else if (focusNewBody && s === 'd' && !note.body) view.focus(); // 作ったばかりのノートだけ、本文にカーソルを置く（移動で開いた、空のノートでは、勝手に入らない）
+  focusNewBody = false;
 }
 // ノートにIDを付ける・変える（ファイル名が変わり、日記のリンクなども直る）
 async function changeId(note, v) {
@@ -1128,10 +1129,11 @@ function keywordDialog(note) {
   $('#kw-ok').onclick = ok; $('#kw-no').onclick = close; $('#modal').onkeydown = e => { if (e.key === 'Escape') close(); };
   cands();
 }
+let focusNewBody = false;   // 「作る」で開いたときだけ、本文にカーソルを置く
 async function create(s, id) {
   const n = await api.saveNote({ s, id, created: L.now(), keywords: [], body: '' });
   notes.push(n); if (s === 'd') await refreshDiaries();
-  openNote(s, id);
+  focusNewBody = true; openNote(s, id);
 }
 // ノートを作ると作った日の日記が（無ければ）できて、リンクが入る。その日記を取り込み直す
 async function refreshDiaries() {
