@@ -882,7 +882,7 @@ function closeTab(i) {
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
   : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'similar' ? '🔍 類似' : t.k === 'tlist' ? `📑 ${esc(t.id)}` : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
 // 右のパネル（キーワード・索引・つながり）を、試しに、左の一覧の右（ノートの左）に置く。panelLeft を切ると、元の右に戻る
-let panelLeft = (() => { try { return localStorage.getItem('ysimple-panel-left') !== '0'; } catch { return true; } })();
+let panelLeft = (() => { try { return localStorage.getItem('ysimple-panel-left') === '1'; } catch { return false; } })();   // 標準は、右（元の位置）
 function syncLeftPanel() {
   const lp = $('#leftpanel'); if (!lp) return;
   const m = $('#pane #margin');
@@ -2170,7 +2170,7 @@ $('#stamp-toggle').oncontextmenu = e => {
   e.preventDefault(); const P = stampPresets(), r = $('#stamp-toggle').getBoundingClientRect(), mark = on => on ? '✔ ' : '　 ', sample = '2026-11-13 12:54:30';
   popMenu({ clientX: Math.max(8, r.right - 260), clientY: r.bottom + 4 }, [
     [mark(stampsShown()) + '行ごとの時刻を表示', () => toggleStamp(lastView)],
-    [mark(panelLeft) + 'パネルを、ノートの左（リストの右）に置く', () => togglePanelLeft()],
+    [mark(panelLeft) + 'パネルを、左（リストの右）に置く（標準は右）', () => togglePanelLeft()],
     [mark(P.current === 'all') + '全部（' + sample + '）', () => useStampPreset('all')],
     ...P.list.map(x => [mark(P.current === x.name) + x.name + '（' + Stamp.format(sample, x) + '）', () => useStampPreset(x.name)]),
     ['＋ カスタムを作る…', () => stampPresetDialog(null)],
