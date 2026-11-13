@@ -1598,6 +1598,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
       <span class="grow"></span>
       ${tmode === 'conf' ? '' : `<button class="tbtn" data-act="tconf" title="名前・親・点のキーワードを変える">⚙️ 名前・親</button>
       ${tmode === 'conf' ? '' : '<button class="tbtn" data-act="tup" title="この索引の、上位トピックを、新しく作る">⬆️ 上位を作る</button>'}
+      ${tmode === 'conf' ? '' : '<button class="tbtn" data-act="tind" title="キーワードを、新しいIDの索引として、独立させる">↪️ 独立させる</button>'}
       <button class="tbtn ${tmode === 'edit' ? 'p' : ''}" data-act="tedit">${tmode === 'edit' ? '✅ 完了' : '✏️ 編集'}</button>`}
     </div>
     <div class="row tmeta">
@@ -1694,6 +1695,48 @@ function openTopicList(s, id, keep) {
     <table class="ti">${ts.map(rowOf).join('') || '<tr><td class="none">索引はありません</td></tr>'}</table>`;
   renderTabs(); renderList();
 }
+// ↪️ 独立させる: キーワードを、新しいIDの索引に。元の索引の行に赤点（*新ID）と「|> キーワード 新ID」、新しい索引に「<| 元の索引 番号」を、一度に書く
+function topicIndependDialog(t) {
+  const s = t.entry && t.entry.s === 'p' ? 'p' : 'd', kws = L.mergeTopic(t).rows.map(r => r.kw).filter(Boolean);
+  const rootFree = () => { const r = notes.filter(n => n.s === s && /^\d+$/.test(n.id)).map(n => +n.id); return free(s, String((r.length ? Math.max(...r) : 0) + 1)); };
+  $('#modal .box').innerHTML = `<div class="dlg-a"><h3>↪️ 独立させる</h3>
+    <div class="da-lab">独立させるキーワード</div>
+    <input id="ti-kw" list="ti-kws" placeholder="例: 掛け算"><datalist id="ti-kws">${kws.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
+    <div class="da-lab">新しいID（無ければ、新しいノートを作ります）</div>
+    <input id="ti-id" style="width:120px" value="${esc(rootFree())}">
+    <div class="da-lab">新しい索引の名前</div>
+    <input id="ti-name">
+    <div class="da-bar"><span class="grow"></span><button id="ti-cancel">やめる</button><button id="ti-ok" class="p">↪️ 独立させる</button></div></div>`;
+  $('#modal').style.display = 'flex'; $('#ti-kw').focus();
+  const close = () => { $('#modal').style.display = 'none'; };
+  let nameTouched = false; $('#ti-name').oninput = () => { nameTouched = true; };
+  $('#ti-kw').oninput = () => { if (!nameTouched) $('#ti-name').value = $('#ti-kw').value.trim(); };
+  $('#ti-cancel').onclick = close;
+  $('#ti-ok').onclick = async () => {
+    const kw = $('#ti-kw').value.trim(), id = $('#ti-id').value.trim().toLowerCase(), name = $('#ti-name').value.trim() || kw;
+    if (!kw) return alert('キーワードを入れてください');
+    if (!L.isId(id)) return alert('IDの形が違います（例: 12 や 3a）');
+    if (topics.find(x => x.name === name)) return alert('その名前の索引は、既にあります');
+    if (get(s, id) && topicsOf(s, id).length) return alert(`${id} には、すでに索引があります。別のIDにしてください`);
+    if (!get(s, id)) { const n = await api.saveNote({ s, id, created: L.now(), title: kw, keywords: [], body: '' }); notes.push(n); if (s === 'd') await refreshDiaries(); }
+    const g = { name, entry: { s, id }, keyword: '', text: `<| ${stripId(t.name)} ${topicNo(t)}` }, sv = await api.saveTopic(g);
+    if (!sv) return alert('保存できませんでした');
+    g.num = sv === true ? 1 : sv; topics.push(g);
+    // 元の索引: キーワードの行に赤点（*新ID）、独立の行（|> キーワード 新ID）
+    const lines = L.topicText(t).split('\n'); let done = false;
+    for (let i = 0; i < lines.length && !done; i++) {
+      const r = L.topicLine(lines[i]);
+      if (r.star !== undefined || r.up !== undefined || r.before !== undefined || r.down !== undefined || r.mark !== undefined || r.kw !== kw || !r.ids.length) continue;
+      let line = lines[i]; for (const x of r.ids.filter(x => x.dot).sort((p, q) => q.dotAt - p.dotAt)) line = line.slice(0, x.dotAt) + line.slice(x.dotAt + 1);
+      lines[i] = line.replace(/\s+$/, '') + ' *' + id; done = true;
+    }
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    if (!done) lines.push(`${kw} *${id}`);
+    lines.push(`|> ${kw} ${id}`);
+    t.text = lines.join('\n').replace(/^\n+/, '') + '\n'; saveTopic(t);
+    rowDots = null; close(); renderList(); openTopic(name, 'view');
+  };
+}
 // ⬆️ 上位を作る: 新しいトピック Index（この索引と同じ親ノートの、次の番号。1-1 の次は 1-2）を作り、この索引に「^名前 番号」、新しい方に「_この名前 番号」を書く
 function topicUpDialog(t) {
   if (!t.entry) return alert('親のノートがない索引には、上位を作れません（⚙️ で親を決めてください）');
@@ -1721,6 +1764,7 @@ async function topicAct(act) {
   if (act === 'tedit') return openTopic(t.name, cur.mode === 'edit' ? 'view' : 'edit', true);
   if (act === 'tconf') return openTopic(t.name, 'conf', true);
   if (act === 'tup') return topicUpDialog(t);
+  if (act === 'tind') return topicIndependDialog(t);
   if (act === 'tcancel') return openTopic(t.name, 'view', true);
   if (act === 'tdel') return deleteTopicNamed(t.name);
   if (act === 'tsave') {
