@@ -127,11 +127,12 @@ test('リンク: ->1a,1b で複数。-> 1a（空白）や コードの中はリ�
   assert.deepStrictEqual(ids('~~~\n->7\n~~~'), []);
   assert.ok(!L.bodyToMd('`->3`', x => x + '.md').includes('](')); // Markdown にしてもリンクにならない
 });
-test('トピックIndex: +hoge 1 は 1 がリンクの星。+GUI だけなら案内', () => {
+test('トピックIndex: ⭐（+ ★）は関連。名前 ID は関連するキーワードの行、名前だけなら索引への案内。|> は独立', () => {
   const r = L.topicLine('+hoge 1');
-  assert.deepStrictEqual(r.ref, { label: 'hoge', id: '1', sp: undefined, from: 6, to: 7 }); assert.strictEqual(r.star, '');
-  const m = L.mergeTopic({ d: '+hoge 1\n+GUI\nPKM 1', p: '★ 紙 2a' });
-  assert.deepStrictEqual(m.refs, [{ s: 'd', label: 'hoge', id: '1' }, { s: 'p', label: '紙', id: '2a' }]);
+  assert.strictEqual(r.star, ''); assert.strictEqual(r.rel.kw, 'hoge'); assert.deepStrictEqual(r.ids.map(x => x.id), ['1']);
+  const m = L.mergeTopic({ d: '+hoge 1\n+GUI\nPKM 1\n|> 独立 3', p: '★ 紙 2a' });
+  assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)]), [['hoge', ['d1']], ['紙', ['p2a']]]);
+  assert.deepStrictEqual(m.refs, [{ s: 'd', label: '独立', id: '3' }]);
   assert.deepStrictEqual(m.stars, ['GUI']); assert.strictEqual(m.rows.length, 1);
 });
 
@@ -144,7 +145,7 @@ test('紙とデジタルの書き分け: ->ID(p)・(d)・(番号) の順は自�
 });
 test('トピックIndex: 1 つの文字に、印つきで。入口が紙なら、印なしは紙', () => {
   const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'デジタルと紙の書き分け 1g(1) 2(p) 3(2)(p)\n+hoge 5(p)' });
-  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p], [['1g(1)'], ['2', '3(2)']]); assert.deepStrictEqual(m.refs, [{ s: 'p', label: 'hoge', id: '5' }]);
+  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p], [['1g(1)'], ['2', '3(2)']]); assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)]), [['hoge', ['p5']]]);
   const p = L.mergeTopic({ entry: { s: 'p', id: '9' }, text: 'x 1 2(d)' });   // 紙のトピックIndex
   assert.deepStrictEqual([p.rows[0].p, p.rows[0].d], [['1'], ['2']]);
   assert.strictEqual(L.removeFromTopic('x 1 2(p)', [{ s: 'p', id: '2' }], 'd'), 'x 1'); assert.strictEqual(L.addToTopic('x 1', 'x', '2(p)'), 'x 1 2(p)');
@@ -174,7 +175,7 @@ test('Markdown との行き来: コンマ続きのID（->1a,1b,1c と 1a,1b->）
 
 test('トピックIndex: 上位（^）・独立（|> ↳ + ★）・独立前（<| ↰）は、別々。行の終わりの 0-1 は索引へのリンク', () => {
   const T = L.topicLine;
-  for (const l of ['↳楔形文字で粘土板に英語を書く 2', '|> 楔形文字で粘土板に英語を書く 2', '+楔形文字で粘土板に英語を書く 2', '★ 楔形文字で粘土板に英語を書く 2']) {
+  for (const l of ['↳楔形文字で粘土板に英語を書く 2', '|> 楔形文字で粘土板に英語を書く 2', '↪️ 楔形文字で粘土板に英語を書く 2']) {
     const r = T(l); assert.strictEqual(r.star, '', l); assert.deepStrictEqual([r.ref.label, r.ref.id], ['楔形文字で粘土板に英語を書く', '2'], l);
   }
   for (const l of ['↰楔形文字で粘土板に英語を書く 1b', '<| 楔形文字で粘土板に英語を書く 1b']) {

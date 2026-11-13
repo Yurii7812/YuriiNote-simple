@@ -232,14 +232,21 @@ function topicLine(line) {
   if (dn) { const r = rowOf(dn[2], dn[1].length); return { down: r.kw, ids: r.ids, tnos: r.tnos, from: dn[1].length, to: dn[1].length + dn[2].length }; }   // ^キーワード ID …（IDは書かなくてもよい）
   const mk = line.match(/^(\s*[*＊]\s*)(.+?)\s*$/);   // 昔の *まとめ も ◯ の見出し（*1a のように、すぐあとが番号のときは、行の中の赤い点なので、ここでは読まない）
   if (mk && !parseIdTok(mk[2].split(/\s+/)[0])) return { mark: mk[2], from: mk[1].length, to: mk[1].length + mk[2].length, ids: [] };
-  const s = line.match(/^(\s*(?:[★☆+＋↳]|\|>|⭐\uFE0F?|↘\uFE0F?|↪\uFE0F?)\s*)(.*?)\s*$/);   // ↳名前 ID（打つときは |>）→ 独立した索引への案内。昔の + ★ も同じ
-  if (s) {
-    // +hoge 1 → 「★ hoge 1」（1 がリンク。そのIDの索引 があってもなくても）。+GUI だけなら、索引 への案内
-    const ps = [...s[2].matchAll(/\S+/g)], last = ps[ps.length - 1], pt = last && parseIdTok(last[0]);
+  // |> ↪️ ↳（独立したもの）: 名前 ID → 独立した索引への案内
+  const ind = line.match(/^(\s*(?:↳|\|>|↘\uFE0F?|↪\uFE0F?)\s*)(.*?)\s*$/);
+  if (ind) {
+    const ps = [...ind[2].matchAll(/\S+/g)], last = ps[ps.length - 1], pt = last && parseIdTok(last[0]);
     if (ps.length >= 2 && pt) {
-      const at = s[1].length + last.index;
-      return { star: '', ref: { label: s[2].slice(0, last.index).trim(), id: pt.id, sp: pt.sp, from: at, to: at + last[0].length }, from: s[1].length, to: s[1].length + s[2].length, ids: [] };
+      const at = ind[1].length + last.index;
+      return { star: '', ref: { label: ind[2].slice(0, last.index).trim(), id: pt.id, sp: pt.sp, from: at, to: at + last[0].length }, from: ind[1].length, to: ind[1].length + ind[2].length, ids: [] };
     }
+    return { star: ind[2], from: ind[1].length, to: ind[1].length + ind[2].length, ids: [] };
+  }
+  // ⭐ + ★ ☆ ＋（関連）: 名前だけなら、その索引への案内。名前 ID … なら、分類の外だが関連するキーワードの行
+  const s = line.match(/^(\s*(?:[★☆+＋]|⭐\uFE0F?)\s*)(.*?)\s*$/);
+  if (s) {
+    const r = rowOf(s[2], s[1].length);
+    if (r.kw && (r.ids.length || (r.tnos || []).length)) return { star: '', rel: { kw: r.kw }, ids: r.ids, tnos: r.tnos, from: s[1].length, to: s[1].length + s[2].length };
     return { star: s[2], from: s[1].length, to: s[1].length + s[2].length, ids: [] };
   }
   return rowOf(line, 0);
@@ -263,6 +270,7 @@ function legacyTopicText(t) {
   const def = defOf(t), out = [];
   for (const sp of ['d', 'p']) for (const line of (t[sp] || '').split('\n')) {
     const r = topicLine(line);
+    if (r.rel && sp !== def) { out.push(line.slice(0, r.from) + r.rel.kw + ' ' + r.ids.map(x => x.raw + (x.sp ? '' : `(${sp})`)).join(' ')); continue; }
     if (r.ref && sp !== def && r.ref.sp === undefined) { out.push(line.slice(0, r.ref.to) + `(${sp})` + line.slice(r.ref.to)); continue; }   // 「+名前 ID」の星も、側を付ける
     if (r.star !== undefined || r.up !== undefined || r.before !== undefined || r.down !== undefined || r.mark !== undefined || (!r.ids.length && !(r.tnos || []).length)) { if (line.trim()) out.push(line); continue; }
     out.push(r.kw + ' ' + r.ids.map(x => x.raw + (sp !== def ? `(${sp})` : '')).join(' '));
@@ -272,10 +280,11 @@ function legacyTopicText(t) {
 const topicText = t => t.text !== undefined ? t.text : legacyTopicText(t);
 // 表示用に: [{kw, d:[ids], p:[ids]}], stars, refs。(p) (d) の印で、紙とデジタルに分ける
 function mergeTopic(t) {
-  const m = new Map(), stars = [], refs = [], chats = [], ups = [], downs = [], befores = [], marks = [], order = [], def = defOf(t);   // order: 書いた順（行ごとの印も、ふつうの行も）
+  const m = new Map(), stars = [], refs = [], chats = [], ups = [], downs = [], befores = [], marks = [], rels = [], order = [], def = defOf(t);   // order: 書いた順（行ごとの印も、ふつうの行も）
   for (const line of topicText(t).split('\n')) {
     const r = topicLine(line);
     if (r.chat) { if (!chats.includes(r.chat)) chats.push(r.chat); continue; }
+    if (r.rel) { const o = { kw: r.rel.kw, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; rels.push(o); order.push({ k: 'rel', o }); continue; }
     if (r.ref) { const s = r.ref.sp || def; if (!refs.some(x => x.s === s && x.id === r.ref.id && x.label === r.ref.label)) { const o = { s, label: r.ref.label, id: r.ref.id }; refs.push(o); order.push({ k: 'ref', o }); } continue; }
     if (r.up !== undefined) { if (!ups.some(x => x.kw === r.up && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) { const o = { kw: r.up, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; ups.push(o); order.push({ k: 'up', o }); } continue; }
     if (r.down !== undefined) { if (!downs.some(x => x.kw === r.down && x.ids.map(i => i.raw).join() === r.ids.map(i => i.raw).join())) { const o = { kw: r.down, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; downs.push(o); order.push({ k: 'down', o }); } continue; }
@@ -289,7 +298,7 @@ function mergeTopic(t) {
     for (const x of r.tnos || []) if (!m.get(k).t.includes(x.tno)) m.get(k).t.push(x.tno);
     for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); if (x.dot && !m.get(k).dot) m.get(k).dot = { s, id: x.id }; }   // 並びには (番号) つきのまま入れる
   }
-  return { rows: [...m.values()], stars, refs, chats, ups, downs, befores, marks, order };
+  return { rows: [...m.values()], stars, refs, chats, ups, downs, befores, marks, rels, order };
 }
 
 // 索引 の文字に「キーワード ID」を足す（同じキーワードの行があればその行の後ろに）。ID は 1a や 1a(p) のように、印つきで

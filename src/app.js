@@ -173,7 +173,7 @@ function links(mode, space) {
           const g = /^(\^|＾|↑|⬆\uFE0F?)$/.test(lead[2]) ? L.TMARK.up : /^(_|＿|↓|⬇\uFE0F?)$/.test(lead[2]) ? L.TMARK.down : /^(↰|<\||↖\uFE0F?|↩\uFE0F?)$/.test(lead[2]) ? L.TMARK.before : /^(@|＠|\*|＊|⭕\uFE0F?)$/.test(lead[2]) ? L.TMARK.mark : L.TMARK.ref;
           if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
         }
-        if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
+        if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.rel) { for (const x of r.ids) add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id)); for (const x of r.tnos || []) { const tt = topics.find(y => topicNo(y) === x.tno); add(off + x.from, off + x.to, { t: 'topic', name: tt ? tt.name : x.tno }, !!tt); } } else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
         else { for (const x of r.ids) {
             if (x.dot) { const on2 = selM.from <= off + x.to && selM.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({})); }   // 赤点は、IDの上に（紙と同じ）。書いた * は、見た目では隠す   // 番号の前の * は、赤い点
             add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id), x.dot ? 'dotid' : ''); }
@@ -1550,7 +1550,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
   cur = place({ k: 'topic', name, mode: tmode }, keep); cur.mode = tmode; mode = 'notes';
   if (!inPreview) decided = { k: 'topic', name };
   if (!inPreview && !$('#q').value && t.entry && t.entry.id !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
-  const { rows, stars, refs, ups, downs, befores, marks, order } = L.mergeTopic(t), e = t.entry;
+  const { rows, stars, refs, ups, downs, befores, marks, order, rels } = L.mergeTopic(t), e = t.entry;
   const hit = r => !!focus && [...(r.d || []).map(x => ['d', x]), ...(r.p || []).map(x => ['p', x])].some(([s, x]) => s === focus.s && L.splitAnchor(x).id === focus.id);
   const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
     const o = ((u.tnos || []).map(no => topics.find(x => topicNo(x) === no)).find(Boolean)) || (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw)), x0 = u.ids[0];
@@ -1574,6 +1574,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
       row: r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td${r.dot ? ` class="dotkw" data-chipish="1" data-s="${r.dot.s}" data-id="${esc(r.dot.id)}" title="赤い点の番号（入口）へ"` : ''}>${r.mark ? `<span class="tmk">${L.TMARK.mark}</span> ` : ''}${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`,
       mark: x => `<tr class="tmark"><td colspan="2"><span class="tmk">${L.TMARK.mark}</span> ${esc(x)}</td></tr>`,
       star: x => `<tr><td>${L.TMARK.star} ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`,
+      rel: u => `<tr class="trel"><td>${L.TMARK.star} ${esc(u.kw)}</td><td>${u.ids.map(x => chip(x.s, x.raw)).join('')}${(u.tnos || []).map(tnoChip).join('')}</td></tr>`,
       up: u => `<tr class="trel"><td><span class="tmk">${L.TMARK.up}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`,
       down: u => `<tr class="trel"><td><span class="tmk">${L.TMARK.down}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`,
       before: u => `<tr class="trel"><td><span class="tmk">${L.TMARK.before}</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`,
