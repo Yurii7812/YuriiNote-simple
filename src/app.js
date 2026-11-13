@@ -437,19 +437,22 @@ const fzHidden = n => {   // 先祖のどれかがたたまれていれば、隠
   while (p && guard++ < 64) { if (foldIds.has(n.s + ':' + p)) return true; p = L.parentIn(p, has); }
   return false;
 };
-// Trilium のように: たたんでいるとき、開いたノートまでの道（先祖）だけがひらく。ほかは、たたんだまま
+// 開いているノートの先祖（そのノートまでの道）
+const fzAncestors = n => { const has = x => !!get(n.s, x), out = new Set(); let p = L.parentIn(n.id, has), guard = 0; while (p && guard++ < 64) { out.add(n.s + ':' + p); p = L.parentIn(p, has); } return out; };
+// たたんでいるとき、開いたノートが隠れていたら、先祖だけをひらく（ほかは、そのまま）
 function autoFold(n) {
   if (!foldIds.size || !n || n.noid) return;
-  const has = x => !!get(n.s, x), open = new Set();
-  let p = L.parentIn(n.id, has), guard = 0;
-  while (p && guard++ < 64) { open.add(n.s + ':' + p); p = L.parentIn(p, has); }
-  const next = new Set();
-  for (const m of notes) if (!m.noid && fzKids(m) && !open.has(m.s + ':' + m.id)) next.add(m.s + ':' + m.id);
-  foldIds = next; saveFold();
+  const anc = fzAncestors(n); let changed = false;
+  for (const k of anc) if (foldIds.delete(k)) changed = true;
+  if (changed) saveFold();
 }
-function toggleFoldAll() {   // Ctrl+J: 全部たたむ／全部ひらく
+function toggleFoldAll() {   // Ctrl+J: 最初だけ、開いているノートまでを残して、全部たたむ。もう一度で、全部ひらく。そのあとは、ふつう（▾ ▸ で手で）
   if (foldIds.size) { foldIds.clear(); toast('折りたたみを、全部ひらきました'); }
-  else { for (const n of notes) if (!n.noid && fzKids(n)) foldIds.add(n.s + ':' + n.id); toast('折りたたみました（親のノートだけ。Ctrl+J でひらく）'); }
+  else {
+    const n = cur && cur.k === 'note' ? get(cur.s, cur.id) : null, keep = n && !n.noid ? fzAncestors(n) : new Set();
+    for (const m of notes) if (!m.noid && fzKids(m) && !keep.has(m.s + ':' + m.id)) foldIds.add(m.s + ':' + m.id);
+    toast('折りたたみました（開いているノートまでは、ひらいたまま。Ctrl+J で全部ひらく）');
+  }
   saveFold(); renderList();
 }
 const noteRow = (n, label = false, q = '') =>
