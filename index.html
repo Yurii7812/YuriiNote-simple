@@ -57,6 +57,19 @@ button:disabled{opacity:.4;cursor:default}
 .md-tw{position:relative;display:inline-block;max-width:100%;margin:6px 0;padding:0 26px 26px 0;overflow:auto;vertical-align:top}
 .stamp{color:var(--sub);font-size:.72em;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.85;margin-right:.7em}
 #sort-key.dim{opacity:.45;cursor:default}
+/* ページ内検索（Ctrl+F）: 検索・置換 */
+.cm-panels{background:var(--bg);border-color:var(--line);color:var(--fg)}
+.cm-panels-top{border-bottom:1px solid var(--line)}
+.cm-search{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px 6px;padding:6px 10px!important;font-size:13px}
+.cm-search input[type=text],.cm-search .cm-textfield{border:1px solid var(--line);border-radius:7px;padding:4px 8px;background:var(--bg);color:var(--fg);font:inherit;min-width:150px}
+.cm-search input[name=search]{min-width:200px}
+.cm-search .cm-button{border:1px solid var(--line);border-radius:7px;background:var(--hl,#f5f6f9);background-image:none;color:var(--fg);padding:4px 10px;font:inherit;cursor:pointer}
+.cm-search .cm-button:hover{background:var(--acc-bg)}
+.cm-search label{display:inline-flex;align-items:center;gap:3px;color:var(--sub);font-size:12px;white-space:nowrap}
+.cm-search br{display:none}
+.cm-search button[name=close]{margin-left:auto;border:0;background:transparent;font-size:18px;color:var(--sub);cursor:pointer}
+.cm-searchMatch{background:rgba(255,213,79,.35)!important;outline:1px solid rgba(240,170,0,.5)}
+.cm-searchMatch-selected{background:rgba(255,160,0,.55)!important}
 /* ブレストボード: 文字は箱なし。どこからでもペン */
 .bd{position:relative;margin:8px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden;resize:vertical;min-height:220px;max-width:100%}
 .bd-stage{position:relative;touch-action:none;cursor:text;user-select:none;outline:none;width:100%;height:100%}
@@ -578,7 +591,7 @@ body{-webkit-user-select:none;user-select:none}
 <main>
   <nav id="rail"><button data-mode="notes" title="ノート">📝</button><button data-mode="diary" title="日記">📔</button><button id="memopad" title="メモ帳（今日のメモ帳をすぐ開く）">🗒️</button><button id="more" class="ic" title="メニュー">🧰</button></nav>
   <aside>
-    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F　（Esc でやめる）"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
+    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+Shift+F（エディタの外なら Ctrl+F）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></div>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><button data-tab="f" title="ファイル（画像・html・csv など）"><span class="te">📎</span></button><button data-tab="i" title="Index（キーワード）"><span class="te">🔖</span></button></div>
     <div id="selbar"></div>
     <div id="list"></div>

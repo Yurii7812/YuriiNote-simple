@@ -10,6 +10,8 @@ import * as ReferencePicker from './reference-picker.js';
 import { plainDoc } from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
 import { boardTemplate, focusBoardAt } from './board.js';
+import * as Q from './query.js';
+import { search, searchKeymap } from '@codemirror/search';
 import { stampsShown, setStampsShown, stampFormat, setStampFormat } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
@@ -249,7 +251,7 @@ const images = space => {
   return StateField.define({ create: build, update: (v, tr) => tr.docChanged ? build(tr.state) : v, provide: f => EditorView.decorations.from(f) });
 };
 // 開いているノートの本文に、検索した語の印を付ける（md.js の searchHighlight が読む）
-function searchMark() { if (lastView && lastView.dom.isConnected) lastView.dispatch({ effects: setSearch.of(searchQ) }); }
+function searchMark() { if (lastView && lastView.dom.isConnected) lastView.dispatch({ effects: setSearch.of(searchQ ? qTerms(searchQ) : '') }); }
 let lastView = null;
 // URL を貼ったら、ページの題を取ってきて [題](URL) にする（取れるまでは URL のまま。選んでいた文字があれば、その文字が表示名）
 let plainPaste = false;   // Ctrl+Shift+V（書式なしで貼る）: 題をつけず、URL をそのまま（裸で）入れる
@@ -323,6 +325,8 @@ function insertNextAnchor(view) {
   const text = `(${(nums.length ? Math.max(...nums) : 0) + 1})`, at = view.state.selection.main.head;
   view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } }); view.focus(); return true;
 }
+// ページ内検索（Ctrl+F: 今開いているページの中を、次へ・前へ・置換）。パネルの文言
+const SEARCH_JA = { 'Find': '検索', 'Replace': '置換', 'next': '次へ', 'previous': '前へ', 'all': 'すべて選択', 'match case': '大文字小文字を区別', 'regexp': '正規表現（a|b で、どちらか）', 'by word': '単語単位', 'replace': '置換', 'replace all': 'すべて置換', 'close': '閉じる', 'current match': '今の一致', 'on line': '行', 'replaced $ matches': '$ 件を置換しました', 'replaced match on line $': '$ 行目を置換しました', 'Go to line': '行へ移動', 'go': '移動' };
 function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
   const binding = { read, syncing: false };
   const view = lastView = new EditorView({
@@ -335,7 +339,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
           if (ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
           return false;
         },
-      })), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
+      })), search({ top: true }), keymap.of(searchKeymap.filter(k => !['Mod-g', 'Shift-Mod-g', 'Mod-d', 'Mod-Alt-g'].includes(k.key))), EditorState.phrases.of(SEARCH_JA), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
   });
@@ -399,11 +403,15 @@ const firstLine = n => (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '
 const titleOf = n => (n.title || '').trim() || (firstLine(n) || '（無題）');
 // 検索: 一致した所を mark で囲む（大文字小文字は区別しない）
 const escRe = q => q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const mk = (text, q) => !q ? esc(text) : String(text).split(new RegExp('(' + escRe(q) + ')', 'ig')).map((p, i) => i % 2 ? `<mark>${esc(p)}</mark>` : esc(p)).join('');
+// 検索語の強調・本文の抜き出し: 検索の書き方（演算子）の、含めたいふつうの言葉だけを使う
+const qTermsCache = new Map(), qTerms = q => { let t = qTermsCache.get(q); if (!t) { t = Q.terms(q).sort((x, y) => y.length - x.length); if (qTermsCache.size > 50) qTermsCache.clear(); qTermsCache.set(q, t); } return t; };
+const mk = (text, q) => { const ts = q ? qTerms(q) : []; return !ts.length ? esc(text) : String(text).split(new RegExp('(' + ts.map(escRe).join('|') + ')', 'ig')).map((p, i) => i % 2 ? `<mark>${esc(p)}</mark>` : esc(p)).join(''); };
 // 本文の中の、最初に一致した所の周辺（前後を省略して）。一致が無ければ ''
 function snippet(body, q) {
-  const i = body.toLowerCase().indexOf(q.toLowerCase()); if (i < 0) return '';
-  const a = Math.max(0, i - 24), b = Math.min(body.length, i + q.length + 56);
+  const low = body.toLowerCase(); let i = -1, len = 0;
+  for (const t of qTerms(q)) { const k = low.indexOf(t.toLowerCase()); if (k >= 0 && (i < 0 || k < i)) { i = k; len = t.length; } }
+  if (i < 0) return '';
+  const a = Math.max(0, i - 24), b = Math.min(body.length, i + len + 56);
   return (a > 0 ? '…' : '') + mk(body.slice(a, b).replace(/\s*\n\s*/g, ' '), q) + (b < body.length ? '…' : '');
 }
 const icon = n => L.KINDS[n.kind || 'text'] || '';
@@ -506,27 +514,30 @@ function renderList() {
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', !!b.dataset.mode && b.dataset.mode === mode));
   $('#paperonly').classList.toggle('on', paperOnly);
-  const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = q;
+  const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
+  const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
+  const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
   $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
   if (q) {
     // 1. Index  2. 索引  3. ノート
     const rank = k => (k.toLowerCase() === q ? 0 : k.toLowerCase().startsWith(q) ? 1 : 2);
     const hq = L.toHira(q), rk = k => Math.min(rank(k), readings[k] ? rank(readings[k]) : 9);
-    const gi = globalIndex().filter(([k]) => k.toLowerCase().includes(q) || (readings[k] || '').includes(hq)).sort((a, b) => rk(a[0]) - rk(b[0]));
+    const kwf = k => ({ id: '', s: 'd', noid: true, title: k, body: '', kw: [k], readings: readings[k] || '', created: '' });
+    const gi = globalIndex().filter(([k]) => qm(kwf(k)) || (!/\s|[()|"]/.test(q) && (readings[k] || '').includes(hq))).sort((a, b) => rk(a[0]) - rk(b[0]));
     if (gi.length) out.push('<h4>Index</h4>', ...gi.map(ixRow));
     const ti = [];
     for (const t of topics.filter(topicVisible)) {
-      if (t.name.toLowerCase().includes(q)) ti.push([-1, `<div class="ix">${tchip(t.name)}</div>`]);
-      for (const r of paperRows(L.mergeTopic(t).rows)) if (r.kw.toLowerCase().includes(q)) ti.push([rank(r.kw), `<div class="ix"><b>${esc(r.kw)}</b> ${chips(r)} <small>← ${tchip(t.name)}</small></div>`]);
+      if (qm({ id: '', s: 'd', noid: true, title: t.name, body: '', kw: [], readings: '', created: '' })) ti.push([-1, `<div class="ix">${tchip(t.name)}</div>`]);
+      for (const r of paperRows(L.mergeTopic(t).rows)) if (qm(kwf(r.kw))) ti.push([rank(r.kw), `<div class="ix"><b>${esc(r.kw)}</b> ${chips(r)} <small>← ${tchip(t.name)}</small></div>`]);
     }
     if (ti.length) out.push('<h4>索引</h4>', ...ti.sort((a, b) => a[0] - b[0]).map(x => x[1]));
-    const hit = sortNotes(notes.filter(n => isVisS(n.s) && [n.id, n.title || '', Stamp.strip(n.body), n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
-    if (hit.length) out.push('<h4>ノート</h4>', ...hit.map(n => noteRow(n, true, q)));
-    const fh = filesCache.filter(f => [f.title, f.desc, f.orig, f.name].join('\n').toLowerCase().includes(q));
-    if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, q)));
-    const dh = diaries.filter(d => [d.date, d.title, Stamp.strip(d.body)].join('\n').toLowerCase().includes(q)).sort((a, b) => b.date.localeCompare(a.date));
-    if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, q)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, q) ? `<div class="sn">${snippet(d.body, q)}</div>` : ''}</div></div>`));
+    const hit = sortNotes(notes.filter(n => isVisS(n.s) && qm(nf(n))), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
+    if (hit.length) out.push('<h4>ノート</h4>', ...hit.map(n => noteRow(n, true, searchQ)));
+    const fh = filesCache.filter(f => qm({ id: '', s: 'd', noid: true, title: f.title || '', body: [f.desc, f.orig, f.name].join('\n'), kw: [], readings: '', created: '' }));
+    if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, searchQ)));
+    const dh = diaries.filter(d => qm({ id: '', s: 'd', noid: true, title: [d.date, d.title].join(' '), body: Stamp.strip(d.body), kw: [], readings: '', created: d.date, updated: d.date })).sort((a, b) => b.date.localeCompare(a.date));
+    if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, searchQ)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, searchQ) ? `<div class="sn">${snippet(d.body, searchQ)}</div>` : ''}</div></div>`));
     if (!out.length) out.push('<div class="none">見つかりません</div>');
   } else if (tab === 'f') {
     refreshFiles();
@@ -623,7 +634,7 @@ $('#q').oninput = renderList;
 $('#q').onkeydown = e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').blur(); renderList(); if (lastView && cur && cur.k === 'note') lastView.focus(); searchMark(); } };
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || $('#modal').style.display === 'flex' || $('#scan').style.display === 'flex') return;
-  if (e.key === 'f') { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+  if ((e.key === 'f' || e.key === 'F') && !e.defaultPrevented) { e.preventDefault(); $('#q').focus(); $('#q').select(); }   // ページ内検索（エディタの中の Ctrl+F）が開いたときは、そちら。Ctrl+Shift+F と、エディタの外の Ctrl+F は、左の検索
   if (e.key === 'w') { e.preventDefault(); closeTab(active); }
   if (e.key === 't') { e.preventDefault(); tabs.push({ k: 'empty' }); show(tabs.length - 1); }
   if (e.key === 'Tab' && tabs.length) { e.preventDefault(); show((active + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length); }
@@ -891,7 +902,7 @@ function openNote(s, id, n, keep, mid) {
   const view = editor($('#ed'), note.body, 'note', s, v => { note.body = v; saveNote(note); renderList(); },
     s === 'p' ? '紙の内容を文字で（テキスト化）' : '本文。続き ->1a1　元 1a->　位置 (1)　別ノートの位置 ->1a(1)', () => note.body);
   searchMark();
-  const hitAt = searchQ ? note.body.toLowerCase().indexOf(searchQ) : -1;
+  const hitAt = searchQ ? (m => Number.isFinite(m) ? m : -1)(Math.min(...qTerms(searchQ).map(t => note.body.toLowerCase().indexOf(t.toLowerCase())).filter(i => i >= 0), Infinity)) : -1;
   if (n) { const p = L.anchorPos(note.body, n); if (p >= 0) jump(view, p); }
   else if (hitAt >= 0) view.dispatch({ effects: EditorView.scrollIntoView(hitAt, { y: 'center' }) }); // 検索から開いたら、最初の一致の所へ
   else if (keep && cur.pos != null) jump(view, Math.min(cur.pos, view.state.doc.length));

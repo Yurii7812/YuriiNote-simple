@@ -424,9 +424,10 @@ export const searchExt = StateField.define({
     let q = v.q, changed = tr.docChanged;
     for (const e of tr.effects) if (e.is(setSearch)) { q = e.value; changed = true; }
     if (!changed) return v;
-    if (!q) return { q, deco: Decoration.none };
-    const text = tr.state.doc.toString().toLowerCase(), needle = q.toLowerCase(), r = [];
-    for (let i = text.indexOf(needle); i >= 0 && r.length < 500; i = text.indexOf(needle, i + needle.length)) r.push(Decoration.mark({ class: 'hl' }).range(i, i + needle.length));
+    if (!q || ![].concat(q).some(Boolean)) return { q, deco: Decoration.none };
+    const text = tr.state.doc.toString().toLowerCase(), r = [];
+    for (const needle of [].concat(q).map(x => String(x).toLowerCase()).filter(Boolean))   // q は、1 つの語か、語の並び
+      for (let i = text.indexOf(needle); i >= 0 && r.length < 800; i = text.indexOf(needle, i + needle.length)) r.push(Decoration.mark({ class: 'hl' }).range(i, i + needle.length));
     return { q, deco: Decoration.set(r, true) };
   },
   provide: f => EditorView.decorations.from(f, v => v.deco)
