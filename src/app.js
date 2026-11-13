@@ -612,8 +612,10 @@ function onOpenClick(e) {
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
     // Index（左の一覧）と、索引の中の ID チップは、索引があればそちらへ（ノート本体は、トピックの上の親から）
-    const tp = n.classList.contains('chip') && (e.target.closest('#list') || (cur && cur.k === 'topic')) && topicOf(n.dataset.s, n.dataset.id);
-    if (tp && !(cur && cur.k === 'topic' && cur.name === tp.name)) return openTopic(tp.name);
+    // その番号に索引が 1 つなら、そこへ。複数あるときは、一覧を出して、選んで移る（ノート本体も選べる）
+    const ts = n.classList.contains('chip') && (e.target.closest('#list') || (cur && cur.k === 'topic')) ? topicsOf(n.dataset.s, n.dataset.id) : [];
+    if (ts.length === 1 && !(cur && cur.k === 'topic' && cur.name === ts[0].name)) return openTopic(ts[0].name);
+    if (ts.length > 1) { const s = n.dataset.s, id = n.dataset.id; return popMenu(e, [...ts.map(t => ['📑 ' + topicLabel(t), () => openTopic(t.name)]), ...(get(s, id) ? [['📝 ノートを開く', () => openNote(s, id, n.dataset.n || undefined)]] : [])]); }
     if (get(n.dataset.s, n.dataset.id)) openNote(n.dataset.s, n.dataset.id, n.dataset.n || undefined);
     else if (confirm(`${SP[n.dataset.s]} ${n.dataset.id} はまだありません。作りますか？`)) create(n.dataset.s, n.dataset.id);
   }
