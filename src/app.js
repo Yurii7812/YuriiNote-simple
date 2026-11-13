@@ -407,29 +407,16 @@ const topicVisible = t => !paperOnly || !t.entry || t.entry.s === 'p';
 let mainDots = {};
 let rowDots = null;   // 索引の中の *ID（キーワードの行の赤点）。一覧を描くたびに、作り直す
 const dotOf = k => {
-  if (mainDots[k]) return mainDots[k];
+  if (k in mainDots) return mainDots[k] || null;   // false: ここで、外した（索引の中の *ID は、あっても、出さない）
   if (!rowDots) { rowDots = {}; for (const t of topics) for (const r of L.mergeTopic(t).rows) if (r.kw && r.dot && !rowDots[r.kw]) rowDots[r.kw] = { s: r.dot.s, id: r.dot.id }; }
   return rowDots[k] || null;
 };
 const saveDots = () => saveDocument('doc:mainDots', 'K_mainDots', { dots: mainDots });
-// 赤点を、キーワード k の、メインの ID に（id が null なら、外す）。グローバルIndex も、索引の中の *ID も、同じものとして、そろえる
+// グローバルIndex の赤点を、キーワード k の、メインの ID に（id が null なら、外す）。索引の本文には、書かない（索引の中の *ID は、別に、索引の中だけで付け外し）
 function setMainDot(k, s, id) {
-  if (id) mainDots[k] = { s, id }; else delete mainDots[k];
-  saveDots();
-  for (const t of topics) {
-    const def = L.defOf(t), lines = L.topicText(t).split('\n'); let changed = false;
-    for (let i = 0; i < lines.length; i++) {
-      const r = L.topicLine(lines[i]);
-      if (r.star !== undefined || r.up !== undefined || r.before !== undefined || r.down !== undefined || r.mark !== undefined || r.kw !== k || !r.ids.length) continue;
-      let line = lines[i]; const cuts = r.ids.filter(x => x.dot).sort((p, q) => q.dotAt - p.dotAt);
-      for (const x of cuts) line = line.slice(0, x.dotAt) + line.slice(x.dotAt + 1);
-      if (id) { const hit = r.ids.find(x => (x.sp || def) === s && x.id === id); if (hit) { const shift = cuts.filter(x => x.dotAt < hit.from).length; line = line.slice(0, hit.from - shift) + '*' + line.slice(hit.from - shift); } }
-      if (line !== lines[i]) { lines[i] = line; changed = true; }
-    }
-    if (changed) { t.text = lines.join('\n'); saveTopic(t); }
-  }
-  rowDots = null; renderList();
-  if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode || 'view', true);
+  if (id) mainDots[k] = { s, id };
+  else { delete mainDots[k]; rowDots = null; if (dotOf(k)) mainDots[k] = false; }   // 索引の中の *ID から来ている赤点は、ここでは、見えなくするだけ
+  saveDots(); rowDots = null; renderList();
 }
 const chips = (v, k) => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x, !!(k && (d => d && d.s === s && d.id === L.splitAnchor(x).id)(dotOf(k))))).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
@@ -1671,8 +1658,7 @@ document.addEventListener('contextmenu', e => {
   const c = e.target.closest('.ti .chip[data-id][data-s]'); if (!c) return;
   const t = topics.find(x => x.name === cur.name); if (!t) return;
   e.preventDefault(); const s = c.dataset.s, id = c.dataset.id, on = c.classList.contains('dot');
-  const kw = (c.closest('tr[data-kw]') || {}).dataset ? c.closest('tr[data-kw]').dataset.kw : '';
-  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（メインのトピック）', () => { if (kw) setMainDot(kw, s, on ? null : id); else { toggleDot(t, s, id); openTopic(t.name, 'view', true); } }]]);
+  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（この行のメイン）', () => { toggleDot(t, s, id); rowDots = null; openTopic(t.name, 'view', true); }]]);
 });
 // 右パネルの右クリック: キーワード（このノートから外す）・トピック（このノートを外す／トピックを削除）
 document.addEventListener('contextmenu', e => {
