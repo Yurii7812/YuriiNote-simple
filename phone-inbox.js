@@ -1,6 +1,6 @@
 'use strict';
 // スマホ（WebView版）から届く「受信箱」を取り込む。スマホは、既存のファイルを書き換えず、新しいファイルだけを書く:
-//   memo-*.json   {"type":"memo","at":"2026-11-13 13:05","text":"…"}      → メモ帳（その日）へ1行追記。行末に <!--年月日 時刻--> が付く（表示するかは、画面の設定）
+//   memo-*.json   {"type":"memo","at":"2026-11-13 13:05","text":"…"}      → メモ帳（その日）へ1行追記。行の先頭に「年月日 時刻 」が付く（表示するかは、画面の設定）
 //   diary-*.json  {"type":"diary","kind":"日記","date":"2026-11-13","text":"…"}        → その日の日記／時系列記録の本文へ追記
 //   note-*.json   {"type":"note","created":"2026-11-13 13:20","body":"…"}              → IDなしのノート（未所属）を新しく作る
 //   paper-*.json  {"type":"paper","at":"…","image":"paper-….jpg"} と画像              → 紙のカードの写真。PC の紙の取り込み画面で番号を付ける
@@ -24,7 +24,7 @@ function importInbox(v, files, { papers, seen } = {}) {   // seen: すでに取�
     try {
       if (d.type === 'memo' && String(d.text || '').trim()) {
         const at = stampAt(d.at), date = at.slice(0, 10);
-        v.appendToDay('メモ帳', date, oneLine(d.text) + ` <!--${at}-->`); sum.memos++; done.push(f.name);
+        v.appendToDay('メモ帳', date, `${at} ${oneLine(d.text)}`); sum.memos++; done.push(f.name);
       } else if (d.type === 'diary' && isDate(d.date) && String(d.text || '').trim()) {
         v.appendToDay(d.kind || '日記', d.date, Stamp.add(String(d.text).replace(/\s+$/, ''), stampAt(d.at))); sum.diaries++; done.push(f.name);
       } else if (d.type === 'note' && String(d.body || '').trim()) {

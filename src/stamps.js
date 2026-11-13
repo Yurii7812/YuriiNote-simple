@@ -1,7 +1,7 @@
-// 行ごとの「年月日＋時刻」（行末の <!--2026-11-13 13:05--> ）を、画面では隠し、オンなら行の先頭に小さく出す。
-// 行を書いたら、自動で目印が付く（書き始めた時刻）。表示のオン・オフは、PC でも スマホでも 1 つの設定
-import { EditorView, Decoration, ViewPlugin, WidgetType, keymap } from '@codemirror/view';
-import { StateField, StateEffect, Prec, Transaction } from '@codemirror/state';
+// 行ごとの「年月日＋時刻」（行の先頭の「2026-11-13 12:54 」）。オンなら薄く小さく見せ、オフなら隠す（ファイルには残る）。
+// 行を書いたら、自動で付く（書き始めた時刻）。表示のオン・オフは、PC でも スマホでも 1 つの設定
+import { EditorView, Decoration, ViewPlugin, keymap } from '@codemirror/view';
+import { StateField, StateEffect, EditorState, EditorSelection, Prec, Transaction } from '@codemirror/state';
 import Stamp from '../stamp.js';
 
 const KEY = 'pkm-stamp-show';
@@ -13,23 +13,16 @@ export function setStampsShown(on) {
   show = !!on; try { localStorage.setItem(KEY, show ? '1' : '0'); } catch { }
   for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } }
 }
-const todayStr = () => Stamp.nowStamp().slice(0, 10);
 
-class StampWidget extends WidgetType {
-  constructor(at) { super(); this.at = at; }
-  eq(o) { return o.at === this.at; }
-  toDOM() { const s = document.createElement('span'); s.className = 'stamp'; s.textContent = Stamp.show(this.at, todayStr()); s.title = this.at; return s; }
-  ignoreEvent() { return true; }
-}
-const hideMark = Decoration.replace({});
+const markShown = Decoration.mark({ class: 'stamp' }), markHidden = Decoration.replace({});
+// 見えている範囲の、日時の場所（見せる・隠す）。カーソルが入れないように、atomic にもする
 function build(view) {
-  const ranges = []; const seen = new Set();
+  const ranges = [], seen = new Set();
   for (const { from, to } of view.visibleRanges) {
     for (let pos = from; pos <= to;) {
       const ln = view.state.doc.lineAt(pos); pos = ln.to + 1; if (seen.has(ln.number)) continue; seen.add(ln.number);
-      const m = ln.text.match(Stamp.RE); if (!m) continue;
-      ranges.push(hideMark.range(ln.from + m.index, ln.to));
-      if (show) ranges.push(Decoration.widget({ widget: new StampWidget(m[1]), side: -1 }).range(ln.from));
+      const s = Stamp.parse(ln.text); if (!s || s.end <= s.p) continue;
+      ranges.push((show ? markShown : markHidden).range(ln.from + s.p, ln.from + s.end));
     }
   }
   return Decoration.set(ranges, true);
@@ -40,7 +33,21 @@ const display = ViewPlugin.fromClass(class {
   destroy() { views.delete(this.v); }
 }, { decorations: p => p.d, provide: p => EditorView.atomicRanges.of(v => v.plugin(p)?.d || Decoration.none) });
 
-// ---- まだ目印が無い（書いている）行を覚える。位置は、変更に合わせてずらす
+// カーソル（選択なし）が日時の中や手前に来たら、日時のあと（本文の頭）へ。範囲選択はそのまま（コピーに日時が入るように）
+const snap = EditorState.transactionFilter.of(tr => {
+  if (!tr.selection && !tr.docChanged) return tr;
+  const doc = tr.newDoc, sel = tr.newSelection; let changed = false;
+  const ranges = sel.ranges.map(r => {
+    if (!r.empty) return r;
+    const ln = doc.lineAt(r.head), s = Stamp.parse(ln.text); if (!s) return r;
+    const a = ln.from + s.p, b = ln.from + s.end;
+    if (r.head >= a && r.head < b) { changed = true; return EditorSelection.cursor(b); }
+    return r;
+  });
+  return changed ? [tr, { selection: EditorSelection.create(ranges, sel.mainIndex) }] : tr;
+});
+
+// ---- まだ日時が無い（書いている）行を覚える。位置は、変更に合わせてずらす
 const setDirty = StateEffect.define();
 const dirty = StateField.define({
   create: () => [],
@@ -50,7 +57,11 @@ const dirty = StateField.define({
     if (tr.docChanged && !tr.isUserEvent('stamp')) {
       const at = Stamp.nowStamp(), doc = tr.state.doc;
       tr.changes.iterChangedRanges((_fa, _fb, ta, tb) => {
-        for (let n = doc.lineAt(ta).number, e = doc.lineAt(tb).number; n <= e; n++) { const p = doc.line(n).from; if (!out.some(d => d.pos === p)) out.push({ pos: p, at }); }
+        for (let n = doc.lineAt(ta).number, e = doc.lineAt(tb).number; n <= e; n++) {
+          const ln = doc.line(n);
+          if (ta !== tb && Math.min(tb, ln.to) <= Math.max(ta, ln.from)) continue;   // 改行だけを入れたときの、前の行などは、書いたことにしない
+          if (!out.some(d => d.pos === ln.from)) out.push({ pos: ln.from, at });
+        }
       });
     }
     return out;
@@ -70,50 +81,52 @@ function flush(view, keepCurrent) {
   const changes = [];
   for (const [at, set] of groups) {
     const res = Stamp.add(text, at, set).split('\n');
-    for (const i of set) {
-      if (res[i] === orig[i]) continue;
-      const ln = doc.line(i + 1), base = orig[i].replace(/[ \t]+$/, '');
-      changes.push({ from: ln.from + base.length, to: ln.to, insert: res[i].slice(base.length) });
-    }
+    for (const i of set) { if (res[i] === orig[i]) continue; changes.push({ from: doc.line(i + 1).from + Stamp.prefixLen(orig[i]), insert: at + ' ' }); }
   }
   view.dispatch({ changes, effects: setDirty.of(left), annotations: annos });
 }
-// 行の途中に目印が残ったとき（行をつなげた・目印のあとに書いた）は、途中のものを外す
-const ALL = /<!--\d{4}-\d{2}-\d{2} \d{2}:\d{2}-->/g;
+// 昔の形（行末の <!--…-->）を、先頭の形に直す
 function normalize(view) {
   if (view.composing || view.state.readOnly || !view.dom.isConnected) return;
-  const doc = view.state.doc, changes = [];
+  const doc = view.state.doc, text = doc.toString();
+  if (!text.includes('<!--')) return;
+  const next = Stamp.migrate(text); if (next === text) return;
+  const changes = [];
   for (let n = 1; n <= doc.lines; n++) {
     const ln = doc.line(n); if (!ln.text.includes('<!--')) continue;
-    const ms = [...ln.text.matchAll(ALL)]; if (!ms.length) continue;
-    const endOk = m => ln.text.slice(m.index + m[0].length).trim() === '';
-    ms.forEach((m, k) => {
-      const keep = endOk(m) && k === ms.length - 1;
-      if (!keep) { let a = m.index; while (a > 0 && /[ \t]/.test(ln.text[a - 1])) a--; changes.push({ from: ln.from + a, to: ln.from + m.index + m[0].length, insert: '' }); }
-    });
+    const fixed = Stamp.migrate(ln.text); if (fixed !== ln.text) changes.push({ from: ln.from, to: ln.to, insert: fixed });
   }
-  if (changes.length) view.dispatch({ changes, annotations: [Transaction.userEvent.of('stamp-norm'), Transaction.addToHistory.of(false)] });
+  if (changes.length) view.dispatch({ changes, annotations: [Transaction.userEvent.of('stamp'), Transaction.addToHistory.of(false)] });
 }
 const auto = ViewPlugin.fromClass(class {
-  constructor(view) { this.v = view; this.t = null; this.n = null; }
+  constructor(view) { this.v = view; this.t = null; setTimeout(() => normalize(view), 0); }
   update(u) {
-    if (u.transactions.some(t => t.isUserEvent('stamp') || t.isUserEvent('stamp-norm'))) return;
-    if (u.docChanged) { clearTimeout(this.n); this.n = setTimeout(() => normalize(this.v), 0); }
+    if (u.transactions.some(t => t.isUserEvent('stamp'))) return;
     if (u.docChanged || u.selectionSet) {
       clearTimeout(this.t); const v = this.v;
       setTimeout(() => flush(v, true), 0);   // 別の行へ移ったら、前の行にすぐ付く
       this.t = setTimeout(() => flush(v, false), 1500);   // 書く手が止まったら、いまの行にも付く
     }
   }
-  destroy() { clearTimeout(this.t); clearTimeout(this.n); }
+  destroy() { clearTimeout(this.t); }
 }, { eventHandlers: {
   blur() { const v = this.v; setTimeout(() => flush(v, false), 0); },
-  compositionend() { const v = this.v; setTimeout(() => { normalize(v); flush(v, true); }, 0); }
+  compositionend() { const v = this.v; setTimeout(() => flush(v, true), 0); }
 } });
 
-// 目印の手前（本文の終わり）で Enter / Delete を押したときは、目印を越えてから行う（目印が次の行に行かないように）
+// 日時のすぐあと（本文の頭）での ← と Backspace: ← は前の行の終わりへ。Backspace は、記号のない行なら前の行につなぐ。記号（- など）のある行は、記号ごと外す
 const keys = Prec.highest(keymap.of([
-  { key: 'Enter', run: v => { const s = v.state.selection.main; if (!s.empty) return false; const ln = v.state.doc.lineAt(s.head), m = ln.text.match(Stamp.RE); if (m && s.head >= ln.from + m.index) v.dispatch({ selection: { anchor: ln.to } }); return false; } },
-  { key: 'Delete', run: v => { const s = v.state.selection.main; if (!s.empty) return false; const doc = v.state.doc, ln = doc.lineAt(s.head), m = ln.text.match(Stamp.RE); if (!m || s.head < ln.from + m.index || ln.number >= doc.lines) return false; v.dispatch({ changes: { from: ln.to, to: ln.to + 1 }, selection: { anchor: ln.from + m.index }, userEvent: 'delete.forward' }); return true; } }
+  { key: 'ArrowLeft', run: v => {
+    const s = v.state.selection.main; if (!s.empty) return false;
+    const ln = v.state.doc.lineAt(s.head), st = Stamp.parse(ln.text); if (!st || s.head !== ln.from + st.end || ln.number === 1) return false;
+    v.dispatch({ selection: { anchor: ln.from - 1 }, scrollIntoView: true }); return true;
+  } },
+  { key: 'Backspace', run: v => {
+    const s = v.state.selection.main; if (!s.empty) return false;
+    const doc = v.state.doc, ln = doc.lineAt(s.head), st = Stamp.parse(ln.text); if (!st || s.head !== ln.from + st.end) return false;
+    if (st.p === 0 && ln.number > 1) v.dispatch({ changes: { from: ln.from - 1, to: ln.from + st.end }, selection: { anchor: ln.from - 1 }, userEvent: 'delete.backward' });
+    else v.dispatch({ changes: { from: ln.from, to: ln.from + st.end }, userEvent: 'delete.backward' });
+    return true;
+  } }
 ]));
-export const stampExtensions = [keys, dirty, display, auto];
+export const stampExtensions = [keys, snap, dirty, display, auto];
