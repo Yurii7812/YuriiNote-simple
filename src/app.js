@@ -56,7 +56,7 @@ const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stri
 const idsText = (k, v, def) => { const toks = [...v.d.map(x => def === 'd' ? x : x + '(d)'), ...v.p.map(x => def === 'p' ? x : x + '(p)')]; return toks.length ? k + ' ' + toks.join(' ') : ''; };
 const ixRow = ([k, v]) => {
   const on = cur && cur.k === 'topic' && (() => { const o = topics.find(x => x.name === cur.name); return o && ((o.keyword && o.keyword === k) || (o.entry && v[o.entry.s].includes(o.entry.id) && !o.keyword && false)); })();
-  return `<div class="ix${on ? ' on' : ''}" data-ixk="${esc(k)}"><b>${esc(k)}</b>${yomi(k)} ${chips(v)}</div>`;
+  return `<div class="ix${on ? ' on' : ''}" data-ixk="${esc(k)}"><b>${esc(k)}</b>${yomi(k)} ${chips(v, k)}</div>`;
 };
 // 親のノートに、そのキーワードを付ける（Index の ID の並びに入る）
 async function ensureKeyword(sp, id, kw) {
@@ -403,7 +403,16 @@ const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([
 const tnoChip = no => { const t = topics.find(x => topicNo(x) === no); return t ? `<span class="chip t" data-topic="${esc(t.name)}" title="${esc(t.name)}">${esc(no)} ${esc(stripId(t.name))}</span>` : `<span class="chip miss" title="その番号の索引はありません">${esc(no)}</span>`; };
 const paperRows = rows => paperOnly ? rows.filter(r => r.p.length || (r.t || []).length) : rows;   // 紙だけのとき、紙のIDがない行は出さない
 const topicVisible = t => !paperOnly || !t.entry || t.entry.s === 'p';
-const chips = v => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('');
+// グローバルIndex の赤点: キーワードごとに「メインの ID」を 1 つ。vault の K_mainDots.json に（別の PC に写しても、同じ）
+let mainDots = {};
+const dotOf = k => mainDots[k] || null;
+const saveDots = () => saveDocument('doc:mainDots', 'K_mainDots', { dots: mainDots });
+function toggleMainDot(k, s, id) {
+  const cur0 = dotOf(k), same = cur0 && cur0.s === s && cur0.id === id;
+  if (same) delete mainDots[k]; else mainDots[k] = { s, id };
+  saveDots(); renderList();
+}
+const chips = (v, k) => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x, !!(k && (d => d && d.s === s && d.id === L.splitAnchor(x).id)(dotOf(k))))).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
 const topicNo = t => t.entry ? `${t.entry.id}-${t.num || 1}` : '';   // 1-1, 1-2, … グループIndexは 0-1, 0-2
 const topicLabel = t => (topicNo(t) ? topicNo(t) + ' ' : '') + stripId(t.name);
@@ -1621,6 +1630,12 @@ function toggleDot(t, s, id) {
   }
   return null;
 }
+document.addEventListener('contextmenu', e => {   // 左のグローバルIndex: ID を右クリックして、赤点（メインのトピック）を付ける・外す
+  const c = e.target.closest('#list .ix .chip[data-id][data-s]'), row = c && c.closest('.ix');
+  if (!c || !row) return;
+  e.preventDefault(); const k = row.dataset.ixk, s = c.dataset.s, id = c.dataset.id, on = c.classList.contains('dot');
+  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（メインのトピック）', () => toggleMainDot(k, s, id)]]);
+});
 document.addEventListener('contextmenu', e => {
   if (!cur || cur.k !== 'topic') return;
   const c = e.target.closest('.ti .chip[data-id][data-s]'); if (!c) return;
@@ -2132,7 +2147,8 @@ darkMq.addEventListener('change', () => { if (settings.theme === 'auto') applySe
 const applyLang = setLang;   // 言語の切り替え（src/i18n.js）
 setLang('en');
 const saveSettings = () => { applySettings(); api.saveDoc('K_settings', settings); };
-function loadSettings(st) { settings = { ...DEFAULT_SETTINGS, ...((st.docs || {})['K_settings'] || {}) }; applySettings(); }
+function loadSettings(st) {
+  mainDots = ((st.docs || {})['K_mainDots'] || {}).dots || {}; settings = { ...DEFAULT_SETTINGS, ...((st.docs || {})['K_settings'] || {}) }; applySettings(); }
 function settingsDialog() {
   const sw = settings;
   dialog(`<div class="sdlg"><h3>⚙️ 設定</h3>
