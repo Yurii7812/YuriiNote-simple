@@ -41,7 +41,19 @@ function add(text, at, lines) {
 function migrate(text) {
   return text.split('\n').map(l => { const m = l.match(LEGACY); if (!m || parse(l)) return l; const base = l.replace(LEGACY, ''), p = prefixLen(base); return base.slice(0, p) + m[1] + ' ' + base.slice(p); }).join('\n');
 }
+// 日記・メモ帳に昔あった「13:05 本文」（時刻だけ）の行を、その日の年月日つきにする（date: その日の 2026-11-13）。コード等の囲みの中は変えない
+function adoptTimes(text, date) {
+  const out = text.split('\n'); let fence = null;
+  for (let i = 0; i < out.length; i++) {
+    const f = fenceOpen(out[i]);
+    if (fence) { if (f && f[0] === fence[0] && f.length >= fence.length && /^\s*[`~]+\s*$/.test(out[i])) fence = null; continue; }
+    if (f) { fence = f; continue; }
+    const p = prefixLen(out[i]), m = out[i].slice(p).match(/^([01]\d|2[0-3]):([0-5]\d)(?: |$)/);
+    if (m && !stampOf(out[i])) out[i] = out[i].slice(0, p) + date + ' ' + m[1] + ':' + m[2] + out[i].slice(p + 5);
+  }
+  return out.join('\n');
+}
 // 画面に出すときの形（スマホの試作用）。同じ日なら時刻だけ（today を渡したとき）、そうでなければ年月日と時刻
 const show = (at, today) => at ? (today && at.slice(0, 10) === today ? at.slice(11) : at) : '';
 
-module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, migrate, show };
+module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, adoptTimes, migrate, show };

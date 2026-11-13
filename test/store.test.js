@@ -119,7 +119,8 @@ test('v1（直下に <ID>.md / <ID>.jpg）も移す。添付の 5.png をノー�
   fs.writeFileSync(path.join(dir, '5.md'), '---\ndate: 2026 11 07\nkeywords: 古い\n---\n昔の本文\n');
   const v = openVault(dir);
   const old = v.state().notes.find(x => x.s === 'd' && x.id === '5');
-  assert.strictEqual(old.body, '昔の本文'); assert.strictEqual(old.created, '2026-11-07 00:00:00'); assert.deepStrictEqual(old.keywords, ['古い']);
+  assert.strictEqual(old.body, '2026-11-07 00:00 昔の本文');   // 日付の無い行には、そのノートの日時が付く
+   assert.strictEqual(old.created, '2026-11-07 00:00:00'); assert.deepStrictEqual(old.keywords, ['古い']);
   assert.ok(fs.existsSync(path.join(dir, old.stem + '.md')) && fs.existsSync(path.join(dir, '5.md.old')) && old.stem === '20261107000000');
   // 平らになったあとに入れた 7.png は、添付のまま（次に開いても紙の画像にならない）
   const [f7] = v.addFiles([{ name: '7.png', bytes: [1] }]);
@@ -303,7 +304,7 @@ test('トピックIndexの + は星、^ は上位トピック、* は ◯', () =
 
 test('昔の名前（D_<ID>.md / P_<ID>.md / D_u….md）を、日時の名前と YAML に移す（バックアップつき）', () => {
   const dir = tmp(), w = (f, t) => fs.writeFileSync(path.join(dir, f), t), r = f => fs.readFileSync(path.join(dir, f), 'utf8');
-  w('.pkm-layout', 'flat1\n');
+  w('.pkm-layout', 'flat1\nstamp1\n');
   w('D_1.md', '<!-- pkm {"created":"2026-11-07 10:00","keywords":["PKM"],"kind":"text","title":"最初"} -->\n# 最初\n\n<!-- body -->\n本文 :1a [先](D_u20261107-110000.md)  \n<!-- nav -->\n');
   w('D_1a.md', '<!-- pkm {"created":"2026-11-07 10:00","keywords":[]} -->\n# 1a\n\n<!-- body -->\n同じ分の子\n<!-- nav -->\n');
   w('D_u20261107-110000.md', '<!-- pkm {"created":"2026-11-07 11:00","keywords":[],"kind":"canvas","title":"案"} -->\n<!-- pkm-data {"title":"案","nodes":[{"id":"a","type":"note","s":"d","nid":"u20261107-110000"}],"edges":[]} -->\n# 案\n\n<!-- body -->\n\n<!-- nav -->\n');
@@ -325,7 +326,7 @@ test('昔の名前（D_<ID>.md / P_<ID>.md / D_u….md）を、日時の名前�
 
 test('昔の形式のファイルが同期で戻ってきても、複製が増えない（増殖の再発防止）', () => {
   const dir = tmp(), w = (f, t) => fs.writeFileSync(path.join(dir, f), t);
-  w('.pkm-layout', 'flat1\n');
+  w('.pkm-layout', 'flat1\nstamp1\n');
   w('D_1.md', '<!-- pkm {"created":"2026-11-07 10:00","keywords":[]} -->\n# 1\n\n<!-- body -->\n本文\n<!-- nav -->\n');
   for (let i = 0; i < 3; i++) { openVault(dir); w('D_1.md', '<!-- pkm {"created":"2026-11-07 10:00","keywords":[]} -->\n# 1\n\n<!-- body -->\n本文\n<!-- nav -->\n'); } // 同期が昔の形式を戻す
   const st = openVault(dir).state();
@@ -377,7 +378,7 @@ test('日記の「今日のノート」: 無いノート（IDなしの日時の�
 
 test('昔の日記（D_日付.md）は、日時の名前＋YAML に移る。戻ってきても増えない', () => {
   const dir = tmp(), w = (f, t) => fs.writeFileSync(path.join(dir, f), t), old = '<!-- pkm-diary {"title":"旅"} -->\n# 2026-11-07-旅\n\n<!-- body -->\n朝は晴れ\n<!-- nav -->\n';
-  w('.pkm-layout', 'flat1\n'); w('D_2026-11-07-旅.md', old);
+  w('.pkm-layout', 'flat1\nstamp1\n'); w('D_2026-11-07-旅.md', old);
   let v = openVault(dir), d = v.state().diaries;
   assert.strictEqual(d.length, 1); assert.deepStrictEqual([d[0].kind, d[0].date, d[0].title, d[0].body], ['日記', '2026-11-07', '旅', '朝は晴れ']);
   assert.match(d[0].stem, /^\d{14}$/); assert.ok(!fs.existsSync(path.join(dir, 'D_2026-11-07-旅.md')));
@@ -659,4 +660,21 @@ test('時系列記録の上位: 何も選ばなければ日記。前の日の選
   // 読み直しても、同じ
   const w = openVault(dir); assert.deepStrictEqual(['2026-11-01', '2026-11-03', '2026-11-04'].map(x => w.state().diaries.find(d => d.kind === 'ログ' && d.date === x).parents[0]), ['日記', '夢', '夢']);
   fs.rmSync(dir, { recursive: true });
+});
+
+test('日付の無い行には、そのノート（日記はその日）の日時が一度だけ付く', () => {
+  const dir = tmp();
+  let v = openVault(dir);
+  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: [], body: '# 題\n本文\n```\nコード\n```' });
+  v.saveDiary({ date: '2026-10-11', kind: 'メモ帳', body: '10:35 朝\n時刻なしの行' });
+  v.close && v.close();
+  // 旧形式（印が無い）に戻して、開き直す
+  fs.writeFileSync(path.join(dir, '.pkm-layout'), 'flat1\n');
+  v = openVault(dir);
+  const n = v.state().notes.find(x => x.id === '1'), d = v.state().diaries.find(x => x.kind === 'メモ帳' && x.date === '2026-10-11');
+  assert.strictEqual(n.body, '# 2026-10-10 11:12 題\n2026-10-10 11:12 本文\n```\nコード\n```');
+  assert.match(d.body, /^2026-10-11 10:35 朝\n2026-10-11 \d{2}:\d{2} 時刻なしの行$/);
+  assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('stamp1'));
+  const again = openVault(dir).state().notes.find(x => x.id === '1');   // 二度目は、変えない
+  assert.strictEqual(again.body, n.body);
 });

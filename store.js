@@ -586,6 +586,19 @@ function openVault(vault) {
     if (!L.isNoid(n.id) && L.tokens(d.body).some(t => t.k === 'ref' && t.id === n.id && !t.n && (!t.sp || t.sp === 'd'))) return;   // 昔の「:ID」の行が、まだある（読み直すときに、リンクに直る）
     d.body = L.addToSection(d.body, '今日のノート', noteLine(n));
   };
+  // 日付の無い行に、そのノート（日記ならその日）の日時を付ける（一度だけ。印は .pkm-layout の中）
+  if (!fs.readFileSync(abs(MARK), 'utf8').includes('stamp1')) {
+    const minute = (t, fallback) => { const m = String(t || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/); return m ? m[1] + ' ' + m[2] : fallback; };
+    for (const n of notes.values()) {
+      if (n.kind && n.kind !== 'text') continue;
+      const at = minute(n.created, ''); if (at && n.body) n.body = Stamp.add(n.body, at);
+    }
+    for (const d of diaries.values()) {
+      const c = minute(d.created, ''), at = c.slice(0, 10) === d.date ? c : d.date + ' 00:00';
+      if (d.body) d.body = Stamp.add(Stamp.adoptTimes(d.body, d.date), at);
+    }
+    put(abs(MARK), fs.readFileSync(abs(MARK), 'utf8').replace(/\n*$/, '\n') + 'stamp1\n');
+  }
   rebuild();
   return {
     vault,
