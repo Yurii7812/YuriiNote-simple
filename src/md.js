@@ -5,6 +5,7 @@ import { foldService, foldGutter, foldKeymap, codeFolding, foldEffect, unfoldEff
 import { indentLess } from '@codemirror/commands';
 import { mermaidPlaceholder } from './mermaid.js';
 import { popMenu } from './shared.js';
+import { boardField } from './board.js';
 
 const INDENT = '  ';
 const BULLET = /^(\s*)([-*+]|\d+[.)])(\s+)(\[[ xX]\]\s+)?/;
@@ -407,7 +408,7 @@ const mermaidField = StateField.define({
 });
 
 export const mdExtensions = [noMiddlePaste, margins, 
-  linePlugin, tableField, mermaidField, codeFolding(),
+  linePlugin, tableField, boardField, mermaidField, codeFolding(),
   foldGutter({ markerDOM: open => { const s = document.createElement('span'); s.className = 'cm-fold-mark'; s.textContent = open ? '▾' : '▸'; return s; } }),
   outlineFold, listKeys, clickBelow, fenceClose, keymap.of(foldKeymap)
 ];

@@ -16,6 +16,10 @@ export function anchorChoices(doc,after,noteId=''){
   }
   return out.sort((a,b)=>a.n-b.n);
 }
+// ボード（```board の JSON）の文字を、ふつうの行にして返す。(n) の番号や :( の候補を、ノート全体で数えるため
+export function plainDoc(doc){
+  return String(doc).replace(/^(`{3,})board[ \t]*\n([^\n]*)\n\1`*[ \t]*$/gm,(_m,_f,json)=>{try{return (JSON.parse(json).t||[]).map(a=>String(a[2])).join('\n');}catch{return '';}});
+}
 function close(){popup?.remove();popup=null;controller=null;}
 function show(session,items,anchor,choose,onCancel,space='d') {
   close();popup=document.createElement('div');popup.className='reference-picker';popup.dataset.user='';let at=0;
@@ -33,7 +37,7 @@ export function extension(space='d') {
     let inserted='';u.changes.iterChanges((_a,_b,_c,_d,text)=>{inserted+=text.toString();});
     const state=session.update(u.state.doc.toString(),u.state.selection.main.head,inserted);
     if(!state){if(controller&&controller.owner===view)close();return;}
-    const doc=u.state.doc.toString(),after=doc.slice(state.colon+1,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
+    const doc=plainDoc(u.state.doc.toString()),after=doc.slice(state.colon+1,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
     const choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
     if(!choices.length){close();return;}
     show(state,choices,()=>view.coordsAtPos(view.state.selection.main.head), (item,post)=>{
@@ -58,3 +62,25 @@ export function attachTextareas() {
   document.addEventListener('keydown',e=>{if(controller?.owner!==e.target)return;if(controller.key(e)){e.preventDefault();e.stopImmediatePropagation();}},true);
   document.addEventListener('click',e=>{if(popup&&!popup.contains(e.target)&&controller?.owner!==e.target)close();});
 }
+
+// 文字だけの欄（ボードの文字など、contenteditable）で、「:」の候補と「:(」を使えるようにする。getDoc: ノート全体の文章（plainDoc済み）
+export function attachEditable(el,getDoc,space='d'){
+  const session=new Ref.Session();
+  const caret=()=>{const s=getSelection();if(!s.rangeCount||!el.contains(s.anchorNode))return el.textContent.length;const r=document.createRange();r.selectNodeContents(el);r.setEnd(s.anchorNode,s.anchorOffset);return r.toString().length;};
+  const setCaret=pos=>{const t=el.firstChild;if(!t){el.focus();return;}const r=document.createRange(),n=Math.min(pos,t.textContent.length);r.setStart(t,n);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r);};
+  const cancel=()=>{session.close();close();};
+  el.addEventListener('input',e=>{
+    if(e.isComposing)return;
+    const value=el.textContent,state=session.update(value,caret(),e.data||'');
+    if(!state){if(controller?.owner===el)close();return;}
+    const doc=getDoc(),after=value.slice(state.colon+1,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
+    const choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
+    if(!choices.length){close();return;}
+    show(state,choices,()=>{const s=getSelection();const r=s.rangeCount?s.getRangeAt(0).getBoundingClientRect():null;return r&&(r.width||r.height)?r:el.getBoundingClientRect();},(item,post)=>{
+      const start=item.kind==='anchor'?state.colon:state.from,end=state.to;session.close();const text=insText(item,post,space)+' ';
+      el.textContent=value.slice(0,start)+text+value.slice(end);setCaret(start+text.length);el.focus();
+    },cancel,space);controller.owner=el;
+  });
+}
+// 文字だけの欄で、候補が出ているときのキー（Enter・矢印・Esc）。使ったら true
+export function refKey(el,ev){return controller?.owner===el&&!!controller.key(ev);}

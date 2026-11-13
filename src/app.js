@@ -6,7 +6,9 @@ import LinkCore from '../link-core.js';
 import TopicRanking from '../topic-ranking.js';
 import * as LC from './linked-content.js';
 import * as ReferencePicker from './reference-picker.js';
+import { plainDoc } from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
+import { boardTemplate, focusBoardAt } from './board.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -307,7 +309,7 @@ function toggleStamp(view) {
 // Ctrl+M（Mark）: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
 function insertNextAnchor(view) {
   if (!view) return false;
-  const nums = L.tokens(view.state.doc.toString()).filter(t => t.k === 'self' && t.bare).map(t => +t.n);
+  const nums = L.tokens(plainDoc(view.state.doc.toString())).filter(t => t.k === 'self' && t.bare).map(t => +t.n);
   const text = `(${(nums.length ? Math.max(...nums) : 0) + 1})`, at = view.state.selection.main.head;
   view.dispatch({ changes: { from: at, insert: text }, selection: { anchor: at + text.length } }); view.focus(); return true;
 }
@@ -318,6 +320,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
       doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(EditorView.domEventHandlers({   // Ctrl+M（新しい (n)）、Ctrl+R（時刻のオン・オフ）。キーの位置で見るので、日本語入力がオンでも効く
         keydown(e, v) {
           const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+          if (ctl && e.code === 'KeyG') { e.preventDefault(); insertBoard(); return true; }
           if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
           if (isDiary && ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
           if (isDiary && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v);
@@ -1113,7 +1116,7 @@ document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.ke
 function noteMenu(btn, note) {
   const r = btn.getBoundingClientRect(), { s, id } = note, text = (note.kind || 'text') === 'text';
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
-    ...(text ? [['▦ 表を入れる', () => insertTable()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
+    ...(text ? [['▦ 表を入れる', () => insertTable()], ['🖍️ ボードを入れる（文字と線）', () => insertBoard()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
     ...(s === 'd' && text ? [['🌱 IDなしで分岐', () => createNoidRel(note, 'chi')], ['↔️ IDなしで並列', () => createNoidRel(note, 'sib')]] : []),
     ['🆔 IDを変更・解除…', () => idSettingsDialog(note)],
     ['🗑️ 削除', () => deleteNotes([{ s, id }]), true]
@@ -1673,7 +1676,7 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button>
+      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button><button data-act="board" class="ic dj" title="ボードを入れる（Ctrl+G）文字と線を、紙のように書ける" aria-label="ボード">🖍️</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
@@ -1707,7 +1710,13 @@ async function diaryAct(act) {
   }
   if (act === 'attach') pick(true, f => attach(d, f), '*');
   if (act === 'table') insertTable();
+  if (act === 'board') insertBoard();
   if (act === 'stampmode') toggleStamp(lastView);
+}
+function insertBoard() {
+  if (!lastView) return;
+  const v = lastView, h = v.state.selection.main.head, at = v.state.doc.lineAt(h), pre = h === at.from ? '' : '\n', ins = pre + boardTemplate;
+  v.dispatch({ changes: { from: h, insert: ins }, selection: { anchor: h + ins.length } }); focusBoardAt(v, h + pre.length);
 }
 function insertTable() {
   if (!lastView) return;
