@@ -916,16 +916,15 @@ async function changeId(note, v) {
 let simP = null, simSig = '';
 function simRows(st, base) {
   const sig = notes.length + ':' + notes.reduce((m, n) => n.updated > m ? n.updated : m, '') + ':' + topics.length;
-  if (!simP || simSig !== sig) { simP = SM.prepare(notes, topics, L.mergeTopic); simSig = sig; }
+  if (!simP || simSig !== sig) { simP = SM.prepare(notes); simSig = sig; }
   const rows = SM.rank(simP, notes.filter(n => isVisS(n.s) || n.noid && !paperOnly), base, { bases: st.bases, multi: st.multi });
   return rows.sort((a, b) => b.total - a.total);
 }
 function openSimilar(baseKeys, keep) {
   cur = place({ k: 'similar', base: baseKeys }, keep); mode = 'notes';
-  cur.st = cur.st || { bases: { text: true, kw: true, link: true, topic: true }, multi: 'avg' };
+  cur.st = cur.st || { bases: { ...SM.DEFAULT_ON }, multi: 'avg' };
   drawSimilar();
 }
-const SIM_ICON = { text: '📝', kw: '🏷️', link: '🔗', topic: '🗂️' };
 const SIM_MULTI = { avg: ['平均', '選んだノートの全体に似ている'], any: ['どれか', 'どれか1つにでも似ている'], all: ['全部', '全部に似ている'] };
 function drawSimilar() {
   const st = cur.st, base = cur.base.map(b => get(b.s, b.id)).filter(Boolean);
@@ -935,9 +934,9 @@ function drawSimilar() {
   const list = rows.slice(0, 200).map(r => { const n = r.note;
     return `<div class="sm-row item note" data-s="${n.s}" data-id="${esc(n.id)}"><div class="sm-top"><b>${n.noid ? '📥' : (n.s === 'p' ? '📜 ' : '') + esc(n.id)}</b><span class="sm-t">${esc(titleOf(n))}</span><span class="sm-p">${Math.round(r.total * 100)}%</span></div>`
       + `<div class="sm-meter"><i style="width:${Math.round(r.total * 100)}%"></i></div>`
-      + `<div class="sm-re">${r.reasons.slice(0, 3).map(x => `<span>${SIM_ICON[x.b] || ''} ${esc(x.t)}</span>`).join('')}</div></div>`; }).join('');
+      + `<div class="sm-re">${r.reasons.slice(0, 3).map(x => `<span>${(SM.BASES[x.b] || {}).icon || ''} ${esc(x.t)}</span>`).join('')}</div></div>`; }).join('');
   $('#pane').innerHTML = `<div class="similar"><div class="sm-head"><h2>🔍 類似ノート <small class="sub">${rows.length}件</small></h2>`
-    + `<span class="grow"></span>${Object.keys(SM.BASES).map(k => `<button class="sm-b${st.bases[k] ? ' on' : ''}" data-smb="${k}" title="${SM.BASES[k]}で比べる（${st.bases[k] ? 'オン' : 'オフ'}）">${SIM_ICON[k]}</button>`).join('')}`
+    + `<span class="grow"></span>${Object.keys(SM.BASES).map(k => `<button class="sm-b${st.bases[k] ? ' on' : ''}" data-smb="${k}" title="${SM.BASES[k].name}: ${SM.BASES[k].tip}（${st.bases[k] ? 'オン' : 'オフ'}）">${SM.BASES[k].icon}</button>`).join('')}`
     + (base.length > 1 ? `<button class="sm-b wide" data-smmulti title="${SIM_MULTI[st.multi][1]}（押すと切り替え）">${SIM_MULTI[st.multi][0]}</button>` : '')
     + `</div><div class="sm-base">基準　${base.map(chip).join('')}</div><div class="sm-list">${list || '<div class="none">似たノートは見つかりません</div>'}</div></div>`;
   renderTabs(); renderList();

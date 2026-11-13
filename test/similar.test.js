@@ -13,11 +13,24 @@ test('類似検索: 同じ言葉の理由が、意味のある言葉で出る（
   const S = await import('../src/similar.js');
   const mk = (id, body, kw = []) => ({ s: 'd', id, title: '', body, keywords: kw });
   const notes = [mk('1', '認識論とカントの純粋理性批判について考えた。経験と理性の関係。', ['認識論']), mk('2', 'カントは純粋理性批判で認識論を転回した。'), mk('3', '今日の夕飯はカレーライスにした。玉ねぎを炒める。'), mk('4', '台所の掃除をした。')];
-  const P = S.prepare(notes, [], () => ({ rows: [] }));
-  const rows = S.rank(P, notes, [notes[0]], { bases: { text: true, kw: true, link: true, topic: true }, multi: 'avg' }).sort((a, b) => b.total - a.total);
+  const P = S.prepare(notes);
+  const rows = S.rank(P, notes, [notes[0]], { bases: { ...S.DEFAULT_ON }, multi: 'avg' });
   assert.strictEqual(rows[0].note.id, '2');
-  const why = rows[0].reasons.find(r => r.b === 'text').t;
+  const why = rows[0].reasons.find(r => r.b === 'words').t;
   assert.match(why, /^同じ言葉: /); assert.match(why, /カント|認識論|純粋/);
   assert.ok(!/[ぁ-ん]{2}・/.test(why.replace('同じ言葉: ', '')) || /カント|認識論/.test(why));
   assert.ok(!rows.some(r => r.note.id === '3' && r.total > rows[0].total));
+});
+
+test('類似検索: 番号・リンク・キーワードの見方（索引は使わない）', async () => {
+  const S = await import('../src/similar.js');
+  const mk = (id, body, kw = [], created = '2026-11-01 10:00') => ({ s: 'd', id, title: '', body, keywords: kw, created });
+  const notes = [mk('1', 'はじめの話。->2 へ続く。'), mk('1a', '枝の話。', ['読書']), mk('1b', '別の枝の話。->1a'), mk('2', '続きの話。'), mk('3', '全然ちがうこと。', [], '2026-12-30 10:00'), mk('4', '読書のやり方を考えた。', [], '2026-12-30 10:00'), mk('5', '空。'), mk('6', '空。')];
+  const P = S.prepare(notes);
+  const only = (k, base) => S.rank(P, notes, [notes[base]], { bases: { [k]: true }, multi: 'avg' });
+  assert.deepStrictEqual(only('tree', 1).map(r => r.note.id).slice(0, 2).sort(), ['1', '1b']);   // 1a から見て、親（1）と兄弟（1b）が近い
+  assert.strictEqual(only('link', 0)[0].note.id, '2');                                      // ->2 でつながっている
+  assert.ok(only('link', 1).some(r => r.note.id === '1b'));                                  // 1b から 1a へのリンク
+  assert.match(only('kw', 1).find(r => r.note.id === '4').reasons[0].t, /キーワードが本文に出てくる: 読書/);
+  assert.ok(!Object.keys(S.BASES).includes('topic'));
 });
