@@ -1246,8 +1246,8 @@ function topicAddDialog(note) {
   let sel = null;
   $('#modal .box').innerHTML = `<div class="dlg-a">
     <h3>🗂️ ${esc(name)} を索引に入れる</h3>
-    <div class="da-bar"><input id="ta-q" placeholder="🔎 索引を探す" style="flex:1;min-width:0">${entry ? '' : '<button id="ta-new" title="トピックインデックスを追加" aria-label="トピックインデックスを追加" aria-expanded="false">＋</button>'}</div>
-    ${entry ? '' : '<div id="ta-create" hidden><div class="da-lab">新しいトピックインデックスの名前</div><div class="da-bar"><input id="ta-name" placeholder="名前（例: GUI）" style="flex:1;min-width:0"><button id="ta-create-cancel">やめる</button><button id="ta-create-ok" class="p">追加</button></div><div id="ta-create-error" role="alert"></div></div>'}
+    <div class="da-bar"><input id="ta-q" placeholder="🔎 索引を探す" style="flex:1;min-width:0"><button id="ta-new" title="トピックインデックスを追加（何個でも作れます）" aria-label="トピックインデックスを追加" aria-expanded="false">＋</button></div>
+    <div id="ta-create" hidden><div class="da-lab">新しいトピックインデックスの名前</div><div class="da-bar"><input id="ta-name" placeholder="名前（例: GUI）" style="flex:1;min-width:0"><button id="ta-create-cancel">やめる</button><button id="ta-create-ok" class="p">追加</button></div><div id="ta-create-error" role="alert"></div></div>
     <div id="ta-list" class="ta-list"></div>
     <div class="da-lab">🏷️ キーワード（索引の中の行の名前）</div>
     <input id="ta-kw" list="ta-kws" placeholder="例: 英雄伝"><datalist id="ta-kws"></datalist>
@@ -1314,7 +1314,8 @@ function topicAddDialog(note) {
       try {
         await flush();
         const t = { name: nm, entry: { s: note.s, id: note.id }, keyword: '', text: '' };
-        if (!await api.saveTopic(t)) throw new Error('保存できませんでした');
+        const saved = await api.saveTopic(t); if (!saved) throw new Error('保存できませんでした');
+        if (typeof saved === 'number') t.num = saved;   // 同じノートの2つ目以降は 1-2, 1-3 …
         topics.push(t); rememberTopic(nm); close(); renderMeta(note);
         newTab = true; openTopic(nm, 'edit');
       } catch (e) { error.textContent = e.message; button.disabled = false; }

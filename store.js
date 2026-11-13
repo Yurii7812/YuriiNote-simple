@@ -358,10 +358,10 @@ function openVault(vault) {
     const shownBody = n.kind === 'memo-group' ? MemoGroup.markdown(n.data, docs.get('C_チャット')) : n.body;
     const body = BODY + L.bodyToMd(shownBody, (x, sp) => noteHref(sp || n.s, x)) + '\n' + NAV;
     if (L.isNoid(n.id)) return [fmOf(n).replace(/\n$/, ''), n.data ? `<!-- pkm-data ${J(n.data)} -->` : null, head, '', body, ''].filter(x => x !== null).join('\n');
-    const has = x => !!get(n.s, x), parent = L.parentIn(n.id, has), kids = ids(n.s).filter(x => L.parentIn(x, has) === n.id), t = topicOf(n.s, n.id);
+    const has = x => !!get(n.s, x), parent = L.parentIn(n.id, has), kids = ids(n.s).filter(x => L.parentIn(x, has) === n.id), own = [...topics.values()].filter(o => o.entry && o.entry.s === n.s && o.entry.id === n.id).sort((a, b) => (a.num || 1) - (b.num || 1));
     const listed = [...topics.values()].filter(o => L.mergeTopic(o).rows.some(r => r[n.s].some(x => L.splitAnchor(x).id === n.id)));
     const line = (k, items) => items.length ? `${k}: ${items.join('　')}` : null;
-    const top = [line('ParentBranch', parent ? [lk(n.s, parent)] : []), line('TopicBranch', t ? [ml(topicHref(t.name), t.name)] : []), line('Topic', listed.map(o => ml(topicHref(o.name), o.name)))].filter(Boolean);
+    const top = [line('ParentBranch', parent ? [lk(n.s, parent)] : []), line('TopicBranch', own.map(o => ml(topicHref(o.name), o.name))), line('Topic', listed.map(o => ml(topicHref(o.name), o.name)))].filter(Boolean);
     return [fmOf(n).replace(/\n$/, ''), n.data ? `<!-- pkm-data ${J(n.data)} -->` : null, head, '',
       top.length ? top.join('  \n') + '\n' : null,
       n.img ? `![${n.id}](${enc(n.img)})\n` : null,
