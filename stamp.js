@@ -10,7 +10,10 @@ const strip = text => String(text).split('\n').map(stripLine).join('\n');   // �
 const stampable = line => line.trim() !== '' && !RE.test(line);
 const fenceOpen = line => { const m = line.match(/^\s*(`{3,}|~{3,})/); return m ? m[1] : null; };
 // 目印を付けられない行: コード・ボード・mermaid の囲みの中、表の行、区切り線
-const skipLine = (line, inFence) => inFence || /^\s*\|/.test(line) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+// 自動で入る行（日記の「## 今日の記録」などの見出し、リンクだけの行、:ID だけの行）にも付けない（見つける側が、そのままの形を探すため）
+const skipLine = (line, inFence) => inFence || /^\s*\|/.test(line) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)
+  || /^\s*##\s+(今日の記録|紙の日記|今日のノート)\s*$/.test(line) || /^\s*(-\s+)?!?\[[^\]]*\]\([^)]*\)\s*$/.test(line) || /^\s*(-\s+)?:[0-9a-z]+\s*$/.test(line)
+  || /^\s*([-*+]|\d+[.)])\s*(\[[ xX]\])?\s*$/.test(line);   // 中身のない箇条書き（Enter で箇条書きを終えるため）
 // text の中の、まだ目印が無い行すべてに at を付ける（lines: 付ける行番号(0始まり)の集まり。省略で全部）
 function add(text, at, lines) {
   const out = text.split('\n'); let fence = null;

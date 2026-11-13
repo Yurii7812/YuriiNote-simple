@@ -21,8 +21,8 @@ test('スマホの受信箱: メモ帳・日記・ノート・紙を取り込み
   const r = importInbox(v, files, { papers: (name, buf) => got.push([name, buf.length]) });
   assert.deepStrictEqual(r.sum, { memos: 3, diaries: 1, notes: 1, papers: 1, skipped: 2, already: 0 });
   const memo = v.state().diaries.find(d => d.kind === 'メモ帳' && d.date === '2026-11-13').body;
-  assert.strictEqual(memo, '08:12 朝の考え\n10:40 二つ目 の続き\n時刻なし');   // 1件1行・改行は空白に・時刻なしは時刻を付けない
-  assert.match(v.state().diaries.find(d => d.kind === '日記' && d.date === '2026-11-13').body, /今日は読書をした。/);
+  assert.strictEqual(memo, '朝の考え <!--2026-11-13 08:12-->\n二つ目 の続き <!--2026-11-13 10:40-->\n時刻なし <!--2026-11-13 11:00-->');   // 1件1行・改行は空白に・全部に年月日と時刻の目印
+  assert.match(v.state().diaries.find(d => d.kind === '日記' && d.date === '2026-11-13').body, /今日は読書をした。 <!--\d{4}-\d{2}-\d{2} \d{2}:\d{2}-->/);
   const note = v.state().notes.find(n => /読書メモの書き方/.test(n.body));
   assert.ok(note && note.s === 'd' && note.id === note.stem && /^\d{14}$/.test(note.id));   // ID なし（ファイル名が ID 代わり）＝未所属
   assert.deepStrictEqual(got, [['paper-6-f.jpg', 3]]);
@@ -36,5 +36,5 @@ test('スマホの受信箱: 消さずに残してあるファイルは、二度
   const first = importInbox(v, files.slice(0, 1));
   const second = importInbox(v, files, { seen: new Set(first.done) });
   assert.strictEqual(second.sum.memos, 1); assert.strictEqual(second.sum.already, 1);
-  assert.strictEqual(v.state().diaries.find(d => d.kind === 'メモ帳').body, '08:12 一度だけ\n09:00 新しい');
+  assert.strictEqual(v.state().diaries.find(d => d.kind === 'メモ帳').body, '一度だけ <!--2026-11-13 08:12-->\n新しい <!--2026-11-13 09:00-->');
 });

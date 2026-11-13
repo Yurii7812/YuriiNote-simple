@@ -11,7 +11,7 @@
 // .md は Brave の Markdown Viewer でも開ける（リンクはすべて同じフォルダの中）
 const fs = require('fs');
 const path = require('path');
-const L = require('./lib');
+const L = require('./lib'), Stamp = require('./stamp');
 const MemoGroup = require('./memo-group');
 
 const PRE = { d: 'D_', p: 'P_' };
@@ -276,7 +276,7 @@ function openVault(vault) {
   const lowerLabel = o => (o.kind + (o.title ? '-' + o.title : '')).replace(/[\[\]\n]/g, ' ');
   function syncLowerSection(d) {
     const low = lowerOf(d), lines = (d.body || '').split('\n'), H = '## 今日の記録';
-    const i = lines.findIndex(l => l.trim() === H);
+    const i = lines.findIndex(l => Stamp.stripLine(l).trim() === H);
     let rest = lines;
     if (i >= 0) { let j = i + 1; while (j < lines.length && (!lines[j].trim() || /^\s*(-\s+)?\[[^\]]*\]\([^)]*\)\s*$/.test(lines[j]))) j++; rest = [...lines.slice(0, i), ...lines.slice(j)]; }
     const free = rest.join('\n').replace(/^\n+/, '');
@@ -348,7 +348,7 @@ function openVault(vault) {
   const topicOf = (s, id) => [...topics.values()].find(t => t.entry && t.entry.s === s && t.entry.id === id);
   const label = (s, id) => (s === 'p' ? '紙' : '') + id;
 
-  const titleOfNote = n => n.title ? n.title : n.kind && n.kind !== 'text' ? ((n.data && n.data.title) || (n.kind === 'rp' ? '会話' : n.kind === 'memo-group' ? 'チャットメモのノート' : 'キャンバス')) : (n.body.split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 30);
+  const titleOfNote = n => n.title ? n.title : n.kind && n.kind !== 'text' ? ((n.data && n.data.title) || (n.kind === 'rp' ? '会話' : n.kind === 'memo-group' ? 'チャットメモのノート' : 'キャンバス')) : (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 30);
   // ノートの md（Gnosis 風）:  YAML ／ # 題 ／ ParentBranch: TopicBranch: Topic: ／ 本文 ／ ChildBranch:   空の行は出さない。前・次・一覧へのリンクは Index.md にだけ
   //   ParentBranch ＝ 親（番号の1つ上）　TopicBranch ＝ このノートが入口のトピックIndex　Topic ＝ このノートが載っているトピックIndex　ChildBranch ＝ 分岐（子）
   const ml = (href, text) => `[${esc(text)}](${href})`;
@@ -490,7 +490,7 @@ function openVault(vault) {
       if (d.kind !== DIARY) continue;
       let inSec = false, changed = false; const out = [];
       for (const l of d.body.split('\n')) {
-        if (/^##\s/.test(l)) { inSec = l.trim() === '## 今日のノート'; out.push(l); continue; }
+        if (/^##\s/.test(l)) { inSec = Stamp.stripLine(l).trim() === '## 今日のノート'; out.push(l); continue; }
         if (!inSec) { out.push(l); continue; }
         const t = l.trim(); let m, n = null, known = true;
         if ((m = t.match(/^(?:-\s+)?:(\S+)$/))) n = notes.get(key('d', m[1])) || null;                                         // 昔の「:ID」
@@ -573,7 +573,7 @@ function openVault(vault) {
   const isBlank = n => (!n.kind || n.kind === 'text') && !(n.body || '').trim() && !(n.title || '').trim();
   // 日記の「今日のノート」の1行: [題](ファイル名.md)。ID を付け替えても、ファイル名は変わらないので、リンクはそのまま
   const noteLabel = n => {
-    const t = (n.title || '').trim() || ((n.body || '').split('\n').map(x => x.replace(/^#+\s*/, '').trim()).find(Boolean) || '');
+    const t = (n.title || '').trim() || ((Stamp.strip(n.body || '').split('\n').map(x => x.replace(/^#+\s*/, '').trim()).find(Boolean)) || '');
     return (t || (L.isNoid(n.id) ? '未整理 ' + (n.created || '').slice(11, 16) : n.id)).replace(/[\[\]\n]/g, ' ').slice(0, 60);
   };
   const noteLine = n => `[${noteLabel(n)}](${noteHref('d', n.id)})`;
@@ -736,7 +736,7 @@ function openVault(vault) {
         if (t.entry && t.entry.s === 'd' && t.entry.id === id) t.entry = null;
         t.text = L.removeFromTopic(t.text, [{ s: 'd', id }], L.defOf(t));
       }
-      const label = (n.title || (n.body.split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 24) || 'ノート').replace(/[\[\]]/g, '');
+      const label = (n.title || (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 24) || 'ノート').replace(/[\[\]]/g, '');
       const fix = (body, own = 'd') => { // :1a  1a:  1a(1)  などを、リンクに置き換える（紙の 1a を指すものは、そのまま）
         let out = '', last = 0;
         for (const t of L.tokens(body)) { if (t.k !== 'ref' || t.id !== id || (t.sp || own) !== 'd') continue; out += body.slice(last, t.from) + `[${label}](${href})`; last = t.to; }

@@ -283,14 +283,15 @@ const WD = ['日', '月', '火', '水', '木', '金', '土'];
 const weekday = date => { const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? WD[new Date(+m[1], +m[2] - 1, +m[3]).getDay()] : ''; };
 const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s);
 // 本文の「## 見出し」の節の最後に1行を足す。節が無ければ作る（「紙の日記」は必ず最後、ほかはその前）
+const SS = require('./stamp'), tl = x => SS.stripLine(x).trim();   // 行末の時刻の目印を無視して比べる
 function addToSection(body, heading, line) {
   const H = '## ' + heading, lines = body ? body.split('\n') : [];
   const norm = x => x.trim().replace(/^-\s+/, '');
   if (lines.some(l => norm(l) === norm(line))) return body;
-  const i = lines.findIndex(l => l.trim() === H);
+  const i = lines.findIndex(l => tl(l) === H);
   if (i < 0) {
     // 並びは、本文、紙の日記、今日のノートの順。紙の日記は「今日のノート」の前に、それ以外は最後に
-    const notes = lines.findIndex(l => l.trim() === '## 今日のノート');
+    const notes = lines.findIndex(l => tl(l) === '## 今日のノート');
     if (heading === '紙の日記' && notes >= 0) { lines.splice(notes, 0, H, '', line, ''); return lines.join('\n'); }
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return (lines.length ? lines.join('\n') + '\n\n' : '') + H + '\n\n' + line;
@@ -302,7 +303,7 @@ function addToSection(body, heading, line) {
 // 日の本文の並び: 今日の記録、書いた文章、「## 紙の日記」、「## 今日のノート」。書いた文章は、いつも上
 function normDay(body) {
   const lines = (body || '').split('\n');
-  const pi = lines.findIndex(l => l.trim() === '## 紙の日記'), ni = lines.findIndex(l => l.trim() === '## 今日のノート');
+  const pi = lines.findIndex(l => tl(l) === '## 紙の日記'), ni = lines.findIndex(l => tl(l) === '## 今日のノート');
   if (pi < 0 && ni < 0) return body;
   const range = (i, item) => { let j = i + 1; while (j < lines.length && (item ? (!lines[j].trim() || item.test(lines[j])) : !/^##\s/.test(lines[j]))) j++; return [i, j]; };
   const paper = pi >= 0 ? range(pi, null) : null;

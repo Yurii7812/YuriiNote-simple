@@ -2,6 +2,7 @@ import { EditorView, Decoration, ViewPlugin, WidgetType, keymap, placeholder } f
 import { EditorState, RangeSetBuilder, StateField, Prec } from '@codemirror/state';
 import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
 import L from '../lib.js';
+import Stamp from '../stamp.js';
 import LinkCore from '../link-core.js';
 import TopicRanking from '../topic-ranking.js';
 import * as LC from './linked-content.js';
@@ -9,6 +10,7 @@ import * as ReferencePicker from './reference-picker.js';
 import { plainDoc } from './reference-picker.js';
 import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from './md.js';
 import { boardTemplate, focusBoardAt } from './board.js';
+import { stampsShown, setStampsShown } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -275,10 +277,8 @@ function syncEditors() {
     }
   }
 }
-// ===== 時刻つきで書く（日記・メモ帳）=====
-// ショートカット（Ctrl+R = Record）か ⏱️ で、オン・オフ。オンのとき、新しい段落（空行のあと）の最初の文字を書き始めると、先頭に「13:40 」が付く。例: a と書くと「13:40 a」
-const stampOn = kind => { try { const v = localStorage.getItem('pkm-stamp:' + kind); return v === null ? kind === 'メモ帳' : v === '1'; } catch { return kind === 'メモ帳'; } };
-const setStampOn = (kind, on) => { try { localStorage.setItem('pkm-stamp:' + kind, on ? '1' : '0'); } catch { } };
+// ===== 時刻（行ごとの年月日＋時刻）=====
+// 全部の行に、書いた時刻が目印として付く（src/stamps.js）。ここでは、画面に出すかどうかを切り替えるだけ。ショートカットは Ctrl+R
 function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の日記・今日のノート）の外か
   const lines = doc.split('\n'); let off = 0, at = lines.length - 1;
   for (let i = 0; i < lines.length; i++) { if (pos <= off + lines[i].length) { at = i; break; } off += lines[i].length + 1; }
@@ -290,20 +290,10 @@ function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の
   }
   return true;
 }
-function maybeStamp(view) {
-  if (!cur || cur.k !== 'diary' || !stampOn(cur.kind || '日記')) return;
-  const sel = view.state.selection.main; if (!sel.empty) return;
-  const doc = view.state.doc, line = doc.lineAt(sel.head);
-  if (line.text.length || !(line.number === 1 || !doc.line(line.number - 1).text.trim())) return;   // 空の行で、前が空行（新しい段落）のときだけ
-  if (!freeArea(doc.toString(), line.from)) return;
-  const now = new Date(), stamp = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ' ';
-  view.dispatch({ changes: { from: sel.head, insert: stamp }, selection: { anchor: sel.head + stamp.length } });
-}
 function toggleStamp(view) {
-  if (!cur || cur.k !== 'diary') return false;
-  const kind = cur.kind || '日記', on = !stampOn(kind); setStampOn(kind, on);
-  const b = document.querySelector('[data-act="stampmode"]'); if (b) b.classList.toggle('on', on);
-  toast(on ? '⏱️ 書き始めに、時刻をつける' : '⏱️ 時刻をつけない');
+  const on = !stampsShown(); setStampsShown(on);
+  document.querySelectorAll('[data-act="stampmode"]').forEach(b => b.classList.toggle('on', on));
+  toast(on ? '⏱️ 行ごとの時刻を表示' : '⏱️ 行ごとの時刻を隠す（保存はされています）');
   if (view) view.focus(); return true;
 }
 // Ctrl+M（Mark）: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
@@ -322,11 +312,9 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
           const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
           if (ctl && e.code === 'KeyG') { e.preventDefault(); insertBoard(); return true; }
           if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
-          if (isDiary && ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
-          if (isDiary && !e.isComposing && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.length === 1) maybeStamp(v);
+          if (ctl && e.code === 'KeyR') { e.preventDefault(); toggleStamp(v); return true; }
           return false;
         },
-        compositionstart(_e, v) { if (isDiary) maybeStamp(v); return false; }
       })), keymap.of([...defaultKeymap, ...historyKeymap]), EditorView.lineWrapping, ...(mode === 'note' ? [urlPasteTitle] : []),
         placeholder(ph), ...(mode === 'note' ? [...mdExtensions, searchExt] : []), links(mode, space), ...(mode === 'note' ? [images(space), LC.decorations(cur?.k === 'note' ? 'note:' + get(cur.s, cur.id)?.stem : cur?.k === 'diary' ? 'day:' + cur.kind + ':' + cur.date : 'embedded', space)] : []), EditorView.updateListener.of(u => { if (u.docChanged && !binding.syncing) onChange(u.state.doc.toString()); })]
     })
@@ -387,7 +375,7 @@ const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
 const topicNo = t => t.entry ? `${t.entry.id}-${t.num || 1}` : '';   // 1-1, 1-2, … グループIndexは 0-1, 0-2
 const topicLabel = t => (topicNo(t) ? topicNo(t) + ' ' : '') + stripId(t.name);
 const tchip = name => `<span class="chip t" data-topic="${esc(name)}">${esc(stripId(name))}</span>`;
-const firstLine = n => (n.body.split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').trim().slice(0, 40);
+const firstLine = n => (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').trim().slice(0, 40);
 const titleOf = n => (n.title || '').trim() || (firstLine(n) || '（無題）');
 // 検索: 一致した所を mark で囲む（大文字小文字は区別しない）
 const escRe = q => q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -407,7 +395,7 @@ const noteRow = (n, label = false, q = '') =>
   `<div class="item note${cur && cur.k === 'note' && cur.s === n.s && cur.id === n.id ? ' on' : ''}${isDecided(n.s, n.id) ? ' decided' : ''}" draggable="true" data-s="${n.s}" data-id="${esc(n.id)}">` +
   `${selMode ? `<input type="checkbox" class="ck" ${picked.has(n.s + ':' + n.id) ? 'checked' : ''}>` : ''}<div class="nrow">` +
   `<div class="nt">${label && n.s === 'p' ? `<span class="sp ${n.s}">${SP[n.s]}</span>` : ''}${icon(n) ? icon(n) + ' ' : ''}${n.image ? '📷 ' : ''}${mk(titleOf(n), q)}</div>` +
-  `<div class="ns">${n.noid ? `IDなし · ${shortTime(n.created)}` : `${n.s === 'p' ? '紙 ' : ''}${mk(n.id, q)}`}${n.keywords.length ? ` · ${n.keywords.map(k => mk(k, q)).join('・')}` : ''}</div>${q && snippet(n.body, q) ? `<div class="sn">${snippet(n.body, q)}</div>` : ''}</div></div>`;
+  `<div class="ns">${n.noid ? `IDなし · ${shortTime(n.created)}` : `${n.s === 'p' ? '紙 ' : ''}${mk(n.id, q)}`}${n.keywords.length ? ` · ${n.keywords.map(k => mk(k, q)).join('・')}` : ''}</div>${q && snippet(Stamp.strip(n.body), q) ? `<div class="sn">${snippet(Stamp.strip(n.body), q)}</div>` : ''}</div></div>`;
 // 索引 の行（その親のノートの手前に出す）
 const topicRow = (t, zero = false) => `<div class="item topicrow${cur && cur.k === 'topic' && cur.name === t.name ? ' on' : ''}${decided && decided.k === 'topic' && decided.name === t.name ? ' decided' : ''}" data-topic="${esc(t.name)}"><div class="nrow"><div class="nt">${esc(topicLabel(t))}</div><div class="ns">${zero ? `${SP[t.entry.s]} ${esc(t.entry.id)}` : '索引'}</div></div></div>`;
 
@@ -512,11 +500,11 @@ function renderList() {
       for (const r of paperRows(L.mergeTopic(t).rows)) if (r.kw.toLowerCase().includes(q)) ti.push([rank(r.kw), `<div class="ix"><b>${esc(r.kw)}</b> ${chips(r)} <small>← ${tchip(t.name)}</small></div>`]);
     }
     if (ti.length) out.push('<h4>索引</h4>', ...ti.sort((a, b) => a[0] - b[0]).map(x => x[1]));
-    const hit = sortNotes(notes.filter(n => isVisS(n.s) && [n.id, n.title || '', n.body, n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
+    const hit = sortNotes(notes.filter(n => isVisS(n.s) && [n.id, n.title || '', Stamp.strip(n.body), n.keywords.join(' '), n.keywords.map(k => readings[k] || '').join(' ')].join('\n').toLowerCase().includes(q)), 'd');   // 並べ替え（番号・作成・更新 × 昇降）は、ノートの部分だけ
     if (hit.length) out.push('<h4>ノート</h4>', ...hit.map(n => noteRow(n, true, q)));
     const fh = filesCache.filter(f => [f.title, f.desc, f.orig, f.name].join('\n').toLowerCase().includes(q));
     if (fh.length) out.push('<h4>ファイル</h4>', ...fh.map(f => fileRow(f, q)));
-    const dh = diaries.filter(d => [d.date, d.title, d.body].join('\n').toLowerCase().includes(q)).sort((a, b) => b.date.localeCompare(a.date));
+    const dh = diaries.filter(d => [d.date, d.title, Stamp.strip(d.body)].join('\n').toLowerCase().includes(q)).sort((a, b) => b.date.localeCompare(a.date));
     if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, q)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, q) ? `<div class="sn">${snippet(d.body, q)}</div>` : ''}</div></div>`));
     if (!out.length) out.push('<div class="none">見つかりません</div>');
   } else if (tab === 'f') {
@@ -1582,7 +1570,7 @@ function recordsDialog() {
   const last = n => diaries.filter(d => (d.kind || '日記') === n).map(d => d.date).sort().pop() || '', count = n => diaries.filter(d => (d.kind || '日記') === n).length;
   const FIXED = ['日記', 'メモ帳'];
   const apply = async (op, ...a) => { await flush(); const r = await api.recordOp(op, ...a); if (r === false) { alert('できませんでした（名前が使えない・すでにある・輪になる、など）'); return false; } const st = await api.state(); applyState(st); records = st.records; return true; };
-  const plain = d => (d.body || '').replace(/^##.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*:\S+\s*$/gm, '').trim();
+  const plain = d => Stamp.strip(d.body || '').replace(/^##.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*:\S+\s*$/gm, '').trim();
   dialog(`<div class="rd"><input id="rd-q" placeholder="🔎" autocomplete="off" aria-label="時系列記録を探す"><div id="rd-list"></div><div class="rd-add"><input id="rd-new" placeholder="＋ 新しい種類（例: 夢）" autocomplete="off"><button class="p" id="rd-addb" title="足す" aria-label="足す">＋</button></div></div>`, close => {
     const box = $('#rd-list');
     const rank = n => FIXED.indexOf(n) < 0 ? 9 : FIXED.indexOf(n);
@@ -1677,15 +1665,21 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="stampmode" class="ic dj${stampOn(kind) ? ' on' : ''}" title="書き始めに時刻をつける（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button><button data-act="board" class="ic dj" title="ボードを入れる（Ctrl+G）文字と線を、紙のように書ける" aria-label="ボード">🖍️</button>
+      <button data-act="stampmode" class="ic dj${stampsShown() ? ' on' : ''}" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button><button data-act="board" class="ic dj" title="ボードを入れる（Ctrl+G）文字と線を、紙のように書ける" aria-label="ボード">🖍️</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
     ${kind !== '日記' && kind !== 'メモ帳' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
-    <div class="ed" id="ed"></div>`;
+    <div class="ed" id="ed"></div>
+    <div class="chatbar"><textarea id="chat-in" rows="1" placeholder="とりあえず書く（Enter で追加・Shift+Enter で改行）" aria-label="追加する文"></textarea><button id="chat-send" class="ic" title="追加（Enter）" aria-label="追加">⬆️</button></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
     kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
   $('#d-title').oninput = e => { d.title = e.target.value; saveDiary(d); renderList(); };
+  // チャットのように、下の欄に書いて Enter で、その日の本文の最後に（時刻つきで）足す
+  const chatIn = $('#chat-in'), chatSend = () => { const t = chatIn.value.replace(/\s+$/, ''); if (!t.trim()) return; appendEntry(view, t); chatIn.value = ''; chatIn.style.height = ''; chatIn.focus(); };
+  chatIn.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); chatSend(); } };
+  chatIn.oninput = () => { chatIn.style.height = 'auto'; chatIn.style.height = Math.min(chatIn.scrollHeight, 140) + 'px'; };
+  $('#chat-send').onclick = chatSend;
   document.querySelectorAll('[data-dparpick]').forEach(c => c.onclick = () => parentPickDialog(kind, date));
   renderTabs(); renderList();
   // 自由に書く部分（最初の「## 」より前）にカーソル。節で始まる日記は、その前に空行を足して書く場所を作る
@@ -1713,6 +1707,14 @@ async function diaryAct(act) {
   if (act === 'table') insertTable();
   if (act === 'board') insertBoard();
   if (act === 'stampmode') toggleStamp(lastView);
+}
+// 日記・メモ帳の本文の「書く部分」の最後（紙の日記・今日のノートの前）に、行ごとの時刻つきで足す
+function appendEntry(view, text) {
+  const doc = view.state.doc.toString(), lines = doc.split('\n');
+  const idx = lines.findIndex(l => /^##\s/.test(l) && ['## 紙の日記', '## 今日のノート'].includes(Stamp.stripLine(l).trim()));
+  const head = idx >= 0 ? lines.slice(0, idx).join('\n') + '\n' : doc, end = head.replace(/\s+$/, '').length;
+  const ins = (end > 0 ? '\n' : '') + Stamp.add(text, Stamp.nowStamp());
+  view.dispatch({ changes: { from: end, insert: ins }, selection: { anchor: end + ins.length }, scrollIntoView: true });
 }
 function insertBoard() {
   if (!lastView) return;
