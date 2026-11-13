@@ -290,11 +290,19 @@ function freeArea(doc, pos) {   // 自動で入る欄（今日の記録・紙の
   }
   return true;
 }
+function syncStampToggle() {
+  const b = $('#stamp-toggle'); if (!b) return;
+  const on = stampsShown();
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on));
+  b.textContent = '⏱️ ' + (on ? 'ON' : 'OFF');
+  b.title = '行ごとの時刻を' + (on ? '表示中' : '非表示中') + '（Ctrl+R）';
+}
 function toggleStamp(view) {
   const on = !stampsShown(); setStampsShown(on);
-  document.querySelectorAll('[data-act="stampmode"]').forEach(b => b.classList.toggle('on', on));
+  syncStampToggle();
   toast(on ? '⏱️ 行ごとの時刻を表示' : '⏱️ 行ごとの時刻を隠す（保存はされています）');
-  if (view) view.focus(); return true;
+  if (view && view.dom.isConnected) view.focus(); return true;
 }
 // Ctrl+M（Mark）: そのノートで、いちばん大きい番号の次の (n) を、カーソルの位置に入れる
 function insertNextAnchor(view) {
@@ -800,6 +808,7 @@ function renderTabs() {
   $('#tabbar').innerHTML = tabs.map((t, i) => `<div class="tab${i === active ? ' on' : ''}" data-ti="${i}"><span>${tabLabel(t)}</span><b class="x" data-close="${i}" title="閉じる (Ctrl+W)">×</b></div>`).join('')
     + '<button class="tab-new" title="新しいタブ (Ctrl+T)">＋</button>';
   renderNav();
+  syncStampToggle();
   try { localStorage.setItem('pkm-tabs:' + vault, JSON.stringify({ tabs: tabs.map(t => ({ ...desc(t), pos: t.pos })), active })); } catch { }
 }
 $('#tabbar').addEventListener('click', e => {
@@ -1665,7 +1674,7 @@ async function openDiary(date, keep, kind) {
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
-      <button data-act="stampmode" class="ic dj${stampsShown() ? ' on' : ''}" title="行ごとの時刻を表示・非表示（Ctrl+R）" aria-label="時刻">⏱️</button><button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button><button data-act="board" class="ic dj" title="ボードを入れる（Ctrl+G）文字と線を、紙のように書ける" aria-label="ボード">🖍️</button>
+      <button data-act="table" class="ic dj" title="表を入れる" aria-label="表">📊</button><button data-act="board" class="ic dj" title="ボードを入れる（Ctrl+G）文字と線を、紙のように書ける" aria-label="ボード">🖍️</button>
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
@@ -1892,14 +1901,15 @@ function loaded(st) {
   } catch { tabs = []; active = -1; }
   show(active);
 }
-// 右上の「⋯」: 更新を確認（押したときだけ。自動では確認も更新もしない）・ショートカット・バージョン
-$('#more').onclick = () => {   // 「⋯」: USB での取り込みと、設定だけ。ほかは、全部、設定に
+// 左下のメニュー: USB取り込みと設定。
+$('#more').onclick = () => {
   const r = $('#more').getBoundingClientRect();
-  popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
+  popMenu({ clientX: r.right + 8, clientY: r.top - 80 }, [
     ['📱 スマホのメモを取り込む…（USB）', phoneImport],
     ['⚙️ 設定…', settingsDialog]
   ]);
 };
+$('#stamp-toggle').onclick = () => toggleStamp(lastView);
 
 // ===== 設定（vault の中の K_settings.json に。vault を別の PC に写しても、同じ見た目・同じ設定）=====
 const DEFAULT_SETTINGS = { autoPhone: true, lang: 'en', theme: 'light', accent: '#3b5bdb', scale: 100, bodySize: 16, uiFont: '', bodyFont: 'default', bodyFontCustom: '', dayStart: 5 };
