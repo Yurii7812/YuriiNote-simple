@@ -219,18 +219,20 @@ function parseIdTok(tok) {
   return { id: m[1], n, sp, raw: m[1] + (n ? `(${n})` : ''), tok };
 }
 const defOf = t => t && t.entry && t.entry.s === 'p' ? 'p' : 'd';   // 索引 の、印なしの側（親が紙なら紙）
+// 索引の行頭の印（画面に出す絵文字。ファイルの中は ^ _ |> <| @ * のまま。絵文字を直接書いても同じ）
+const TMARK = { up: '⬆️', down: '⬇️', ref: '↘️', before: '↖️', mark: '⭕', star: '⭐', dot: '🔴' };
 function topicLine(line) {
-  const at = line.match(/^(\s*[@＠]\s*)(.+?)\s*$/);   // @まとめ → ◯ の見出し
+  const at = line.match(/^(\s*(?:[@＠]|⭕\uFE0F?)\s*)(.+?)\s*$/);   // @まとめ → ◯ の見出し
   if (at) return { mark: at[2], from: at[1].length, to: at[1].length + at[2].length, ids: [] };
-  const b = line.match(/^(\s*(?:↰|<\|)\s*)(.+?)\s*$/);   // <| 名前 ID（↰）→ 独立前（元の索引）
+  const b = line.match(/^(\s*(?:↰|<\||↖\uFE0F?)\s*)(.+?)\s*$/);   // <| 名前 ID（↰）→ 独立前（元の索引）
   if (b) { const r = rowOf(b[2], b[1].length); return { before: r.kw, ids: r.ids, tnos: r.tnos, from: b[1].length, to: b[1].length + b[2].length }; }
-  const u = line.match(/^(\s*[\^＾↑]\s*)(.+?)\s*$/);   // ^キーワード ID → 上位トピック（↑）
+  const u = line.match(/^(\s*(?:[\^＾↑]|⬆\uFE0F?)\s*)(.+?)\s*$/);   // ^キーワード ID → 上位トピック（↑）
   if (u) { const r = rowOf(u[2], u[1].length); return { up: r.kw, ids: r.ids, tnos: r.tnos, from: u[1].length, to: u[1].length + u[2].length }; }
-  const dn = line.match(/^(\s*[_＿↓]\s*)(.+?)\s*$/);   // _名前 ID → 下位トピック（↓）
+  const dn = line.match(/^(\s*(?:[_＿↓]|⬇\uFE0F?)\s*)(.+?)\s*$/);   // _名前 ID → 下位トピック（↓）
   if (dn) { const r = rowOf(dn[2], dn[1].length); return { down: r.kw, ids: r.ids, tnos: r.tnos, from: dn[1].length, to: dn[1].length + dn[2].length }; }   // ^キーワード ID …（IDは書かなくてもよい）
   const mk = line.match(/^(\s*[*＊]\s*)(.+?)\s*$/);   // 昔の *まとめ も ◯ の見出し（*1a のように、すぐあとが番号のときは、行の中の赤い点なので、ここでは読まない）
   if (mk && !parseIdTok(mk[2].split(/\s+/)[0])) return { mark: mk[2], from: mk[1].length, to: mk[1].length + mk[2].length, ids: [] };
-  const s = line.match(/^(\s*(?:[★☆+＋↳]|\|>)\s*)(.*?)\s*$/);   // ↳名前 ID（打つときは |>）→ 独立した索引への案内。昔の + ★ も同じ
+  const s = line.match(/^(\s*(?:[★☆+＋↳]|\|>|⭐\uFE0F?|↘\uFE0F?)\s*)(.*?)\s*$/);   // ↳名前 ID（打つときは |>）→ 独立した索引への案内。昔の + ★ も同じ
   if (s) {
     // +hoge 1 → 「★ hoge 1」（1 がリンク。そのIDの索引 があってもなくても）。+GUI だけなら、索引 への案内
     const ps = [...s[2].matchAll(/\S+/g)], last = ps[ps.length - 1], pt = last && parseIdTok(last[0]);
@@ -437,7 +439,7 @@ const now = (d = new Date()) => {
 };
 const parseTime = c => { const m = (c || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)) : null; };
 
-module.exports = { colonToArrow, colonToArrowKeep,
+module.exports = { TMARK, colonToArrow, colonToArrowKeep,
   codeRanges, MDLINK, ID, isId, splitAnchor, tok, cmpId, sibling, child, parentIn, root,
   tokens, anchorPos, selfTarget, bodyToMd, mdToBody,
   fzRange, fzSubtree, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now

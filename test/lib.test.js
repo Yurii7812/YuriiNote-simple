@@ -209,3 +209,11 @@ test('トピックIndex: _名前 ID は下位トピック（↓）。^ や _ の
   assert.deepStrictEqual(m.downs.map(u => [u.kw, u.ids.map(i => i.id), u.tnos]), [['因数分解', ['2'], []], ['分数', [], ['0-3']]]);
   assert.deepStrictEqual(m.rows.map(r => r.kw), ['キーワード']);
 });
+
+test('トピックIndex: 絵文字の印（⬆️ ⬇️ ↘️ ↖️ ⭕ ⭐）も、^ _ |> <| @ + と同じ意味', () => {
+  const T = L.topicLine;
+  assert.strictEqual(T('⬆️数学 0-1').up, '数学'); assert.strictEqual(T('⬇ 分数 2').down, '分数');
+  assert.strictEqual(T('↘️ 因数分解 2').ref.label, '因数分解'); assert.strictEqual(T('↖️ 元 1d').before, '元');
+  assert.strictEqual(T('⭕まとめ').mark, 'まとめ'); assert.strictEqual(T('⭐GUI').star, 'GUI');
+  assert.deepStrictEqual(Object.values(L.TMARK), ['⬆️', '⬇️', '↘️', '↖️', '⭕', '⭐', '🔴'].sort((a, b) => 0) && ['⬆️', '⬇️', '↘️', '↖️', '⭕', '⭐', '🔴']);
+});
