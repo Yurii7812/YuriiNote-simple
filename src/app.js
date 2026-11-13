@@ -1125,7 +1125,6 @@ function noteMenu(btn, note) {
   const r = btn.getBoundingClientRect(), { s, id } = note, text = (note.kind || 'text') === 'text';
   popMenu({ clientX: r.right - 190, clientY: r.bottom + 4 }, [
     ...(text ? [['▦ 表を入れる', () => insertTable()], ['🖍️ ボードを入れる（文字と線）', () => insertBoard()], ['📎 ファイルを添付', () => pick(true, f => attach(note, f), '*')]] : []),
-    ...(s === 'd' && text ? [['🌱 IDなしで分岐', () => createNoidRel(note, 'chi')], ['↔️ IDなしで並列', () => createNoidRel(note, 'sib')]] : []),
     ['🆔 IDを変更・解除…', () => idSettingsDialog(note)],
     ['🗑️ 削除', () => deleteNotes([{ s, id }]), true]
   ]);
@@ -2093,7 +2092,6 @@ document.addEventListener('contextmenu', e => {
     ['📂 開く', () => openNote(n.s, n.id)],
     ['🔍 類似検索', () => openSimilar([{ s: n.s, id: n.id }])],
     ['☑️ 複数選択（ここから）', () => { selMode = true; picked.clear(); picked.add(key); lastPick = key; renderList(); }],
-    ...(n.s === 'd' && (n.kind || 'text') === 'text' ? [['🌱 IDなしで分岐', () => createNoidRel(n, 'chi')], ['↔️ IDなしで並列', () => createNoidRel(n, 'sib')]] : []),
     ['📋 コピー', () => copyNotes([n])],
     ['🗑️ 削除', () => deleteNotes([{ s: n.s, id: n.id }]), true]
   ]);
