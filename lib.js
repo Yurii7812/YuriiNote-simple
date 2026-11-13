@@ -43,9 +43,9 @@ const splitAnchor = raw => { const m = String(raw).match(/^(.*?)(?:[(（](\d+)[)
 // (1) は位置ID。リンクとは別の仕組み（素の (1) は、ただの目印）。昔の :ID と ID: は ->ID と ID-> に直した（colonToArrow）
 const A = '(?:->|→)', LP = '[(（]', RP = '[)）]';
 const SEP0 = '[,，、]';
-const RE = `(?<![0-9A-Za-z])(?:(${A})?(${ID})?${LP}(\\d+)${RP}(${A})?|${A}(${ID})(?![0-9A-Za-z])|(${ID}(?:${SEP0}${ID})*)${A}(?![0-9A-Za-z]))`;
-const OLD_C = '[:：]';
-const OLD_RE = `(?<![0-9A-Za-z])(?:(${OLD_C})?(${ID})?${LP}(\\d+)${RP}(${OLD_C})?|${OLD_C}(${ID})(?![0-9A-Za-z])|(${ID})${OLD_C}(?![0-9]))`;
+const RE = `(?<![0-9A-Za-z])(?:(${A})?(${ID})?${LP}(\\d+)${RP}(${A})?|${A}(${ID})(?![0-9A-Za-z]|-\\d)|(${ID}(?:${SEP0}${ID})*)${A}(?![0-9A-Za-z]))`;
+const OLD_C = ':';   // 全角の「：」は、ふつうの句読点（「元：1d-1」など）なので、リンクにしない
+const OLD_RE = `(?<![0-9A-Za-z])(?:(${OLD_C})?(${ID})?${LP}(\\d+)${RP}(${OLD_C})?|${OLD_C}(${ID})(?![0-9A-Za-z]|-\\d)|(${ID})${OLD_C}(?![0-9]))`;
 
 const MDLINK = /!?\[[^\]\n]*\]\([^)\s]*\)/g; // [名前](パス) と ![名前](パス)
 // コードの範囲（``` で囲んだ行・`コード`・``コード``）。この中は、リンクにしない
@@ -209,8 +209,8 @@ function exportMd(items) {
 // ===== 索引 =====
 // 1行 = 「キーワード ID ID …」。
 //   ^キーワード ID は、上位トピック（↑）。|> 名前 ID（↳・昔の + ★ も同じ）は、独立したもの（独立させた別の索引）への案内。
-//   <| 名前 ID（↰）は、独立前（独立する前の、元の索引）への案内。*キーワード は ◯（まとめ・進捗などの見出し）。どれも行の先頭に書く
-//   行の終わりの「0-1」「3-2」のような番号は、その番号の索引（グループIndex など）へのリンク
+//   <| 名前 ID（↰）は、独立前（独立する前の、元の索引）への案内。@まとめ は ◯（まとめ・進捗などの見出し。昔の *まとめ も同じ）。どれも行の先頭に書く
+//   行の終わりの「0-1」「3-2」のような番号は、その番号の索引（グループIndex など）へのリンク。番号の前の * は、赤い点（その行の入口の目印）。例: PKM *1 1a
 // 行の ID: 1a  1a(2)  1a(p)  1a(p)(2)  1a(2)(p)  — (p)（紙）(d)（デジタル）は、書かなければ、その索引 の親と同じ側
 const IDTOK = new RegExp('^(' + ID + ')((?:[(（](?:\\d+|[pdPD])[)）]){0,2})$');
 function parseIdTok(tok) {
@@ -220,14 +220,14 @@ function parseIdTok(tok) {
 }
 const defOf = t => t && t.entry && t.entry.s === 'p' ? 'p' : 'd';   // 索引 の、印なしの側（親が紙なら紙）
 function topicLine(line) {
-  const c = line.match(/^(\s*[@＠]\s*)(.+?)\s*$/);   // @夢 → チャットメモのトピック「夢」への案内（メモ自体は書かない）
-  if (c) return { chat: c[2], from: c[1].length, to: c[1].length + c[2].length, ids: [] };
+  const at = line.match(/^(\s*[@＠]\s*)(.+?)\s*$/);   // @まとめ → ◯ の見出し
+  if (at) return { mark: at[2], from: at[1].length, to: at[1].length + at[2].length, ids: [] };
   const b = line.match(/^(\s*(?:↰|<\|)\s*)(.+?)\s*$/);   // <| 名前 ID（↰）→ 独立前（元の索引）
   if (b) { const r = rowOf(b[2], b[1].length); return { before: r.kw, ids: r.ids, tnos: r.tnos, from: b[1].length, to: b[1].length + b[2].length }; }
   const u = line.match(/^(\s*[\^＾↑]\s*)(.+?)\s*$/);   // ^キーワード ID → 上位トピック（↑）
   if (u) { const r = rowOf(u[2], u[1].length); return { up: r.kw, ids: r.ids, from: u[1].length, to: u[1].length + u[2].length }; }   // ^キーワード ID …（IDは書かなくてもよい）
-  const mk = line.match(/^(\s*[*＊]\s*)(.+?)\s*$/);   // *まとめ → ◯ の見出し
-  if (mk) return { mark: mk[2], from: mk[1].length, to: mk[1].length + mk[2].length, ids: [] };
+  const mk = line.match(/^(\s*[*＊]\s*)(.+?)\s*$/);   // 昔の *まとめ も ◯ の見出し（*1a のように、すぐあとが番号のときは、行の中の赤い点なので、ここでは読まない）
+  if (mk && !parseIdTok(mk[2].split(/\s+/)[0])) return { mark: mk[2], from: mk[1].length, to: mk[1].length + mk[2].length, ids: [] };
   const s = line.match(/^(\s*(?:[★☆+＋↳]|\|>)\s*)(.*?)\s*$/);   // ↳名前 ID（打つときは |>）→ 独立した索引への案内。昔の + ★ も同じ
   if (s) {
     // +hoge 1 → 「★ hoge 1」（1 がリンク。そのIDの索引 があってもなくても）。+GUI だけなら、索引 への案内
@@ -247,8 +247,9 @@ function rowOf(line, base) {
   while (i >= 0) {
     const t = parts[i][0], from = base + parts[i].index;
     if (/^\d+[a-z0-9]*-\d+$/.test(t)) { tnos.unshift({ tno: t, from, to: from + t.length }); i--; continue; }   // 0-1 のような、索引の番号（その索引へのリンク）
-    if (!(pt = parseIdTok(t))) break;
-    ids.unshift({ ...pt, from, to: from + t.length }); i--;
+    const dot = /^[*＊]./.test(t), bare = dot ? t.slice(1) : t;   // 番号の前の * は、赤い点（入口の目印）
+    if (!(pt = parseIdTok(bare))) break;
+    ids.unshift(dot ? { ...pt, tok: t, dot: true, dotAt: from, from: from + 1, to: from + t.length } : { ...pt, from, to: from + t.length }); i--;
   }
   const kw = i >= 0 ? line.slice(0, parts[i].index + parts[i][0].length).trim() : '';
   return { kw, ids, tnos };
@@ -280,7 +281,7 @@ function mergeTopic(t) {
     const k = r.kw || '';
     if (!m.has(k)) m.set(k, { kw: k, d: [], p: [], t: [] });
     for (const x of r.tnos || []) if (!m.get(k).t.includes(x.tno)) m.get(k).t.push(x.tno);
-    for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); }   // 並びには (番号) つきのまま入れる
+    for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); if (x.dot && !m.get(k).dot) m.get(k).dot = { s, id: x.id }; }   // 並びには (番号) つきのまま入れる
   }
   return { rows: [...m.values()], stars, refs, chats, ups, befores, marks };
 }

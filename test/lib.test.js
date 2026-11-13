@@ -187,3 +187,17 @@ test('トピックIndex: 上位（^）・独立（|> ↳ + ★）・独立前（
   assert.deepStrictEqual(m.refs, [{ s: 'd', label: '楔形文字で粘土板に英語を書く', id: '2' }]);
   assert.deepStrictEqual(m.befores.map(u => u.kw), ['元の索引']); assert.deepStrictEqual(m.ups.map(u => u.kw), ['上位']);
 });
+
+test('トピックIndex: @まとめ は ◯ の見出し。番号の前の * は赤い点（昔の *まとめ も ◯）', () => {
+  for (const l of ['@まとめ', '＠まとめ', '* まとめ', '＊まとめ']) assert.strictEqual(L.topicLine(l).mark, 'まとめ', l);
+  const m = L.mergeTopic({ text: '@まとめ\nPKM *1 1a\n@進捗' });
+  assert.deepStrictEqual(m.marks, ['まとめ', '進捗']); assert.deepStrictEqual(m.rows, [{ kw: 'PKM', d: ['1', '1a'], p: [], t: [], dot: { s: 'd', id: '1' } }]); assert.deepStrictEqual(m.chats, []);
+  const r = L.topicLine('PKM *1 1a'); assert.deepStrictEqual(r.ids.map(x => [x.id, !!x.dot, x.from, x.dotAt]), [['1', true, 5, 4], ['1a', false, 7, undefined]]);
+  assert.strictEqual(L.removeFromTopic('PKM *1 1a 2', [{ s: 'd', id: '1a' }]), 'PKM *1 2');   // 赤い点は、書き換えても残る
+  assert.strictEqual(L.topicLine('*1 1a').mark, undefined);
+});
+
+test('全角の「：」と、1d-1 のような索引番号は、リンクにしない', () => {
+  assert.strictEqual(L.colonToArrow('元：1d-1  ↳因数分解 2\n新：2-1'), '元：1d-1  ↳因数分解 2\n新：2-1');
+  assert.deepStrictEqual(L.tokens('元：1d-1 と ->1d-1').filter(t => t.id).map(t => t.id), []);
+});

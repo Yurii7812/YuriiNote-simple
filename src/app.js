@@ -176,14 +176,16 @@ function links(mode, space) {
       let off = 0;
       for (const line of text.split('\n')) {
         const r = L.topicLine(line);
-        const lead = /^(\s*)(\^|＾|↑|↰|<\||\*|＊|★|☆|\+|＋|↳|\|>)/.exec(line);
+        const lead = /^(\s*)(\^|＾|↑|↰|<\||@|＠|(?:\*|＊)(?![0-9])|★|☆|\+|＋|↳|\|>)/.exec(line);
         if (lead) {   // 行頭の印は赤。カーソルが外にあるとき、<| ↰ ^ は ↰、|> ↳ + ★ は ↳、* は ◯ の見た目に（ファイルの中は、書いたまま）
           const f = off + lead[1].length, tt = f + lead[2].length, on = view.state.selection.main.from <= off + line.length && view.state.selection.main.to >= off;
-          const g = /^(\^|＾|↑)$/.test(lead[2]) ? '↑' : /^(↰|<\|)$/.test(lead[2]) ? '↰' : /^(\*|＊)$/.test(lead[2]) ? '◯' : '↳';
+          const g = /^(\^|＾|↑)$/.test(lead[2]) ? '↑' : /^(↰|<\|)$/.test(lead[2]) ? '↰' : /^(@|＠|\*|＊)$/.test(lead[2]) ? '◯' : '↳';
           if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
         }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
-        else { for (const x of r.ids) add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id));
+        else { for (const x of r.ids) {
+            if (x.dot) { const on2 = view.state.selection.main.from <= off + x.to && view.state.selection.main.to >= off + x.dotAt; b.add(off + x.dotAt, off + x.dotAt + 1, on2 ? Decoration.mark({ class: 'tmk' }) : Decoration.replace({ widget: new TopicMarkWidget('●') })); }   // 番号の前の * は、赤い点
+            add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id)); }
           for (const x of r.tnos || []) { const tt = topics.find(y => topicNo(y) === x.tno); add(off + x.from, off + x.to, { t: 'topic', name: tt ? tt.name : x.tno }, !!tt); } }   // 0-1 のような番号は、その索引へのリンク
         off += line.length + 1;
       }
@@ -399,11 +401,11 @@ function globalIndex() {
   return [...m].sort((a, b) => L.byReading(readingOf)(a[0], b[0]));
 }
 // id は 1a のほか 1a(1) も（(番号) は、ノートの中のその場所へ）
-const chip = (s, raw) => {
+const chip = (s, raw, dot) => {
   const { id, n } = L.splitAnchor(raw), ts = n ? [] : topicsOf(s, id);
-  return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${s === 'p' ? '紙' : ''}${esc(raw)}</span>${ts.length ? `<i class="tix" data-tix="${s}:${esc(id)}" title="トピック Index を開く">📑</i>` : ''}`;
+  return `<span class="chip ${s}${get(s, id) ? '' : ' miss'}${dot ? ' dot' : ''}" data-s="${s}" data-id="${esc(id)}"${n ? ` data-n="${n}"` : ''}>${s === 'p' ? '紙' : ''}${esc(raw)}</span>${ts.length ? `<i class="tix" data-tix="${s}:${esc(id)}" title="トピック Index を開く">📑</i>` : ''}`;
 };
-const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x)).join('')).join('') + (r.t || []).map(tnoChip).join('');
+const rowChips = r => [['d', r.d], ['p', r.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x, !!(r.dot && r.dot.s === s && L.splitAnchor(x).id === r.dot.id))).join('')).join('') + (r.t || []).map(tnoChip).join('');
 // 行の終わりに書いた 0-1 のような番号: その番号の索引へのリンク（グループIndex など）
 const tnoChip = no => { const t = topics.find(x => topicNo(x) === no); return t ? `<span class="chip t" data-topic="${esc(t.name)}" title="${esc(t.name)}">${esc(no)} ${esc(stripId(t.name))}</span>` : `<span class="chip miss" title="その番号の索引はありません">${esc(no)}</span>`; };
 const paperRows = rows => paperOnly ? rows.filter(r => r.p.length || (r.t || []).length) : rows;   // 紙だけのとき、紙のIDがない行は出さない
@@ -613,7 +615,7 @@ function onOpenClick(e) {
   if (n && !e.target.closest('.cm-editor')) {
     // Index（左の一覧）と、索引の中の ID チップは、索引があればそちらへ（ノート本体は、トピックの上の親から）
     // その番号に索引が 1 つなら、そこへ。複数あるときは、一覧を出して、選んで移る（ノート本体も選べる）
-    const ts = n.classList.contains('chip') && (e.target.closest('#list') || (cur && cur.k === 'topic')) ? topicsOf(n.dataset.s, n.dataset.id) : [];
+    const ts = (n.classList.contains('chip') || n.dataset.chipish) && (e.target.closest('#list') || (cur && cur.k === 'topic')) ? topicsOf(n.dataset.s, n.dataset.id) : [];
     if (ts.length === 1 && !(cur && cur.k === 'topic' && cur.name === ts[0].name)) return openTopic(ts[0].name);
     if (ts.length > 1) { const s = n.dataset.s, id = n.dataset.id; return popMenu(e, [...ts.map(t => ['📑 ' + topicLabel(t), () => openTopic(t.name)]), ...(get(s, id) ? [['📝 ノートを開く', () => openNote(s, id, n.dataset.n || undefined)]] : [])]); }
     if (get(n.dataset.s, n.dataset.id)) openNote(n.dataset.s, n.dataset.id, n.dataset.n || undefined);
@@ -1531,7 +1533,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
     return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
   };
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（↑） ・ |> 名前 ID は独立したもの（↳） ・ <| 名前 ID は独立前（↰） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード ID は上位トピック（↑） ・ |> 名前 ID は独立したもの（↳） ・ <| 名前 ID は独立前（↰） ・ 行の終わりの 0-1 は、その番号の索引へのリンク ・ @まとめ は ◯ の見出し ・ 番号の前の * は赤い点（入口の目印。例: PKM *1 1a。番号を右クリックでも付け外し） ・ +名前 は別の索引へ</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
@@ -1539,7 +1541,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
         <input id="t-id" value="${e ? esc(e.id) : ''}" style="width:110px" placeholder="番号"><span class="sub">この索引の親になるノートの番号</span></div>
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
-  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
+  else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"${hit(r) ? ' class="tfocus"' : ''}><td${r.dot ? ` class="dotkw" data-chipish="1" data-s="${r.dot.s}" data-id="${esc(r.dot.id)}" title="赤い点の番号（入口）へ"` : ''}>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
       ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${ups.map(u => `<tr class="trel"><td><span class="tmk">↑</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${befores.map(u => `<tr class="trel"><td><span class="tmk">↰</span> ${esc(u.kw)}</td><td>${upChip(u)}</td></tr>`).join('')}${refs.map(x => `<tr class="trel${focus && focus.s === x.s && focus.id === x.id ? ' tfocus' : ''}"><td><span class="tmk">↳</span> ${esc(x.label)}</td><td>${upChip({ kw: x.label, ids: [{ s: x.s, id: x.id, raw: x.id }] })}</td></tr>`).join('')}</table>`;
   // 上位トピック（^）・独立前（<|）・独立したもの（|>）: そのキーワードのトピック Index があれば、押して開ける
   // 索引の画面は、右パネルなし。全部、上に: 題 → 🌳 親・↑ 上位トピック → 索引の中身
@@ -1572,6 +1574,28 @@ async function deleteTopicNamed(name) {
   for (let i = tabs.length - 1; i >= 0; i--) if (tabs[i].k === 'topic' && tabs[i].name === t.name) { tabs.splice(i, 1); if (active >= i) active--; }
   show(Math.max(0, active));
 }
+// 索引の中の番号を右クリック: 赤い点（入口の目印。番号の前の *）を付ける・外す。1 つの行に付けられるのは 1 つ
+function toggleDot(t, s, id) {
+  const def = L.defOf(t), lines = L.topicText(t).split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const r = L.topicLine(lines[i]);
+    if (r.star !== undefined || r.up !== undefined || r.before !== undefined || r.mark !== undefined || !r.ids.length) continue;
+    const hit = r.ids.find(x => (x.sp || def) === s && x.id === id); if (!hit) continue;
+    let line = lines[i];
+    const cut = r.ids.filter(x => x.dot).sort((p, q) => q.dotAt - p.dotAt);   // いまの点を外す（右の方から）
+    for (const x of cut) line = line.slice(0, x.dotAt) + line.slice(x.dotAt + 1);
+    if (!hit.dot) { const shift = cut.filter(x => x.dotAt < hit.from).length; line = line.slice(0, hit.from - shift) + '*' + line.slice(hit.from - shift); }
+    lines[i] = line; t.text = lines.join('\n'); saveTopic(t); return !hit.dot;
+  }
+  return null;
+}
+document.addEventListener('contextmenu', e => {
+  if (!cur || cur.k !== 'topic') return;
+  const c = e.target.closest('.ti .chip[data-id][data-s]'); if (!c) return;
+  const t = topics.find(x => x.name === cur.name); if (!t) return;
+  e.preventDefault(); const s = c.dataset.s, id = c.dataset.id, on = c.classList.contains('dot');
+  popMenu(e, [[on ? '⚪ 赤い点を外す' : '🔴 赤い点を付ける（この行の入口）', () => { toggleDot(t, s, id); openTopic(t.name, 'view', true); }]]);
+});
 // 右パネルの右クリック: キーワード（このノートから外す）・トピック（このノートを外す／トピックを削除）
 document.addEventListener('contextmenu', e => {
   if (!cur || cur.k !== 'note') return;
