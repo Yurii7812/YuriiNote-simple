@@ -405,12 +405,31 @@ const paperRows = rows => paperOnly ? rows.filter(r => r.p.length || (r.t || [])
 const topicVisible = t => !paperOnly || !t.entry || t.entry.s === 'p';
 // グローバルIndex の赤点: キーワードごとに「メインの ID」を 1 つ。vault の K_mainDots.json に（別の PC に写しても、同じ）
 let mainDots = {};
-const dotOf = k => mainDots[k] || null;
+let rowDots = null;   // 索引の中の *ID（キーワードの行の赤点）。一覧を描くたびに、作り直す
+const dotOf = k => {
+  if (mainDots[k]) return mainDots[k];
+  if (!rowDots) { rowDots = {}; for (const t of topics) for (const r of L.mergeTopic(t).rows) if (r.kw && r.dot && !rowDots[r.kw]) rowDots[r.kw] = { s: r.dot.s, id: r.dot.id }; }
+  return rowDots[k] || null;
+};
 const saveDots = () => saveDocument('doc:mainDots', 'K_mainDots', { dots: mainDots });
-function toggleMainDot(k, s, id) {
-  const cur0 = dotOf(k), same = cur0 && cur0.s === s && cur0.id === id;
-  if (same) delete mainDots[k]; else mainDots[k] = { s, id };
-  saveDots(); renderList();
+// 赤点を、キーワード k の、メインの ID に（id が null なら、外す）。グローバルIndex も、索引の中の *ID も、同じものとして、そろえる
+function setMainDot(k, s, id) {
+  if (id) mainDots[k] = { s, id }; else delete mainDots[k];
+  saveDots();
+  for (const t of topics) {
+    const def = L.defOf(t), lines = L.topicText(t).split('\n'); let changed = false;
+    for (let i = 0; i < lines.length; i++) {
+      const r = L.topicLine(lines[i]);
+      if (r.star !== undefined || r.up !== undefined || r.before !== undefined || r.down !== undefined || r.mark !== undefined || r.kw !== k || !r.ids.length) continue;
+      let line = lines[i]; const cuts = r.ids.filter(x => x.dot).sort((p, q) => q.dotAt - p.dotAt);
+      for (const x of cuts) line = line.slice(0, x.dotAt) + line.slice(x.dotAt + 1);
+      if (id) { const hit = r.ids.find(x => (x.sp || def) === s && x.id === id); if (hit) { const shift = cuts.filter(x => x.dotAt < hit.from).length; line = line.slice(0, hit.from - shift) + '*' + line.slice(hit.from - shift); } }
+      if (line !== lines[i]) { lines[i] = line; changed = true; }
+    }
+    if (changed) { t.text = lines.join('\n'); saveTopic(t); }
+  }
+  rowDots = null; renderList();
+  if (cur && cur.k === 'topic') openTopic(cur.name, cur.mode || 'view', true);
 }
 const chips = (v, k) => [['d', v.d], ['p', v.p]].filter(([s]) => isVisS(s)).map(([s, l]) => l.map(x => chip(s, x, !!(k && (d => d && d.s === s && d.id === L.splitAnchor(x).id)(dotOf(k))))).join('')).join('');
 const stripId = name => name.replace(/^[0-9][0-9a-z]*-/, '') || name;
@@ -554,6 +573,7 @@ function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→�
 $('#sort-key').onclick = () => { if (mode === 'diary') return; const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
 $('#sort-dir').onclick = () => { if (mode === 'diary') diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); renderList(); };
 function renderList() {
+  rowDots = null;
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
@@ -1631,18 +1651,28 @@ function toggleDot(t, s, id) {
   }
   return null;
 }
+document.addEventListener('click', e => {   // 左のグローバルIndex: キーワードを押すと、赤点（メイン）の ID の索引へ
+  const b = e.target.closest('#list .ix > b'), row = b && b.closest('.ix'); if (!b || !row) return;
+  const d = dotOf(row.dataset.ixk); if (!d) return;
+  e.preventDefault(); e.stopPropagation();
+  const ts = topicsOf(d.s, d.id);
+  if (ts.length === 1) return openTopic(ts[0].name);
+  if (ts.length > 1) return openTopicList(d.s, d.id);
+  if (get(d.s, d.id)) openNote(d.s, d.id);
+}, true);
 document.addEventListener('contextmenu', e => {   // 左のグローバルIndex: ID を右クリックして、赤点（メインのトピック）を付ける・外す
   const c = e.target.closest('#list .ix .chip[data-id][data-s]'), row = c && c.closest('.ix');
   if (!c || !row) return;
   e.preventDefault(); const k = row.dataset.ixk, s = c.dataset.s, id = c.dataset.id, on = c.classList.contains('dot');
-  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（メインのトピック）', () => toggleMainDot(k, s, id)]]);
+  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（メインのトピック）', () => setMainDot(k, s, on ? null : id)]]);
 });
 document.addEventListener('contextmenu', e => {
   if (!cur || cur.k !== 'topic') return;
   const c = e.target.closest('.ti .chip[data-id][data-s]'); if (!c) return;
   const t = topics.find(x => x.name === cur.name); if (!t) return;
   e.preventDefault(); const s = c.dataset.s, id = c.dataset.id, on = c.classList.contains('dot');
-  popMenu(e, [[on ? '⚪ 赤い点を外す' : '🔴 赤い点を付ける（この行の入口）', () => { toggleDot(t, s, id); openTopic(t.name, 'view', true); }]]);
+  const kw = (c.closest('tr[data-kw]') || {}).dataset ? c.closest('tr[data-kw]').dataset.kw : '';
+  popMenu(e, [[on ? '⚪ 赤点を外す' : '🔴 赤点を付ける（メインのトピック）', () => { if (kw) setMainDot(kw, s, on ? null : id); else { toggleDot(t, s, id); openTopic(t.name, 'view', true); } }]]);
 });
 // 右パネルの右クリック: キーワード（このノートから外す）・トピック（このノートを外す／トピックを削除）
 document.addEventListener('contextmenu', e => {
