@@ -561,38 +561,8 @@ async function openTodayDiary() {
   setKind('日記'); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, '日記');
   setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
 }
-// 🔎: 時系列記録（日記・メモ帳・夢…）を探す。名前で絞って、その記録の今日を開く。題・本文でも探せて、その日を開く
-function recordSearchDialog() {
-  dialog(`<div class="dlg-a"><input id="rs-q" placeholder="🔎" autocomplete="off" aria-label="記録を探す"><div id="rs-list" class="rs-list"></div></div>`, close => {
-    const q = $('#rs-q'), box = $('#rs-list'); let items = [], at = 0;
-    const draw = () => { box.innerHTML = items.map((x, i) => `<div class="rs-row${i === at ? ' on' : ''}" data-i="${i}"><b>${esc(x.label)}</b><small>${esc(x.sub || '')}</small></div>`).join('') || '<div class="none">見つかりません</div>'; const on = box.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' }); };
-    const build = () => {
-      const s = q.value.trim().toLowerCase();
-      const count = n => diaries.filter(d => (d.kind || '日記') === n).length;
-      const kinds = records.map(r => r.name).filter(n => !s || n.toLowerCase().includes(s)).map(n => ({ t: 'kind', kind: n, label: '📔 ' + n, sub: count(n) + '日' }));
-      const plain = d => (d.body || '').replace(/^##.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*-\s+:\S+\s*$/gm, '').trim();
-      const days = s ? diaries.filter(d => [d.date, d.title, plain(d), d.kind].join('\n').toLowerCase().includes(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40).map(d => ({ t: 'day', kind: d.kind || '日記', date: d.date, label: `${d.kind || '日記'}　${d.date}${d.title ? '　' + d.title : ''}`, sub: snippet(plain(d), s).replace(/<[^>]+>/g, '').slice(0, 60) })) : [];
-      items = [...kinds, ...days]; at = 0; draw();
-    };
-    const go = i => {
-      const x = items[i]; if (!x) return; close();
-      setKind(x.kind); mode = 'diary'; $('#q').value = ''; renderList();
-      openDiary(x.t === 'day' ? x.date : L.todayStr(), false, x.kind);
-    };
-    q.oninput = build;
-    q.onkeydown = e => {
-      if (e.isComposing || e.keyCode === 229) return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(items.length - 1, at + 1); draw(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(0, at - 1); draw(); }
-      else if (e.key === 'Enter') { e.preventDefault(); go(at); }
-    };
-    box.onclick = e => { const r = e.target.closest('[data-i]'); if (r) go(+r.dataset.i); };
-    build(); q.focus();
-  });
-}
 async function openMemoPad() {
-  const NAME = 'メモ帳';
-  if (!records.some(r => r.name === NAME)) { const r = await api.recordOp('addRecord', NAME); if (r) records = r; }
+  const NAME = 'メモ帳';   // いつもある時系列記録
   setKind(NAME); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, NAME);
   setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
 }
@@ -1544,6 +1514,7 @@ const upsertDiary = (r, since = saves.revision) => {
   diaries.push(r); return r;
 };
 const setKind = k => { curKind = k; try { localStorage.setItem('pkm-kind', k); } catch { } };
+const kindIcon = n => n === '日記' ? '📔' : n === 'メモ帳' ? '🗒️' : '📓';
 function diaryList() {
   if (!records.some(r => r.name === curKind)) setKind('日記');
   const kind = curKind, mine = diaries.filter(d => (d.kind || '日記') === kind);
@@ -1557,41 +1528,97 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const chips = records.map(r => `<span class="kchip${r.name === kind ? ' on' : ''}" data-kindpick="${esc(r.name)}">${esc(r.name)}</span>`).join('') + '<span class="kchip" data-kindsearch title="記録を探す（名前・題・本文）">🔎</span><span class="kchip" data-kindmanage title="記録の種類を足す・名前を変える・まとめる・消す">＋ ⚙️</span>';
-  return `<div id="dlist"><div class="kinds">${chips}</div><div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">📅 今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
+  const top = `<div class="kp"><button class="kp-sel" data-kindopen title="時系列記録を選ぶ・探す・直す"><span>${kindIcon(kind)} ${esc(kind)}</span><i aria-hidden="true">▾</i></button></div>`;
+  return `<div id="dlist">${top}<div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">📅 今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
+document.addEventListener('click', e => { if (e.target.closest('[data-kindopen]')) recordsDialog(); });
 $('#list').addEventListener('change', e => { if (e.target.id === 'd-pick' && L.isDate(e.target.value)) openDiary(e.target.value); });
 $('#list').addEventListener('click', e => {
   if (e.target.id === 'd-today') openDiary(L.todayStr());
-  const kp = e.target.closest('[data-kindpick]'); if (kp) { setKind(kp.dataset.kindpick); renderList(); }
-  if (e.target.closest('[data-kindsearch]')) return recordSearchDialog();
-  if (e.target.closest('[data-kindmanage]')) recordsDialog();
 });
 // 上位の選び方: 印を押して、入れる・外す（いくつでも）
-const upChips = (kind, ups) => names0(kind).map(n => `<span class="rchip${ups.includes(n) ? ' on' : ''}" data-rup="${esc(kind)}|${esc(n)}">${esc(n)}</span>`).join('');
-const names0 = kind => records.map(r => r.name).filter(n => n !== kind);
 // 記録の種類（日記・夢・ビジネス…）を管理する: 足す・上位・名前を変える・まとめる・消す
+// 時系列記録の一覧（選ぶ・探す・直す）。日記とメモ帳は、いつもある。新しく書いたものが上。名前で絞れて、題・本文でも探せる
 function recordsDialog() {
-  const names = () => records.map(r => r.name);
-  const draw = () => {
-    $('#modal .box').innerHTML = `<h3>記録の種類</h3><div class="sub">日記のように、日ごとのノートを書く種類です。上位は、いくつでも決められます（印を押して入れる・外す）。上位を決めると、その日の上位のノートの上に、下位へのリンク（DailyNotes）が並びます。上位を変えても、もう作った日は変わりません（これから作る日だけ）。</div>
-      <table class="ti">${records.map(r => `<tr><td><b>${esc(r.name)}</b></td><td>${r.name === '日記' ? '<span class="sub">いつもある</span>' : `<span class="sub">上位</span> ${upChips(r.name, r.parents || (r.parent ? [r.parent] : []))} <button class="mini" data-rren="${esc(r.name)}">名前</button><button class="mini" data-rmer="${esc(r.name)}">まとめる</button><button class="mini danger" data-rdel="${esc(r.name)}">消す</button>`}</td></tr>`).join('')}</table>
-      <div class="row"><input id="r-new" placeholder="新しい種類（例: 夢）" style="flex:1"><button class="p" id="r-add">足す</button></div><div class="row"><button id="r-close">閉じる</button></div>`;
-    $('#modal').style.display = 'flex';
-  };
-  draw();
+  let q = '', at = 0, items = [], edit = null;   // edit: { kind, mode: 'rename' | 'merge' }
+  const last = n => diaries.filter(d => (d.kind || '日記') === n).map(d => d.date).sort().pop() || '', count = n => diaries.filter(d => (d.kind || '日記') === n).length;
+  const FIXED = ['日記', 'メモ帳'];
   const apply = async (op, ...a) => { await flush(); const r = await api.recordOp(op, ...a); if (r === false) { alert('できませんでした（名前が使えない・すでにある・輪になる、など）'); return false; } const st = await api.state(); applyState(st); records = st.records; return true; };
-  $('#modal').onclick = async e => {
-    const t = e.target;
-    if (t.id === 'r-close') { $('#modal').style.display = 'none'; return renderList(); }
-    if (t.dataset.rup) { const [k, u] = t.dataset.rup.split('|'), r = records.find(x => x.name === k), cur0 = r.parents || (r.parent ? [r.parent] : []), next = cur0.includes(u) ? cur0.filter(x => x !== u) : [...cur0, u]; if (await apply('setRecordParent', k, next)) draw(); return; }
-    if (t.id === 'r-add') { const n = $('#r-new').value.trim(); if (n && await apply('addRecord', n)) draw(); return; }
-    if (t.dataset.rren) { const to = prompt(`「${t.dataset.rren}」の新しい名前（その種類の日のノートも、まとめて変わります）`, t.dataset.rren); if (to && to.trim() !== t.dataset.rren && await apply('renameRecord', t.dataset.rren, to)) { if (curKind === t.dataset.rren) setKind(to.trim()); draw(); } return; }
-    if (t.dataset.rmer) { const into = prompt(`「${t.dataset.rmer}」を、どの種類にまとめますか？（${names().filter(n => n !== t.dataset.rmer).join('・')}）\\n同じ日のノートは、時刻の順にまざります。`, ''); if (into && names().includes(into) && await apply('mergeRecords', t.dataset.rmer, into)) { if (curKind === t.dataset.rmer) setKind(into); draw(); } return; }
-    if (t.dataset.rdel) { const n = diaries.filter(d => d.kind === t.dataset.rdel).length; if (confirm(`「${t.dataset.rdel}」を消しますか？\\n${n} 日分のノートも、ごみ箱（.trash）に移ります。`) && await apply('deleteRecord', t.dataset.rdel)) { if (curKind === t.dataset.rdel) setKind('日記'); draw(); } return; }
-  };
-
-  $('#modal').onkeydown = e => { if (e.key === 'Escape') { $('#modal').style.display = 'none'; renderList(); } };
+  const plain = d => (d.body || '').replace(/^##.*$/gm, '').replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*:\S+\s*$/gm, '').trim();
+  dialog(`<div class="rd"><input id="rd-q" placeholder="🔎" autocomplete="off" aria-label="時系列記録を探す"><div id="rd-list"></div><div class="rd-add"><input id="rd-new" placeholder="＋ 新しい種類（例: 夢）" autocomplete="off"><button class="p" id="rd-addb" title="足す" aria-label="足す">＋</button></div></div>`, close => {
+    const box = $('#rd-list');
+    const rank = n => FIXED.indexOf(n) < 0 ? 9 : FIXED.indexOf(n);
+    const build = () => {
+      const s = q.trim().toLowerCase(), names = records.map(r => r.name);
+      const kinds = names.filter(n => !s || n.toLowerCase().includes(s)).map(n => ({ t: 'kind', kind: n, last: last(n) }))
+        .sort((a, b) => rank(a.kind) - rank(b.kind) || b.last.localeCompare(a.last) || a.kind.localeCompare(b.kind, 'ja'));
+      const days = s ? diaries.filter(d => [d.date, d.title, plain(d), d.kind].join('\n').toLowerCase().includes(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(d => ({ t: 'day', kind: d.kind || '日記', date: d.date, title: d.title, text: snippet(plain(d), s).replace(/<[^>]+>/g, '').slice(0, 60) })) : [];
+      items = [...kinds, ...days]; if (at >= items.length) at = Math.max(0, items.length - 1);
+    };
+    const row = (x, i) => {
+      if (x.t === 'day') return `<div class="rd-row day${i === at ? ' on' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(x.kind)}</span><b>${esc(x.kind)}　${esc(x.date)}${x.title ? '　' + esc(x.title) : ''}</b><small>${esc(x.text)}</small></div>`;
+      const n = x.kind, r = records.find(y => y.name === n) || {}, ups = n === '日記' ? [] : (r.parents && r.parents.length ? r.parents : ['日記']);
+      if (edit && edit.kind === n) {
+        const others = records.map(y => y.name).filter(y => y !== n);
+        return `<div class="rd-row edit" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span>${edit.mode === 'rename' ? `<input id="rd-edit" value="${esc(n)}" autocomplete="off" aria-label="新しい名前">` : `<select id="rd-edit" aria-label="まとめる先">${others.map(y => `<option>${esc(y)}</option>`).join('')}</select>`}<span class="rd-acts on"><button data-act="ok" title="決める">✅</button><button data-act="no" title="やめる">✖️</button></span></div>`;
+      }
+      const fixed = FIXED.includes(n);
+      return `<div class="rd-row${i === at ? ' on' : ''}${n === curKind ? ' cur' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span><b>${esc(n)}</b><small>${ups.length ? '↑ ' + esc(ups.join('・')) + '　' : ''}${count(n)}日${x.last ? '　' + x.last.slice(5) : ''}</small><span class="rd-acts">${n === '日記' ? '' : `<button data-act="up" title="上位を決める">🔼</button>`}${fixed ? '' : `<button data-act="rename" title="名前を変える">✏️</button><button data-act="merge" title="ほかの記録にまとめる">🔀</button><button data-act="del" title="消す">🗑️</button>`}</span></div>`;
+    };
+    const draw = () => { build(); box.innerHTML = items.map(row).join('') || '<div class="none">見つかりません</div>'; const on = box.querySelector('.rd-row.on'); if (on) on.scrollIntoView({ block: 'nearest' }); const ed = $('#rd-edit'); if (ed) { ed.focus(); if (ed.select) ed.select(); } };
+    const go = i => {
+      const x = items[i]; if (!x) return; close();
+      setKind(x.kind); mode = 'diary'; $('#q').value = ''; renderList();
+      openDiary(x.t === 'day' ? x.date : L.todayStr(), false, x.kind);
+    };
+    const act = async (n, a) => {
+      if (a === 'rename' || a === 'merge') { edit = { kind: n, mode: a }; return draw(); }
+      if (a === 'no') { edit = null; return draw(); }
+      if (a === 'ok' && edit) {
+        const v = ($('#rd-edit').value || '').trim(), e = edit;
+        if (!v) return;
+        const done = e.mode === 'rename' ? (v !== e.kind && await apply('renameRecord', e.kind, v)) : await apply('mergeRecords', e.kind, v);
+        if (done) { if (curKind === e.kind) setKind(v); edit = null; } return draw();
+      }
+      if (a === 'del') { const c = count(n); if (confirm(`「${n}」を消しますか？\n${c} 日分のノートも、ごみ箱（.trash）に移ります。`) && await apply('deleteRecord', n)) { if (curKind === n) setKind('日記'); } return draw(); }
+      if (a === 'up') return parentPickDialog(n, null, () => recordsDialog());
+    };
+    $('#rd-q').oninput = e => { q = e.target.value; at = 0; edit = null; draw(); };
+    $('#rd-q').onkeydown = e => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); at = Math.min(items.length - 1, at + 1); draw(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); at = Math.max(0, at - 1); draw(); }
+      else if (e.key === 'Enter') { e.preventDefault(); go(at); }
+    };
+    box.onclick = e => { const b = e.target.closest('[data-act]'), r = e.target.closest('[data-i]'); if (b && r) return act(items[+r.dataset.i].kind, b.dataset.act); if (r && !e.target.closest('input,select')) go(+r.dataset.i); };
+    box.onkeydown = e => { if (e.target.id !== 'rd-edit') return; if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); act(items[+e.target.closest('[data-i]').dataset.i].kind, 'ok'); } else if (e.key === 'Escape') { e.stopPropagation(); edit = null; draw(); } };
+    const add = async () => { const n = $('#rd-new').value.trim(); if (n && await apply('addRecord', n)) { $('#rd-new').value = ''; q = ''; $('#rd-q').value = ''; draw(); } };
+    $('#rd-addb').onclick = add; $('#rd-new').onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); add(); } };
+    draw(); $('#rd-q').focus();
+  });
+}
+// 上位を選ぶ窓: 名前で絞って、押すと付け外し（いくつでも）。何も選ばなければ日記。date が無ければ、その種類の初期値
+function parentPickDialog(kind, date, onDone) {
+  const cur0 = () => date ? ((getDiary(date, kind) || {}).parents || []) : ((records.find(r => r.name === kind) || {}).parents || []);
+  let sel = [...cur0()];
+  dialog(`<div class="dlg-a"><input id="pp-q" placeholder="🔎" autocomplete="off" aria-label="上位にする記録を探す"><div id="pp-list" class="rs-list"></div><div class="da-bar"><span class="grow"></span><button class="p" id="pp-ok" title="決める">✅</button></div></div>`, close => {
+    const q = $('#pp-q'), box = $('#pp-list');
+    const finish = () => { close(); if (onDone) onDone(); };
+    const draw = () => {
+      const s = q.value.trim().toLowerCase(), names = records.map(r => r.name).filter(n => n !== kind && (!s || n.toLowerCase().includes(s)));
+      box.innerHTML = names.map(n => `<div class="rs-row${sel.includes(n) ? ' on' : ''}" data-p="${esc(n)}"><b>${sel.includes(n) ? '✅' : '⬜'} ${esc(n)}</b></div>`).join('') || '<div class="none">見つかりません</div>';
+    };
+    box.onclick = async e => {
+      const r = e.target.closest('[data-p]'); if (!r) return;
+      const u = r.dataset.p, next = sel.includes(u) ? sel.filter(x => x !== u) : [...sel, u];
+      await flush();
+      if (date) { const res = await api.recordOp('setDayParent', kind, date, next); if (!res) return alert('その上位にはできません（輪になります）'); upsertDiary(res); applyState(await api.state()); }
+      else { const res = await api.recordOp('setRecordParent', kind, next); if (res === false) return alert('その上位にはできません（輪になります）'); const st = await api.state(); applyState(st); records = st.records; }
+      sel = [...cur0()]; draw(); if (date) openDiary(date, true, kind);
+    };
+    $('#pp-ok').onclick = finish; $('#modal').onkeydown = e => { if (e.key === 'Escape') finish(); };
+    q.oninput = draw; draw(); q.focus();
+  });
 }
 async function openDiary(date, keep, kind) {
   kind = kind || (cur && cur.k === 'diary' && keep ? cur.kind : curKind) || '日記';
@@ -1608,7 +1635,7 @@ async function openDiary(date, keep, kind) {
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
   $('#pane').innerHTML = `
     <div class="row">
-      ${kind !== '日記' ? `<span class="sp d">${esc(kind)}</span>` : ''}
+      <button class="dh-kind" data-kindopen title="時系列記録を選ぶ・探す・直す">${kindIcon(kind)} ${esc(kind)}</button>
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
@@ -1616,12 +1643,12 @@ async function openDiary(date, keep, kind) {
       <button data-act="attach" class="ic dj" title="ファイルを添付（ドラッグや貼り付けでも）" aria-label="添付">📎</button>
       <button data-act="ddel" class="ic dj" title="この日の記録を削除" aria-label="削除">🗑️</button>
     </div>
-    ${kind !== '日記' ? `<div class="row sub">上位 ${records.filter(r => r.name !== kind && r.name !== '日記').concat([{ name: '日記' }]).map(r => `<span class="rchip${(d.parents || (d.parent ? [d.parent] : [])).includes(r.name) ? ' on' : ''}" data-dpar="${esc(r.name)}">${esc(r.name)}</span>`).join('')}</div>` : ''}
+    ${kind !== '日記' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
     kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
   $('#d-title').oninput = e => { d.title = e.target.value; saveDiary(d); renderList(); };
-  document.querySelectorAll('[data-dpar]').forEach(c => c.onclick = async () => { const cur0 = d.parents || (d.parent ? [d.parent] : []), u = c.dataset.dpar, next = cur0.includes(u) ? cur0.filter(x => x !== u) : [...cur0, u]; await flush(); const r = await api.recordOp('setDayParent', kind, date, next); if (r) { upsertDiary(r); const st = await api.state(); applyState(st); openDiary(date, true, kind); } else alert('その上位にはできません（輪になります）'); });
+  document.querySelectorAll('[data-dparpick]').forEach(c => c.onclick = () => parentPickDialog(kind, date));
   renderTabs(); renderList();
   // 自由に書く部分（最初の「## 」より前）にカーソル。節で始まる日記は、その前に空行を足して書く場所を作る
   let text = view.state.doc.toString(), base = 0;

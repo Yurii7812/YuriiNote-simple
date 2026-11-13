@@ -390,7 +390,7 @@ test('昔の日記（D_日付.md）は、日時の名前＋YAML に移る。戻�
 const recs = v => v.records().map(r => ({ name: r.name, parent: r.parent }));
 test('記録の種類（日記・夢・ビジネス）: 足す・上位・今日の記録・名前を変える・まとめる・消す', () => {
   const dir = tmp(), v = openVault(dir), r = f => fs.readFileSync(path.join(dir, f), 'utf8');
-  assert.deepStrictEqual(recs(v), [{ name: '日記', parent: '' }]);
+  assert.deepStrictEqual(recs(v), [{ name: '日記', parent: '' }, { name: 'メモ帳', parent: '' }]);   // 日記とメモ帳は、いつもある
   assert.ok(v.addRecord('夢') && v.addRecord('ビジネス') && v.addRecord('営業', 'ビジネス'));
   assert.ok(!v.addRecord('夢') && !v.addRecord('日記') && !v.addRecord('a/b') && !v.addRecord('x', 'ない'));
   v.openDiary('2026-11-08'); v.saveDiary({ date: '2026-11-08', kind: '夢', body: '空を飛んだ' });
@@ -417,7 +417,7 @@ test('記録の種類（日記・夢・ビジネス）: 足す・上位・今日
   assert.ok(v.deleteRecord('夢日記')); assert.ok(!v.state().diaries.some(d => d.kind === '夢日記'));
   assert.ok(!v.renameRecord('日記', 'x') && !v.deleteRecord('日記'));
   // 読み直し
-  const v2 = openVault(dir); assert.ok(v2.state().diaries.some(d => d.kind === 'ビジネス')); assert.deepStrictEqual(v2.records().map(k => k.name).sort(), ['ビジネス', '営業', '日記'].sort());
+  const v2 = openVault(dir); assert.ok(v2.state().diaries.some(d => d.kind === 'ビジネス')); assert.deepStrictEqual(v2.records().map(k => k.name).sort(), ['ビジネス', '営業', '日記', 'メモ帳'].sort());
   // appendToDay（USB 取り込み用）
   v2.appendToDay('日記', '2026-11-08', '10:30 スマホのメモ'); assert.match(v2.state().diaries.find(d => d.kind === '日記' && d.date === '2026-11-08').body, /10:30 スマホのメモ$/);
   fs.rmSync(dir, { recursive: true });
@@ -634,7 +634,8 @@ test('トピックIndexの番号: 同じ親IDに複数（1-1, 1-2）、グルー
 
 test('時系列記録の上位: 何も選ばなければ日記。前の日の選び方が、次の日にも続く。変えた日から先が、新しい上位になる', () => {
   const dir = tmp(), v = openVault(dir), r = f => fs.readFileSync(path.join(dir, f), 'utf8');
-  assert.ok(v.addRecord('メモ帳') && v.addRecord('夢'));
+  assert.ok(!v.addRecord('メモ帳') && v.addRecord('夢'));   // メモ帳は、はじめからある
+  assert.ok(!v.renameRecord('メモ帳', 'x') && !v.deleteRecord('メモ帳'));
   const get = (k, date) => v.state().diaries.find(d => d.kind === k && d.date === date);
   v.saveDiary({ date: '2026-11-01', kind: 'メモ帳', body: '一日目' });
   assert.deepStrictEqual(get('メモ帳', '2026-11-01').parents, ['日記']);              // 何も選ばなければ、日記

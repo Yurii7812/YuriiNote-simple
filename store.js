@@ -244,7 +244,7 @@ function openVault(vault) {
   // ノートの名前（日時 YYYYMMDDHHmmss。同じ秒なら1秒ずつずらす）
   const freeStem = (date = new Date()) => free14(used, date);
   const fmOf = n => L.fmDump({ folgezettel: L.isNoid(n.id) ? undefined : n.id, source: n.s === 'p' ? 'paper' : 'digital', created: n.created, updated: n.updated || n.created, kind: n.kind && n.kind !== 'text' ? n.kind : undefined, title: n.title || undefined, keywords: n.keywords && n.keywords.length ? n.keywords : undefined, pinned: n.pinned ? true : undefined, color: n.color || undefined, archived: n.archived ? true : undefined, parent_stem: n.parentStem || undefined });
-  const DIARY = '日記', dk = (kind, date) => kind + '\n' + date;
+  const DIARY = '日記', MEMO = 'メモ帳', FIXED = [DIARY, MEMO], dk = (kind, date) => kind + '\n' + date;   // 日記とメモ帳は、いつもある（名前を変えたり、消したりしない）
   const diaryFile = d => `${d.stem}.md`;
   const diaryHref = d => enc(diaryFile(d));
   // 記録の種類（日記・夢・ビジネス…）。K_records.json = { kinds: [{ name, parent }] }（parent は、新しく作る日の上位の初期値）
@@ -262,7 +262,7 @@ function openVault(vault) {
     return p.length ? p : [DIARY];
   };
   const setDayParents = (d, list) => { list = [...new Set(asList(list))]; if (!list.length) list = [DIARY]; d.parents = list; d.parent = list[0] || ''; d.parentsSet = true; };
-  const kindNames = () => { const out = [DIARY]; for (const k of recDoc().kinds.map(x => x.name).concat([...diaries.values()].map(d => d.kind))) if (k && !out.includes(k)) out.push(k); return out; };
+  const kindNames = () => { const out = [DIARY, MEMO]; for (const k of recDoc().kinds.map(x => x.name).concat([...diaries.values()].map(d => d.kind))) if (k && !out.includes(k)) out.push(k); return out; };
   const saveRecDoc = d => { docs.set('K_records', d); put(abs('K_records.json'), JSON.stringify(d, null, 1)); };
   // その日の上位: 日ごとの parent。その種類のその日のノートが無ければ、種類の上位をたどる（その日に無い中間は飛ばす）
   const upDay = (p0, date) => { let p = p0, seen = new Set(); while (p && !diaries.has(dk(p, date)) && !seen.has(p)) { seen.add(p); p = kindParent(p); } return p && diaries.has(dk(p, date)) ? p : ''; };
@@ -650,21 +650,21 @@ function openVault(vault) {
       setDayParents(d, ups); d.updated = L.now(); rebuild(); return pubDiary(d);
     },
     renameRecord(from, to) {
-      to = (to || '').trim(); if (from === DIARY || !to || to === DIARY || /[\\/:*?"<>|#%\n]/.test(to) || kindNames().includes(to) || !kindNames().includes(from)) return false;
+      to = (to || '').trim(); if (FIXED.includes(from) || !to || to === DIARY || /[\\/:*?"<>|#%\n]/.test(to) || kindNames().includes(to) || !kindNames().includes(from)) return false;
       for (const d of [...diaries.values()]) { if (d.kind === from) { diaries.delete(dk(from, d.date)); d.kind = to; diaries.set(dk(to, d.date), d); } if (dayParents(d).includes(from)) setDayParents(d, dayParents(d).map(p => p === from ? to : p)); }
       const doc = recDoc(); doc.kinds = kindNames().filter(k => k !== DIARY).map(k => { const ps = kindParents(k).map(p => p === from ? to : p); return { name: k === from ? to : k, parent: ps[0] || '', parents: ps }; }); saveRecDoc(doc);
       rebuild(); return this.records();
     },
     // 種類を消す（その種類の日のノートは .trash へ。下位だった種類は上位なしに）
     deleteRecord(name) {
-      if (name === DIARY || !kindNames().includes(name)) return false;
+      if (FIXED.includes(name) || !kindNames().includes(name)) return false;
       for (const d of [...diaries.values()]) { if (d.kind === name) { removeFile(diaryFile(d)); diaries.delete(dk(name, d.date)); } else if (dayParents(d).includes(name)) setDayParents(d, dayParents(d).flatMap(p => p === name ? kindParents(name) : [p])); }
       const doc = recDoc(); doc.kinds = kindNames().filter(k => k !== DIARY && k !== name).map(k => { const ps = [...new Set(kindParents(k).flatMap(p => p === name ? kindParents(name) : [p]))]; return { name: k, parent: ps[0] || '', parents: ps }; }); saveRecDoc(doc);
       rebuild(); return this.records();
     },
     // from を into にまとめる（表記揺れの統合）。同じ日は段落を時刻（行頭の 時:分）の順にまぜる。無い日は移す
     mergeRecords(from, into) {
-      if (from === DIARY || from === into || !kindNames().includes(from) || !kindNames().includes(into)) return false;
+      if (FIXED.includes(from) || from === into || !kindNames().includes(from) || !kindNames().includes(into)) return false;
       // 空行がなくても「時刻 本文」を1件ずつ取り出し、時刻順に並べる
       const paras = t => {
         const out = []; let lines = [];
