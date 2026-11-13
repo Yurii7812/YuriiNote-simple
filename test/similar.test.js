@@ -34,3 +34,16 @@ test('類似検索: 番号・リンク・キーワードの見方（索引は使
   assert.match(only('kw', 1).find(r => r.note.id === '4').reasons[0].t, /キーワードが本文に出てくる: 読書/);
   assert.ok(!Object.keys(S.BASES).includes('topic'));
 });
+
+test('類似検索: AI のベクトルがあると、同じ言葉がなくても話題の近いノートが上がる', async () => {
+  const S = await import('../src/similar.js');
+  const mk = (id, body) => ({ s: 'd', id, title: '', body, keywords: [], created: '' });
+  const notes = [mk('1', '眠れない夜は、呼吸に意識を向ける。'), mk('2', '寝つきが悪いとき、息を数えるといい。'), mk('3', '経費の精算は月末にまとめて行う。'), mk('4', 'カレーの作り方。'), mk('5', '会議の議事録。'), mk('6', 'メモ。'), mk('7', 'ほか。')];
+  const unit = (...xs) => { const n = Math.hypot(...xs); return Float32Array.from(xs.map(x => x / n)); };
+  const emb = new Map([['d:1', unit(1, .1, 0)], ['d:2', unit(.95, .15, .05)], ['d:3', unit(0, 1, .2)], ['d:4', unit(.1, .2, 1)], ['d:5', unit(0, .9, .3)], ['d:6', unit(.2, .2, .9)], ['d:7', unit(.1, .8, .5)]]);
+  const P = S.prepare(notes, { emb });
+  const rows = S.rank(P, notes, [notes[0]], { bases: { ai: true }, multi: 'avg' });
+  assert.strictEqual(rows[0].note.id, '2');
+  assert.match(rows[0].reasons[0].t, /話題が近い（AI）/);
+  assert.ok(S.rank(S.prepare(notes), notes, [notes[0]], { bases: { ai: true }, multi: 'avg' }).length === 0);   // モデルが無ければ、何も出さない
+});

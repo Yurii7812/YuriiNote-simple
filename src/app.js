@@ -915,15 +915,50 @@ async function changeId(note, v) {
 // 選んだノート（1つ以上）に似たノートを、本文の言葉・キーワード・リンク・索引から探して、度数の高い順に並べる
 let simP = null, simSig = '';
 function simRows(st, base) {
-  const sig = notes.length + ':' + notes.reduce((m, n) => n.updated > m ? n.updated : m, '') + ':' + topics.length;
-  if (!simP || simSig !== sig) { simP = SM.prepare(notes); simSig = sig; }
+  const sig = notes.length + ':' + notes.reduce((m, n) => n.updated > m ? n.updated : m, '') + ':' + (aiEmb ? aiEmb.size : 0);
+  if (!simP || simSig !== sig) { simP = SM.prepare(notes, { emb: aiEmb }); simSig = sig; }
   const rows = SM.rank(simP, notes.filter(n => isVisS(n.s) || n.noid && !paperOnly), base, { bases: st.bases, multi: st.multi });
   return rows.sort((a, b) => b.total - a.total);
 }
 function openSimilar(baseKeys, keep) {
   cur = place({ k: 'similar', base: baseKeys }, keep); mode = 'notes';
   cur.st = cur.st || { bases: { ...SM.DEFAULT_ON }, multi: 'avg' };
-  drawSimilar();
+  drawSimilar(); aiRefresh();
+}
+// ----- 意味の見方（AI）: 入れる・ノートのベクトルを作る（変わったものだけ）。モデルは main 側（ai-embed.js）
+let aiEmb = null;
+const aiInfo = { installed: false, busy: '', pct: 0, done: 0, total: 0, err: '' };
+const unpackVec = b64 => { const bin = atob(b64), v = new Float32Array(bin.length); let n = 0; for (let i = 0; i < bin.length; i++) { const x = bin.charCodeAt(i); v[i] = (x > 127 ? x - 256 : x) / 127; n += v[i] * v[i]; } n = Math.sqrt(n) || 1; for (let i = 0; i < v.length; i++) v[i] /= n; return v; };
+function drawAiState() {
+  const e = $('#sm-ai'); if (!e) return;
+  e.textContent = aiInfo.busy === 'download' ? `🤖 ダウンロード中 ${aiInfo.pct}%` : aiInfo.busy === 'embed' ? `🤖 ノートを読み込み中 ${aiInfo.done}/${aiInfo.total}` : aiInfo.err ? `🤖 ${aiInfo.err}` : '';
+}
+api.onAiMsg(m => {
+  if (m.kind === 'download') aiInfo.pct = m.total ? Math.min(99, Math.round(m.got * 100 / m.total)) : 0;
+  else if (m.kind === 'embed') { aiInfo.done = m.done; aiInfo.total = m.total; }
+  drawAiState();
+});
+async function aiRefresh() {
+  if (aiInfo.busy) return;
+  try { aiInfo.installed = (await api.aiStatus()).installed; } catch { aiInfo.installed = false; }
+  if (cur && cur.k === 'similar') drawSimilar();
+  if (!aiInfo.installed) return;
+  aiInfo.busy = 'embed'; aiInfo.err = ''; aiInfo.done = 0; aiInfo.total = 0; drawAiState();
+  const list = notes.map(n => ({ key: n.s + ':' + n.id, text: ((n.title ? n.title + '。' : '') + Stamp.strip(n.body || '')) })).filter(x => x.text.trim());
+  let r; try { r = await api.aiVectors(list); } catch (e) { r = { ok: false, message: String(e.message || e) }; }
+  aiInfo.busy = '';
+  if (!r.ok) { aiInfo.err = r.message || 'AI を動かせませんでした'; drawAiState(); return; }
+  aiEmb = new Map(Object.entries(r.vectors).map(([k, b]) => [k, unpackVec(b)]));
+  simP = null; if (cur && cur.k === 'similar') drawSimilar();
+}
+async function aiInstallFlow() {
+  if (aiInfo.busy) return;
+  if (!confirm('意味の見方（AI）を入れます。\n\n・最初に一度だけ、約 120MB をダウンロードします\n・そのあとは、すべて手元だけで動きます（ノートは外へ出ません）\n・ノートの数によって、最初は 1〜数分かかります（裏で動くので、そのまま使えます）\n\n入れますか？')) return;
+  aiInfo.busy = 'download'; aiInfo.pct = 0; aiInfo.err = ''; drawAiState();
+  let r; try { r = await api.aiInstall(); } catch (e) { r = { ok: false, message: String(e.message || e) }; }
+  aiInfo.busy = '';
+  if (!r.ok) { aiInfo.err = r.message || 'ダウンロードできませんでした'; drawAiState(); return; }
+  toast('🤖 入れました。ノートを読み込みます'); aiRefresh();
 }
 const SIM_MULTI = { avg: ['平均', '選んだノートの全体に似ている'], any: ['どれか', 'どれか1つにでも似ている'], all: ['全部', '全部に似ている'] };
 function drawSimilar() {
@@ -936,7 +971,7 @@ function drawSimilar() {
       + `<div class="sm-meter"><i style="width:${Math.round(r.total * 100)}%"></i></div>`
       + `<div class="sm-re">${r.reasons.slice(0, 3).map(x => `<span>${(SM.BASES[x.b] || {}).icon || ''} ${esc(x.t)}</span>`).join('')}</div></div>`; }).join('');
   $('#pane').innerHTML = `<div class="similar"><div class="sm-head"><h2>🔍 類似ノート <small class="sub">${rows.length}件</small></h2>`
-    + `<span class="grow"></span>${Object.keys(SM.BASES).map(k => `<button class="sm-b${st.bases[k] ? ' on' : ''}" data-smb="${k}" title="${SM.BASES[k].name}: ${SM.BASES[k].tip}（${st.bases[k] ? 'オン' : 'オフ'}）">${SM.BASES[k].icon}</button>`).join('')}`
+    + `<span class="grow"></span><span class="sub" id="sm-ai"></span>${Object.keys(SM.BASES).map(k => `<button class="sm-b${st.bases[k] && (k !== 'ai' || aiInfo.installed) ? ' on' : ''}" data-smb="${k}" title="${SM.BASES[k].name}: ${SM.BASES[k].tip}（${k === 'ai' && !aiInfo.installed ? '入っていません。押すと入れます' : st.bases[k] ? 'オン' : 'オフ'}）">${SM.BASES[k].icon}</button>`).join('')}`
     + (base.length > 1 ? `<button class="sm-b wide" data-smmulti title="${SIM_MULTI[st.multi][1]}（押すと切り替え）">${SIM_MULTI[st.multi][0]}</button>` : '')
     + `</div><div class="sm-base">基準　${base.map(chip).join('')}</div><div class="sm-list">${list || '<div class="none">似たノートは見つかりません</div>'}</div></div>`;
   renderTabs(); renderList();
@@ -944,7 +979,8 @@ function drawSimilar() {
 $('#pane').addEventListener('click', e => {
   if (!cur || cur.k !== 'similar') return;
   const b = e.target.closest('[data-smb]'), m = e.target.closest('[data-smmulti]');
-  if (b) { cur.st.bases[b.dataset.smb] = !cur.st.bases[b.dataset.smb]; e.stopPropagation(); drawSimilar(); }
+  if (b && b.dataset.smb === 'ai' && !aiInfo.installed) { e.stopPropagation(); aiInstallFlow(); }
+  else if (b) { cur.st.bases[b.dataset.smb] = !cur.st.bases[b.dataset.smb]; e.stopPropagation(); drawSimilar(); }
   else if (m) { const o = ['avg', 'any', 'all']; cur.st.multi = o[(o.indexOf(cur.st.multi) + 1) % 3]; e.stopPropagation(); drawSimilar(); }
   else if (e.target.closest('.sm-row')) newTab = true;   // 結果を押したら、新しいタブで開く（結果は残す）
 }, true);

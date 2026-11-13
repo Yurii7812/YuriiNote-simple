@@ -27,8 +27,10 @@
     "markdown-it": "^15.0.3"
   },
   "dependencies": {
+    "@huggingface/tokenizers": "^0.2.0",
     "kuromoji": "^0.1.2",
-    "mermaid": "12.3.0"
+    "mermaid": "12.3.0",
+    "onnxruntime-node": "^1.30.0"
   },
   "productName": "YuriiNote",
   "homepage": "https://github.com/Yurii7812/YuriiNote",

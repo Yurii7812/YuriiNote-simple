@@ -7,13 +7,14 @@ import Stamp from '../stamp.js';
 export const BASES = {
   words: { icon: '📝', name: '言葉', tip: '同じ言葉が出てくる（BM25）', w: 1 },
   chars: { icon: '🔤', name: '字面', tip: '文字のつながりが似ている（言い換え・活用・合成語にも強い）', w: .6 },
+  ai: { icon: '🤖', name: '意味（AI）', tip: 'AI のモデル（multilingual-e5-small）で、話題や言い回しの近さを見る。最初に一度だけ約120MBをダウンロード', w: .8 },
   sense: { icon: '🧠', name: '意味', tip: '同じ言葉がなくても、同じ話題の中で使われる言葉が近い（潜在意味解析）', w: .5 },
   kw: { icon: '🏷️', name: 'キーワード', tip: '同じキーワード、またはキーワードが本文に出てくる', w: 1 },
   link: { icon: '🔗', name: 'つながり', tip: 'リンクでつながっている・同じノートとつながっている', w: 1 },
   tree: { icon: '🌳', name: '番号', tip: 'Folgezettel の番号が近い（親・子・兄弟・同じ流れ）', w: .6 },
   time: { icon: '🕐', name: '時期', tip: '書いた時期が近い', w: .25 }
 };
-export const DEFAULT_ON = { words: true, chars: true, sense: true, kw: true, link: true, tree: true, time: false };
+export const DEFAULT_ON = { words: true, chars: true, sense: true, ai: true, kw: true, link: true, tree: true, time: false };
 
 // ---------- 言葉 ----------
 // 日本語は単語に区切って（Intl.Segmenter）、意味のある言葉（漢字・カタカナの語、英数字の語、長めのひらがなの語）だけを使う。
@@ -64,9 +65,10 @@ const stemOf = n => n.stem || '';
 const time = n => { const m = String(n.created || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 3600000 : null; };   // 時間
 
 // ---------- 準備（全ノートの下ごしらえ） ----------
-export function prepare(notes) {
+export function prepare(notes, opts = {}) {
   const keys = notes.map(key), idx = new Map(keys.map((k, i) => [k, i])), N = notes.length;
   const P = { notes, keys, idx, N };
+  P.vec = notes.map(n => (opts.emb && opts.emb.get(key(n))) || null);   // AI のベクトル（長さ 1）。無いノートは null
   // 言葉の BM25
   let tf = notes.map(n => tokens(n.body || '', n.title || '', n.keywords || [])), df = new Map();
   for (const m of tf) for (const w of m.keys()) df.set(w, (df.get(w) || 0) + 1);
@@ -161,6 +163,15 @@ export function scoresFrom(P, bi) {
   const ss = new Float64Array(N);
   if (P.sense) { const a = P.sense[bi]; for (let c = 0; c < N; c++) { if (c === bi) continue; const b = P.sense[c]; let d = 0; for (let k = 0; k < a.length; k++) d += a[k] * b[k]; ss[c] = Math.max(0, d); } }
   out.sense = ss;
+  // AI: 内積は 0.8〜0.95 に偏り、長いノートはだれとも似て見えるので、基準のノートごとに「ほかのノートの平均より何シグマ上か」で見る。
+  // 1 シグマ以下は 0、3 シグマ以上は 1
+  const as = new Float64Array(N), av = P.vec[bi];
+  if (av) {
+    const dots = new Float64Array(N).fill(NaN); let sum = 0, cnt = 0;
+    for (let c = 0; c < N; c++) { const bv = P.vec[c]; if (c === bi || !bv) continue; let d = 0; for (let k = 0; k < av.length; k++) d += av[k] * bv[k]; dots[c] = d; sum += d; cnt++; }
+    if (cnt >= 4) { const mean = sum / cnt; let v = 0; for (let c = 0; c < N; c++) if (!Number.isNaN(dots[c])) v += (dots[c] - mean) ** 2; const sd = Math.sqrt(v / cnt) || 1e-6; for (let c = 0; c < N; c++) if (!Number.isNaN(dots[c])) as[c] = Math.max(0, Math.min(1, ((dots[c] - mean) / sd - 1) / 2)); }
+  }
+  out.ai = as;
   const ks = new Float64Array(N), bk = new Set(P.notes[bi].keywords || []);
   if (bk.size) {
     const tot = k => P.kidf(k);
@@ -205,7 +216,8 @@ function reasonsOf(P, bi, ci, sc) {
       out.push({ b: 'tree', t: cp === ta.length ? `${a.id} の続き（子孫）` : cp === tb.length ? `${b.id} が元（親・祖先）` : cp === ta.length - 1 && cp === tb.length - 1 ? '同じ親の兄弟' : '同じ流れの中' });
     }
   }
-  if (sc.sense > .6 && sc.words < .06) out.push({ b: 'sense', t: '同じ言葉は少ないが、話題が近い' });
+  if (sc.ai > .3) out.push({ b: 'ai', t: sc.words < .06 ? '同じ言葉は少ないが、話題が近い（AI）' : '話題が近い（AI）' });
+  if (sc.sense > .6 && sc.words < .06 && !(sc.ai > .3)) out.push({ b: 'sense', t: '同じ言葉は少ないが、話題が近い' });
   if (sc.chars > .35 && !out.some(r => r.b === 'words')) out.push({ b: 'chars', t: '文字のつながりが似ている' });
   if (sc.time > .6) out.push({ b: 'time', t: '書いた時期が近い' });
   return out;

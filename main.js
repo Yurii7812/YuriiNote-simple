@@ -54,6 +54,21 @@ ipcMain.handle('trashRestore', (_e, f) => { const ok = v.trashRestore(f); return
 // ===== 同期（ラズパイの同期サーバーと。設定が無ければ何もしない）=====
 let mainWin = null;
 const flushRenderer = () => requestFlush(mainWin, ipcMain);
+
+// ===== 意味の見方（AI）: モデルのダウンロードと、ノートのベクトル（ai-embed.js）=====
+let aiEmb = null, aiIdx = null, aiIdxVault = '';
+const aiMod = () => require('./ai-embed');
+const aiEmbedder = () => { if (!aiEmb) aiEmb = new (aiMod().Embedder)(path.join(app.getPath('userData'), 'ai-models', 'multilingual-e5-small')); return aiEmb; };
+const aiSend = m => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('aiMsg', m); };
+ipcMain.handle('aiStatus', () => ({ installed: aiEmbedder().installed() }));
+ipcMain.handle('aiInstall', async () => { try { await aiEmbedder().install(p => aiSend({ kind: 'download', ...p })); return { ok: true }; } catch (e) { return { ok: false, message: String(e.message || e) }; } });
+ipcMain.handle('aiVectors', async (_e, notes) => {
+  try {
+    const A = aiMod();
+    if (!aiIdx || aiIdxVault !== vault) { aiIdxVault = vault; aiIdx = new A.Index(path.join(app.getPath('userData'), 'ai-cache', require('crypto').createHash('sha1').update(String(vault)).digest('hex').slice(0, 12) + '.json'), aiEmbedder()); }
+    return { ok: true, vectors: await aiIdx.vectors(notes, p => aiSend({ kind: 'embed', ...p })) };
+  } catch (e) { return { ok: false, message: String(e.message || e) }; }
+});
 // ===== スマホ（USB・adb）=====
 ipcMain.handle('phoneInstall', async () => require('./phone').install({}, m => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('phoneMsg', m); }));
 // スマホのメモを取り込む（Gnosis の \M と同じ）。取り込んだら、スマホへ「取り込み済み」の印を返す
