@@ -48,7 +48,7 @@ let paperOnly = !!prefs.paperOnly;   // 全体を紙だけにする（ノート�
 const isVisS = sp => !paperOnly || sp === 'p';
 let groupMode = false;   // Index タブ: false = グローバルIndex、true = グループIndex
 let sortBy = prefs.by || 'fz', sortDir = prefs.dir || 'asc';
-let diarySortDir = prefs.diaryDir || prefs.dir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
+let diarySortDir = prefs.diaryDir || 'asc';   // 日記の並び（ノートの並びとは別。日記は日付順なので、向きだけ）
 const savePrefs = () => { try { localStorage.setItem('pkm-list-prefs', JSON.stringify({ by: sortBy, dir: sortDir, diaryDir: diarySortDir, paperOnly })); } catch { } };
 // 「キーワード ID ID(p) …」の 1 行。親の側と違う ID には、(p) か (d) を付ける
 const idsText = (k, v, def) => { const toks = [...v.d.map(x => def === 'd' ? x : x + '(d)'), ...v.p.map(x => def === 'p' ? x : x + '(p)')]; return toks.length ? k + ' ' + toks.join(' ') : ''; };
@@ -492,13 +492,14 @@ function sortNotes(list, tab) {
   return list.slice().sort((a, b) => sg * (by === 'fz' ? L.cmpId(a.id, b.id) : key(a).localeCompare(key(b)) || L.cmpId(a.id, b.id)));
 }
 const SORT_ICON = { fz: '🔢', created: '🕒', updated: '✏️' }, SORT_NAME = { fz: '番号順', created: '作成順', updated: '更新順' };
-function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→作成→更新）と、昇順・降順
+function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→作成→更新）と、昇順・降順。日記・メモ帳・時系列記録の並びと、ふつうのノートの並びは、別々に覚える
   const k = $('#sort-key'), d = $('#sort-dir'); if (!k || !d) return;
-  k.textContent = SORT_ICON[sortBy] || '🔢'; k.title = `並び順: ${SORT_NAME[sortBy] || ''}（押すと切り替え）`;
-  d.textContent = sortDir === 'asc' ? '⬆️' : '⬇️'; d.title = sortDir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）';
+  const dm = mode === 'diary', dir = dm ? diarySortDir : sortDir;
+  k.textContent = dm ? '📅' : (SORT_ICON[sortBy] || '🔢'); k.title = dm ? '日記・メモ帳・時系列記録は、日付順です' : `並び順: ${SORT_NAME[sortBy] || ''}（押すと切り替え）`; k.classList.toggle('dim', dm);
+  d.textContent = dir === 'asc' ? '⬆️' : '⬇️'; d.title = (dm ? '日記・メモ帳・時系列記録の並び: ' : 'ノートの並び: ') + (dir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）');
 }
-$('#sort-key').onclick = () => { const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
-$('#sort-dir').onclick = () => { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; diarySortDir = sortDir; savePrefs(); renderList(); };
+$('#sort-key').onclick = () => { if (mode === 'diary') return; const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
+$('#sort-dir').onclick = () => { if (mode === 'diary') diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); renderList(); };
 function renderList() {
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
