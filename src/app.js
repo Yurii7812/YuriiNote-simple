@@ -12,7 +12,7 @@ import { mdExtensions, tableTemplate, searchExt, setSearch, focusTableAt } from 
 import { boardTemplate, focusBoardAt } from './board.js';
 import * as Q from './query.js';
 import { search, searchKeymap } from '@codemirror/search';
-import { stampsShown, setStampsShown, stampFormat, setStampFormat } from './stamps.js';
+import { stampsShown, setStampsShown, stampPresets, useStampPreset, saveStampPreset, deleteStampPreset } from './stamps.js';
 import { ctx } from './shared.js';
 import X from '../id-explorer-core.js';
 import * as SM from './similar.js';
@@ -161,9 +161,8 @@ function links(mode, space) {
         rs.push(Decoration.mark({ class: 'lk' + (cls ? ' ' + cls : '') + (d && d.t === 'ref' ? ' ref' : '') + (d && d.t === 'self' ? ' selfref' : '') + (ok ? '' : ' miss'), attributes: { 'data-l': JSON.stringify(d) } }).range(f, t));
         if (cls === 'file' && !(sel.from <= t && sel.to >= f)) {
           const open = text[f] === '!' ? 2 : 1, close = text.lastIndexOf('](', t);
-          if (close === f + open) { // ![](ファイル名): 説明文が空なので、ファイル名を見せる
-            let nm = text.slice(close + 2, t - 1); try { nm = decodeURIComponent(nm); } catch { }
-            rs.push(Decoration.replace({ widget: new NameWidget(nm) }).range(f, t));
+          if (close === f + open) { // ![](ファイル名): 説明文が空なので、ファイル名は見せない（カーソルが乗ったときだけ、書いたとおりに出る）
+            rs.push(Decoration.replace({}).range(f, t));
           } else rs.push(Decoration.replace({}).range(f, f + open), Decoration.replace({}).range(close, t));
         }
       }
@@ -177,6 +176,12 @@ function links(mode, space) {
       let off = 0;
       for (const line of text.split('\n')) {
         const r = L.topicLine(line);
+        const lead = /^(\s*)(\^|＾|↰|<\||\*|＊|★|☆|\+|＋|↳|\|>)/.exec(line);
+        if (lead) {   // 行頭の印は赤。カーソルが外にあるとき、<| ↰ ^ は ↰、|> ↳ + ★ は ↳、* は ◯ の見た目に（ファイルの中は、書いたまま）
+          const f = off + lead[1].length, tt = f + lead[2].length, on = view.state.selection.main.from <= off + line.length && view.state.selection.main.to >= off;
+          const g = /^(\^|＾|↰|<\|)$/.test(lead[2]) ? '↰' : /^(\*|＊)$/.test(lead[2]) ? '◯' : '↳';
+          if (!on) b.add(f, tt, Decoration.replace({ widget: new TopicMarkWidget(g) })); else b.add(f, tt, Decoration.mark({ class: 'tmk' }));
+        }
         if (r.star !== undefined) { if (r.star) add(off + r.from, off + r.to, { t: 'topic', name: r.star }, !!topics.find(x => x.name === r.star)); else if (r.ref) add(off + r.ref.from, off + r.ref.to, { t: 'ref', s: r.ref.sp || space, id: r.ref.id }, !!get(r.ref.sp || space, r.ref.id)); }
         else for (const x of r.ids) add(off + x.from, off + x.to, { t: 'ref', s: x.sp || space, id: x.id, n: x.n }, !!get(x.sp || space, x.id));
         off += line.length + 1;
@@ -215,6 +220,12 @@ class TitleWidget extends WidgetType {
   constructor(title, d) { super(); this.title = title; this.d = d; }
   eq(o) { return o.title === this.title && o.d.s === this.d.s && o.d.id === this.d.id; }
   toDOM() { const e = document.createElement('span'); e.className = 'lk ref-title'; e.setAttribute('data-l', JSON.stringify(this.d)); e.textContent = this.title; return e; }
+  ignoreEvent() { return false; }
+}
+class TopicMarkWidget extends WidgetType {   // 索引の行頭の印（↰ ↳ ◯）。赤
+  constructor(g) { super(); this.g = g; }
+  eq(o) { return o.g === this.g; }
+  toDOM() { const e = document.createElement('span'); e.className = 'tmk'; e.textContent = this.g; return e; }
   ignoreEvent() { return false; }
 }
 class ArrowWidget extends WidgetType {   // ->  を、見た目だけ → にする（ファイルの中は -> のまま）
@@ -552,7 +563,7 @@ function renderList() {
     if (groupMode) {
       for (const g of groups) {
         const m = L.mergeTopic(g);
-        out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub">◯ ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
+        out.push(`<h4>${esc(topicLabel(g))}</h4>`, ...m.marks.map(x => `<div class="sub"><span class="tmk">◯</span> ${esc(x)}</div>`), ...paperRows(m.rows).map(r => `<div class="ix"><b>${esc(r.kw)}</b>${yomi(r.kw)} ${rowChips(r)}</div>`), topicRow(g, false));
       }
       if (!groups.length) out.push('<div class="none">グループIndex はまだありません。右上の＋で作ります</div>');
     } else {
@@ -1082,12 +1093,12 @@ function renderMeta(note) {
   const bl = backlinks(note);
   el.innerHTML =
     `<div class="sec">${metaLabel('🏷️', 'キーワード', note.keywords.length || '', 'kwadd', 'キーワードを足す')}${note.keywords.length ? `<div class="kwlist">${note.keywords.map(k => `<div class="kwrow" data-kw="${esc(k)}" title="${esc(readings[k] || '')}">${esc(k)}</div>`).join('')}</div>` : '<div class="msub">まだありません</div>'}</div>` +
-    (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry" data-town="${esc(o.name)}"><a class="tl" data-topic="${esc(o.name)}">${esc(topicLabel(o))}</a></div>`).join('')}</div>` : '') +
-    `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry" data-tin="${esc(x.t.name)}"><a class="tl" data-topic="${esc(x.t.name)}">${esc(topicLabel(x.t))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
+    (topicsOf(note.s, note.id).length ? `<div class="sec">${metaLabel('📑', '自トピック')}${topicsOf(note.s, note.id).map(o => `<div class="mt topic-index-entry" data-town="${esc(o.name)}"><a class="tl" data-topic="${esc(o.name)}">${esc(stripId(o.name))}</a></div>`).join('')}</div>` : '') +
+    `<div class="sec">${metaLabel('🗂️', 'トピック', tops.length || '', 'tadd', '索引に入れる・作る')}${tops.length ? tops.map(x => `<div class="mt topic-index-entry" data-tin="${esc(x.t.name)}"><a class="tl" data-topic="${esc(x.t.name)}">${esc(stripId(x.t.name))}</a><div class="topic-index-keys">${x.kws.map(kw => `<span>${esc(kw)}</span>`).join('、')}</div></div>`).join('') : '<div class="msub">どの索引にも入っていません</div>'}</div>` +
     parentHtml(note) +
     childrenHtml(note) +
     (bl.length || bundles.length ? `<div class="sec">${metaLabel('🔗', 'バックリンク', bl.length + bundles.length)}${bl.map(x => x.m
-      ? `<div class="bl" data-s="${x.m.s}" data-id="${esc(x.m.id)}"><div class="bh"><b>${esc(titleOf(x.m))}</b><em>${esc(x.m.id)}</em></div><p>${x.c}</p></div>`
+      ? `<div class="bl" data-s="${x.m.s}" data-id="${esc(x.m.id)}"><div class="bh"><b>${esc(titleOf(x.m) || '（無題）')}</b></div><p>${x.c}</p></div>`
       : `<div class="bl" data-diary="${x.d.date}"><div class="bh"><b>${x.d.date.slice(5)}（${L.weekday(x.d.date)}）</b><em>日記</em></div><p>${x.c}</p></div>`).join('')}${bundles.map(l => `<div class="mt"><a class="tl" data-link-object="${esc(l.id)}">${esc(l.title)}</a></div>`).join('')}</div>` : '') +
     '';
 }
@@ -1508,7 +1519,7 @@ function openTopic(name, tmode = 'view', keep) {
   if (!inPreview && !$('#q').value && t.entry && t.entry.id !== '0') tab = t.entry.s === 'p' ? 'p' : 'd';   // 一覧を、その索引 のあるタブに
   const { rows, stars, refs, ups, marks } = L.mergeTopic(t), e = t.entry;
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ^キーワード は上位トピック（↑） ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ 1 行に「キーワード ID ID …」 ・ 紙は 1a(p) ・ ↰キーワード ID（<| でも）は上位の索引 ・ ↳名前 ID（|> でも）は独立させた下位の索引 ・ *まとめ は ◯ の見出し ・ +名前 は別の索引へ ・ @名前 はチャットメモのトピックへ</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>
@@ -1517,7 +1528,7 @@ function openTopic(name, tmode = 'view', keep) {
       <div class="tc-bar"><button class="tbtn p" data-act="tsave">✅ 決定</button><button class="tbtn" data-act="tcancel">やめる</button>
         <span class="grow"></span><button class="tbtn danger" data-act="tdel">🗑️ この索引を削除</button></div></div>`;
   else body = `<table class="ti">${paperRows(rows).map(r => `<tr data-kw="${esc(r.kw)}"><td>${esc(r.kw)}</td><td>${rowChips(r)}</td></tr>`).join('') || '<tr><td class="none">まだ空です。「編集」で書きます</td></tr>'}
-      ${marks.map(x => `<tr class="tmark"><td colspan="2">◯ ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td>⭐ ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
+      ${marks.map(x => `<tr class="tmark"><td colspan="2"><span class="tmk">◯</span> ${esc(x)}</td></tr>`).join('')}${stars.map(x => `<tr><td>🗂️ ${esc(stripId(x))}</td><td>${tchip(x)}</td></tr>`).join('')}${refs.map(x => `<tr><td><span class="tmk">↳</span> ${esc(x.label)}</td><td>${chip(x.s, x.id)}</td></tr>`).join('')}</table>`;
   // 上位トピック: ^キーワード で書いたもの。そのキーワードのトピック Index があれば、押して開ける
   const upChip = u => {   // 名前だけ出す。押すと、そのIDのトピックIndex（無ければキーワードのトピックIndex、それも無ければ、IDのノート）を開く
     const o = (u.ids.map(x => topicOf(x.s, x.id)).find(Boolean)) || (u.kw && kwTopic(u.kw)), x0 = u.ids[0];
@@ -1535,7 +1546,7 @@ function openTopic(name, tmode = 'view', keep) {
     </div>
     <div class="row tmeta">
       <span class="tm"><span class="sub">🌳 親</span>${e ? chip(e.s, e.id) : '<span class="sub">なし</span>'}</span>
-      <span class="tm"><span class="sub">↑ 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
+      <span class="tm"><span class="sub"><span class="tmk">↰</span> 上位トピック</span>${ups.length ? ups.map(upChip).join('') : '<span class="sub">なし</span>'}</span>
     </div>${body}`;
   if (tmode === 'edit') { // 1 つの欄。紙は ID(p)、デジタルは ID（親が紙の索引 なら、紙が ID、デジタルが ID(d)）
     const def = L.defOf(t), v = editor($('#ed-t'), L.topicText(t), 'topic', def, x => { t.text = x; saveTopic(t); }, `PKM 1a 3(p)`, () => L.topicText(t));
@@ -1954,15 +1965,40 @@ $('#more').onclick = () => {
   ]);
 };
 $('#stamp-toggle').onclick = () => toggleStamp(lastView);
-// ⏱️ を右クリック: 時刻の見せ方（保存は、いつも秒まで）
+// ⏱️ を右クリック: 時刻の見せ方（全部、または、名前をつけて保存したカスタム）。保存は、いつも秒まで
 $('#stamp-toggle').oncontextmenu = e => {
-  e.preventDefault(); const f = stampFormat(), r = $('#stamp-toggle').getBoundingClientRect(), mark = on => on ? '✔ ' : '　 ';
-  popMenu({ clientX: Math.max(8, r.right - 230), clientY: r.bottom + 4 }, [
+  e.preventDefault(); const P = stampPresets(), r = $('#stamp-toggle').getBoundingClientRect(), mark = on => on ? '✔ ' : '　 ', sample = '2026-11-13 12:54:30';
+  popMenu({ clientX: Math.max(8, r.right - 260), clientY: r.bottom + 4 }, [
     [mark(stampsShown()) + '行ごとの時刻を表示', () => toggleStamp(lastView)],
-    [mark(f.sec) + '秒まで出す（2026-11-13 12:54:30）', () => setStampFormat({ sec: !f.sec })],
-    [mark(f.short) + '今日の行は、年月日を省く（12:54:30）', () => setStampFormat({ short: !f.short })]
+    [mark(P.current === 'all') + '全部（' + sample + '）', () => useStampPreset('all')],
+    ...P.list.map(x => [mark(P.current === x.name) + x.name + '（' + Stamp.format(sample, x) + '）', () => useStampPreset(x.name)]),
+    ['＋ カスタムを作る…', () => stampPresetDialog(null)],
+    ...(P.current !== 'all' ? [[`✏️ 「${P.current}」を直す…`, () => stampPresetDialog(P.current)], [`🗑️ 「${P.current}」を消す`, () => deleteStampPreset(P.current), true]] : [])
   ]);
 };
+// カスタムの見せ方を作る・直す（名前をつけて保存。選んだものは、PC のどのノートでも使われる）
+function stampPresetDialog(name) {
+  const P = stampPresets(), old = name ? P.list.find(x => x.name === name) : null, f0 = Stamp.normFmt(old || { y: true, mo: true, d: true, h: true, mi: true, s: false });
+  const sample = '2026-11-13 12:54:30', cb = (id, label, on) => `<label class="rad"><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+  $('#modal .box').innerHTML = `<div class="dlg-a">
+    <h3>⏱️ 時刻のカスタム</h3>
+    <div class="da-lab">名前</div><input id="sp-name" value="${esc(old ? old.name : '')}" placeholder="例: 時分だけ" autocomplete="off">
+    <div class="da-lab">出す部分</div>
+    <div class="da-bar" style="flex-wrap:wrap;gap:10px">${cb('sp-y', '年', f0.y)}${cb('sp-mo', '月', f0.mo)}${cb('sp-d', '日', f0.d)}${cb('sp-h', '時', f0.h)}${cb('sp-mi', '分', f0.mi)}${cb('sp-s', '秒', f0.s)}</div>
+    ${cb('sp-ja', '「2026年11月13日 12時54分30秒」の書き方にする', f0.ja)}
+    <div class="da-bar"><span class="sub">日付の区切り</span><input id="sp-dsep" value="${esc(f0.dsep)}" style="width:3.5em"><span class="sub">時刻の区切り</span><input id="sp-tsep" value="${esc(f0.tsep)}" style="width:3.5em"></div>
+    ${cb('sp-short', '今日の行は、日付を省く', f0.short)}
+    <div class="da-lab">見え方</div><div id="sp-prev" style="font-size:15px;padding:6px 2px"></div>
+    <div class="da-bar"><span class="grow"></span><button id="sp-no">やめる</button><button id="sp-ok" class="p">保存</button></div></div>`;
+  $('#modal').style.display = 'flex';
+  const close = () => { $('#modal').style.display = 'none'; };
+  const read = () => ({ name: $('#sp-name').value.trim(), y: $('#sp-y').checked, mo: $('#sp-mo').checked, d: $('#sp-d').checked, h: $('#sp-h').checked, mi: $('#sp-mi').checked, s: $('#sp-s').checked, ja: $('#sp-ja').checked, dsep: $('#sp-dsep').value, tsep: $('#sp-tsep').value, short: $('#sp-short').checked });
+  const prev = () => { const f = read(); $('#sp-prev').innerHTML = esc(Stamp.format(sample, f) || '（何も出ません）') + ' <span class="sub">／昨日の行: ' + esc(Stamp.format('2026-11-12 09:05:07', f)) + '</span>'; };
+  $('#modal .box').oninput = prev; $('#modal .box').onchange = prev; prev();
+  $('#sp-no').onclick = close; $('#modal').onkeydown = ev => { if (ev.key === 'Escape') close(); };
+  $('#sp-ok').onclick = () => { const f = read(); if (!f.name || f.name === 'all' || f.name === '全部') return toast('名前を入れてください（「全部」は使えません）'); saveStampPreset(f); close(); toast(`⏱️ 「${f.name}」を保存して、使います`); };
+  $('#sp-name').focus();
+}
 
 // ===== 設定（vault の中の K_settings.json に。vault を別の PC に写しても、同じ見た目・同じ設定）=====
 const DEFAULT_SETTINGS = { autoPhone: true, lang: 'en', theme: 'light', accent: '#3b5bdb', scale: 100, bodySize: 16, uiFont: '', bodyFont: 'default', bodyFontCustom: '', dayStart: 5 };

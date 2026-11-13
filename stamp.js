@@ -20,6 +20,7 @@ const stripLine = line => { line = String(line); const s = parse(line); return (
 const strip = text => String(text).split('\n').map(stripLine).join('\n');   // 題・検索・一覧の見出しなど、日時がじゃまなところで使う
 const body = line => stripLine(line).trim();   // 日時を除いた中身
 const fenceOpen = line => { const m = line.match(/^\s*(`{3,}|~{3,})/); return m ? m[1] : null; };
+const fenceInfo = line => { const m = line.match(/^\s*(?:`{3,}|~{3,})\s*(\S*)/); return m ? m[1] : ''; };   // ``` のあとの言語名（無ければ ''）
 // 目印を付けられない行: コード・ボード・mermaid の囲みの中、表の行、区切り線、自動で入る行（日記の「## 今日の記録」などの見出し、リンクだけの行、:ID だけの行）、中身のない箇条書き
 const skipLine = line => /^\s*\|/.test(line) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)
   || /^\s*##\s+(今日の記録|紙の日記|今日のノート)\s*$/.test(line) || /^\s*(-\s+)?!?\[[^\]]*\]\([^)]*\)\s*$/.test(line) || /^\s*(-\s+)?:[0-9a-z]+\s*$/.test(line)
@@ -27,11 +28,12 @@ const skipLine = line => /^\s*\|/.test(line) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.t
 const stampable = line => line.trim() !== '' && !stampOf(line) && !skipLine(line);
 // text の中の、まだ日時が無い行すべてに at を付ける（lines: 付ける行番号(0始まり)の集まり。省略で全部）
 function add(text, at, lines) {
-  const out = text.split('\n'); let fence = null;
+  // 囲み（```）の中は、言語名が無い（ふつうの文章の引用）ときだけ、行ごとに付ける。mermaid・board・コードの言語つきには付けない
+  const out = text.split('\n'); let fence = null, plain = false;
   for (let i = 0; i < out.length; i++) {
     const f = fenceOpen(out[i]);
-    if (fence) { if (f && f[0] === fence[0] && f.length >= fence.length && /^\s*[`~]+\s*$/.test(out[i])) fence = null; continue; }
-    if (f) { fence = f; continue; }
+    if (fence) { if (f && f[0] === fence[0] && f.length >= fence.length && /^\s*[`~]+\s*$/.test(out[i])) { fence = null; plain = false; continue; } if (!plain) continue; }
+    else if (f) { fence = f; plain = fenceInfo(out[i]) === ''; continue; }
     if (lines && !lines.has(i)) continue;
     if (stampable(out[i])) { const p = prefixLen(out[i]); out[i] = out[i].slice(0, p) + at + ' ' + out[i].slice(p); }
   }
@@ -53,13 +55,24 @@ function adoptTimes(text, date) {
   }
   return out.join('\n');
 }
-// 画面に出すときの形。fmt: { sec: 秒まで出す, short: 今日の行は年月日を省く }（保存は、いつも秒まで）
-const format = (at, fmt = {}, today = nowStamp().slice(0, 10)) => {
-  if (!at) return '';
-  let t = fmt.sec === false ? at.replace(/(\d{2}:\d{2}):\d{2}$/, '$1') : at;
-  if (fmt.short && at.slice(0, 10) === today) t = t.slice(11);
-  return t;
+// 画面に出すときの形。fmt: 「全部」（保存したとおり）か、「カスタム」:
+//   { y, mo, d, h, mi, s: 出す部分（年・月・日・時・分・秒）, dsep: 日付の区切り（既定 -）, tsep: 時刻の区切り（既定 :）, short: 今日の行は日付を省く }
+// 昔の { sec, short } も読める（保存は、いつも「年月日 時:分:秒」）
+const ALL = { all: true };
+const normFmt = f => {
+  if (!f || f.all) return ALL;
+  if ('sec' in f && !('s' in f)) return { y: true, mo: true, d: true, h: true, mi: true, s: f.sec !== false, dsep: '-', tsep: ':', short: !!f.short };
+  const t = k => f[k] !== false;
+  return { y: t('y'), mo: t('mo'), d: t('d'), h: t('h'), mi: t('mi'), s: t('s'), dsep: f.dsep ?? '-', tsep: f.tsep ?? ':', short: !!f.short, ja: !!f.ja, name: f.name };
 };
-const show = (at, today) => format(at, { sec: false, short: !!today }, today || undefined);
+const format = (at, fmt, today = nowStamp().slice(0, 10)) => {
+  if (!at) return '';
+  const f = normFmt(fmt); if (f.all) return at;
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/.exec(at); if (!m) return at;
+  const date = f.ja ? [f.y && m[1] + '年', f.mo && m[2] + '月', f.d && m[3] + '日'].filter(Boolean).join('') : [f.y && m[1], f.mo && m[2], f.d && m[3]].filter(Boolean).join(f.dsep);
+  const time = f.ja ? [f.h && m[4] + '時', f.mi && m[5] + '分', f.s && m[6] && m[6] + '秒'].filter(Boolean).join('') : [f.h && m[4], f.mi && m[5], f.s && m[6]].filter(Boolean).join(f.tsep);   // 秒が無い昔の行は、秒を出さない
+  return [f.short && at.slice(0, 10) === today ? '' : date, time].filter(Boolean).join(' ');
+};
+const show = (at, today) => at ? format(at, { sec: false, short: !!today }, today || undefined) : '';
 
-module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, adoptTimes, migrate, format, show };
+module.exports = { LEGACY, nowStamp, parse, prefixLen, stampOf, stripLine, strip, body, stampable, add, adoptTimes, migrate, format, normFmt, show };

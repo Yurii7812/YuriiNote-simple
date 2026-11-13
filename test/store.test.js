@@ -665,14 +665,14 @@ test('時系列記録の上位: 何も選ばなければ日記。前の日の選
 test('日付の無い行には、そのノート（日記はその日）の日時が一度だけ付く', () => {
   const dir = tmp();
   let v = openVault(dir);
-  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: [], body: '# 題\n本文\n```\nコード\n```' });
+  v.saveNote({ s: 'd', id: '1', created: '2026-10-10 11:12:30', keywords: [], body: '# 題\n本文\n```js\nコード\n```' });
   v.saveDiary({ date: '2026-10-11', kind: 'メモ帳', body: '10:35 朝\n時刻なしの行' });
   v.close && v.close();
   // 旧形式（印が無い）に戻して、開き直す
   fs.writeFileSync(path.join(dir, '.pkm-layout'), 'flat1\n');
   v = openVault(dir);
   const n = v.state().notes.find(x => x.id === '1'), d = v.state().diaries.find(x => x.kind === 'メモ帳' && x.date === '2026-10-11');
-  assert.strictEqual(n.body, '# 2026-10-10 11:12:30 題\n2026-10-10 11:12:30 本文\n```\nコード\n```');
+  assert.strictEqual(n.body, '# 2026-10-10 11:12:30 題\n2026-10-10 11:12:30 本文\n```js\nコード\n```');
   assert.match(d.body, /^2026-10-11 10:35 朝\n2026-10-11 \d{2}:\d{2}:\d{2} 時刻なしの行$/);
   assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('stamp1'));
   const again = openVault(dir).state().notes.find(x => x.id === '1');   // 二度目は、変えない

@@ -171,3 +171,16 @@ test('Markdown との行き来: コンマ続きのID（->1a,1b,1c と 1a,1b->）
   }
   assert.strictEqual(L.mdToBody('[1a](http://x), [題](a.md)'), '[1a](http://x), [題](a.md)');   // ふつうのリンクは、そのまま
 });
+
+test('トピックIndex: ↳ / |> は下位の索引への案内、↰ / <| は上位。昔の + ★ ^ も同じ', () => {
+  const T = L.topicLine;
+  for (const l of ['↳楔形文字で粘土板に英語を書く 2', '|> 楔形文字で粘土板に英語を書く 2', '+楔形文字で粘土板に英語を書く 2', '★ 楔形文字で粘土板に英語を書く 2']) {
+    const r = T(l); assert.strictEqual(r.star, '', l); assert.deepStrictEqual([r.ref.label, r.ref.id], ['楔形文字で粘土板に英語を書く', '2'], l);
+  }
+  for (const l of ['↰楔形文字で粘土板に英語を書く 1b', '<| 楔形文字で粘土板に英語を書く 1b', '^楔形文字で粘土板に英語を書く 1b']) {
+    const r = T(l); assert.strictEqual(r.up, '楔形文字で粘土板に英語を書く', l); assert.deepStrictEqual(r.ids.map(x => x.id), ['1b'], l);
+  }
+  const m = L.mergeTopic({ text: 'その他の粘土板の書き方 1b\n粘土板への記録 1b1\n↳ 楔形文字で粘土板に英語を書く 2\n↰ 親 1b' });
+  assert.deepStrictEqual(m.rows.map(r => r.kw), ['その他の粘土板の書き方', '粘土板への記録']);
+  assert.deepStrictEqual(m.refs, [{ s: 'd', label: '楔形文字で粘土板に英語を書く', id: '2' }]); assert.deepStrictEqual(m.ups.map(u => u.kw), ['親']);
+});

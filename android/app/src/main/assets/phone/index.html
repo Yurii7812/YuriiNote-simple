@@ -106,12 +106,21 @@ main{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
 </main>
 <nav class="tabs"><button data-t="memo" class="on"><span>📒</span>メモ帳</button><button data-t="diary"><span>📔</span>日記</button><button data-t="notes"><span>📝</span>ノート</button><button data-t="paper"><span>📷</span>紙</button></nav>
 <div class="sheet" id="sheet" hidden><div class="bar"><input id="sheet-q" placeholder="🔎 リンクするノートを探す" autocomplete="off"><button class="ib" id="sheet-x" aria-label="やめる">✖️</button></div><div class="help">押すと、本文に <b>->ID</b> が入ります</div><div class="res" id="sheet-res"></div></div>
-<div class="sheet" id="fmtsheet" hidden style="top:auto;border-radius:18px 18px 0 0;padding-bottom:max(12px,env(safe-area-inset-bottom))">
+<div class="sheet" id="fmtsheet" hidden style="top:auto;border-radius:18px 18px 0 0;max-height:86vh;overflow:auto;padding-bottom:max(12px,env(safe-area-inset-bottom))">
   <div class="bar" style="padding-bottom:0"><b style="flex:1;font-size:16px;line-height:44px">⏱️ 時刻の見せ方</b><button class="ib" id="fmt-x" aria-label="閉じる">✖️</button></div>
   <div class="help" style="padding:4px 14px 8px">保存は、いつも「年月日 時:分:秒」です。ここでは、見せ方だけを変えます（PC と同じ選び方）。</div>
   <label class="row"><input type="checkbox" id="fmt-show"><span class="t">行ごとの時刻を表示</span></label>
-  <label class="row"><input type="checkbox" id="fmt-sec"><span class="t">秒まで出す（2026-11-13 12:54:30）</span></label>
-  <label class="row"><input type="checkbox" id="fmt-short"><span class="t">今日の行は、年月日を省く（12:54:30）</span></label>
+  <div id="fmt-list"></div>
+  <div class="row"><button class="chip" id="fmt-new">＋ カスタムを作る</button></div>
+  <div id="fmt-edit" hidden>
+    <div class="row"><span class="t">名前</span><input type="text" id="fe-name" placeholder="例: 時分だけ" style="flex:1;min-width:0;font:inherit;padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg)"></div>
+    <div class="row" style="flex-wrap:wrap;gap:14px"><label><input type="checkbox" id="fe-y"> 年</label><label><input type="checkbox" id="fe-mo"> 月</label><label><input type="checkbox" id="fe-d"> 日</label><label><input type="checkbox" id="fe-h"> 時</label><label><input type="checkbox" id="fe-mi"> 分</label><label><input type="checkbox" id="fe-s"> 秒</label></div>
+    <label class="row"><input type="checkbox" id="fe-ja"><span class="t">「2026年11月13日 12時54分30秒」の書き方</span></label>
+    <div class="row"><span class="t">区切り（日付・時刻）</span><input class="num" type="text" id="fe-dsep" style="width:60px;text-align:center"><input class="num" type="text" id="fe-tsep" style="width:60px;text-align:center"></div>
+    <label class="row"><input type="checkbox" id="fe-short"><span class="t">今日の行は、日付を省く</span></label>
+    <div class="help" id="fe-prev" style="padding:4px 14px"></div>
+    <div class="row"><button class="chip" id="fe-del" hidden>🗑️ 消す</button><span class="t"></span><button class="chip" id="fe-cancel">やめる</button><button class="chip on" id="fe-ok">保存</button></div>
+  </div>
 </div>
 <div class="sheet" id="alarmsheet" hidden style="top:auto;border-radius:18px 18px 0 0;padding-bottom:max(12px,env(safe-area-inset-bottom))">
   <div class="bar" style="padding-bottom:0"><b style="flex:1;font-size:16px;line-height:44px">⏰ 定期の通知（今まで何してた？）</b><button class="ib" id="alarm-x" aria-label="閉じる">✖️</button></div>
@@ -167,10 +176,29 @@ function load() {
 const isSent = it => imported.has(it.name);
 const save = (name, d) => Native.write(name, JSON.stringify(d));
 
-function drawFmt() { $('#fmt-show').checked = showStamp; $('#fmt-sec').checked = fmt.sec; $('#fmt-short').checked = fmt.short; }
+function drawFmt() {
+  $('#fmt-show').checked = showStamp;
+  const row = (id, label, on, sample) => `<label class="row"><input type="radio" name="fmtp" value="${esc(id)}"${on ? ' checked' : ''}><span class="t">${esc(label)}<small style="color:var(--sub)">　${esc(sample)}</small></span>${id === 'all' ? '' : `<button class="chip" data-fe="${esc(id)}">直す</button>`}</label>`;
+  $('#fmt-list').innerHTML = row('all', '全部', presets.current === 'all', SAMPLE) + presets.list.map(x => row(x.name, x.name, presets.current === x.name, formatAt(SAMPLE, x))).join('');
+}
 $('#fmt-show').onchange = e => { showStamp = e.target.checked; Native.setPref('stamp', showStamp ? '1' : '0'); $('#b-stamp').classList.toggle('on', showStamp); draw(); };
-$('#fmt-sec').onchange = e => { fmt.sec = e.target.checked; Native.setPref('fmt', JSON.stringify(fmt)); draw(); };
-$('#fmt-short').onchange = e => { fmt.short = e.target.checked; Native.setPref('fmt', JSON.stringify(fmt)); draw(); };
+$('#fmt-list').addEventListener('change', e => { if (e.target.name === 'fmtp') { presets.current = e.target.value; savePresets(); draw(); } });
+$('#fmt-list').addEventListener('click', e => { const b = e.target.closest('[data-fe]'); if (b) { e.preventDefault(); openFmtEdit(b.dataset.fe); } });
+$('#fmt-new').onclick = () => openFmtEdit(null);
+let feOld = null;
+function openFmtEdit(name) {
+  feOld = name; const f = normFmt(name ? presets.list.find(x => x.name === name) : { y: true, mo: true, d: true, h: true, mi: true, s: false });
+  $('#fe-name').value = name || ''; for (const k of ['y', 'mo', 'd', 'h', 'mi', 's', 'ja', 'short']) $('#fe-' + k).checked = !!f[k]; $('#fe-dsep').value = f.dsep; $('#fe-tsep').value = f.tsep;
+  $('#fe-del').hidden = !name; $('#fmt-edit').hidden = false; feRead(); $('#fe-name').focus();
+}
+function feRead() {
+  const f = { name: $('#fe-name').value.trim(), dsep: $('#fe-dsep').value, tsep: $('#fe-tsep').value }; for (const k of ['y', 'mo', 'd', 'h', 'mi', 's', 'ja', 'short']) f[k] = $('#fe-' + k).checked;
+  $('#fe-prev').textContent = '見え方: ' + (formatAt(SAMPLE, f) || '（何も出ません）') + '　／昨日の行: ' + formatAt('2026-11-12 09:05:07', f); return f;
+}
+$('#fmt-edit').addEventListener('input', feRead); $('#fmt-edit').addEventListener('change', feRead);
+$('#fe-cancel').onclick = () => { $('#fmt-edit').hidden = true; };
+$('#fe-ok').onclick = () => { const f = feRead(); if (!f.name || f.name === 'all' || f.name === '全部') return toast('名前を入れてください（「全部」は使えません）'); presets.list = [...presets.list.filter(x => x.name !== f.name && x.name !== feOld), normFmt(f)]; presets.current = f.name; savePresets(); $('#fmt-edit').hidden = true; drawFmt(); draw(); toast(`⏱️ 「${f.name}」を保存して、使います`); };
+$('#fe-del').onclick = () => { presets.list = presets.list.filter(x => x.name !== feOld); if (presets.current === feOld) presets.current = 'all'; savePresets(); $('#fmt-edit').hidden = true; drawFmt(); draw(); };
 $('#fmt-x').onclick = () => { $('#fmtsheet').hidden = true; };
 // ---- タブ
 let tab = 'memo', memoDay = today(), diaryDay = today(), kind = Native.pref('kind') || '日記', editing = null;
@@ -197,8 +225,20 @@ $('#b-stamp').addEventListener('contextmenu', e => { e.preventDefault(); drawFmt
 $('#b-stamp').onclick = () => { if (fmtLong) { fmtLong = false; return; } showStamp = !showStamp; Native.setPref('stamp', showStamp ? '1' : '0'); $('#b-stamp').classList.toggle('on', showStamp); draw(); toast(showStamp ? '⏱️ 行ごとの時刻を表示' : '⏱️ 行ごとの時刻を隠す（保存はされています）'); };
 
 // ---- 時刻の見せ方（今日なら時刻だけ、ほかの日は年月日も）
-let fmt = (() => { try { return { sec: true, short: false, ...JSON.parse(Native.pref('fmt') || '{}') }; } catch { return { sec: true, short: false }; } })();
-const showAt = at => { at = String(at || ''); let t = fmt.sec ? at : at.replace(/(\d{2}:\d{2}):\d{2}$/, '$1'); if (fmt.short && at.slice(0, 10) === today()) t = t.slice(11); return t; };
+// 見せ方: 「全部」か、名前をつけて保存したカスタム（PC と同じ形）。保存は、いつも秒まで
+const SAMPLE = '2026-11-13 12:54:30';
+const normFmt = f => { if (!f || f.all) return { all: true }; const t = k => f[k] !== false; return { y: t('y'), mo: t('mo'), d: t('d'), h: t('h'), mi: t('mi'), s: t('s'), dsep: f.dsep ?? '-', tsep: f.tsep ?? ':', short: !!f.short, ja: !!f.ja, name: f.name }; };
+function formatAt(at, fmt) {
+  at = String(at || ''); const f = normFmt(fmt); if (f.all) return at;
+  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/.exec(at); if (!m) return at;
+  const date = f.ja ? [f.y && m[1] + '年', f.mo && m[2] + '月', f.d && m[3] + '日'].filter(Boolean).join('') : [f.y && m[1], f.mo && m[2], f.d && m[3]].filter(Boolean).join(f.dsep);
+  const time = f.ja ? [f.h && m[4] + '時', f.mi && m[5] + '分', f.s && m[6] && m[6] + '秒'].filter(Boolean).join('') : [f.h && m[4], f.mi && m[5], f.s && m[6]].filter(Boolean).join(f.tsep);
+  return [f.short && at.slice(0, 10) === today() ? '' : date, time].filter(Boolean).join(' ');
+}
+let presets = (() => { try { const d = JSON.parse(Native.pref('presets') || 'null'); if (d && Array.isArray(d.list)) return { current: d.current || 'all', list: d.list.map(normFmt).filter(x => x.name) }; } catch { } return { current: 'all', list: [] }; })();
+const savePresets = () => Native.setPref('presets', JSON.stringify(presets));
+const curFmt = () => presets.current === 'all' ? { all: true } : (presets.list.find(x => x.name === presets.current) || { all: true });
+const showAt = at => formatAt(at, curFmt());
 const hintFor = (names, cls) => {
   const done = names.filter(n => imported.has(n));
   return done.length ? `<div class="hint">✔ PC に取り込み済み ${done.length} 件<button data-clear="${cls}">🗑️ スマホから消す</button></div>` : '';

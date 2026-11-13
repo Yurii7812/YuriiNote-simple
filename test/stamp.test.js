@@ -15,6 +15,8 @@ test('行ごとの日時: 先頭に付ける・読む・外す（記号は行頭
 test('行ごとの日時: コード・ボード・表・区切り線・自動で入る行には付けない／行番号で絞れる', () => {
   const src = '前\n```board\n{"h":320}\n```\n| a | b |\n| - | - |\n---\n## 今日のノート\n[題](20261113130500.md)\n-\n後';
   assert.strictEqual(S.add(src, '2026-11-13 13:05'), '2026-11-13 13:05 前\n```board\n{"h":320}\n```\n| a | b |\n| - | - |\n---\n## 今日のノート\n[題](20261113130500.md)\n-\n2026-11-13 13:05 後');
+  assert.strictEqual(S.add('```js\nlet a;\n```', '2026-11-13 13:05'), '```js\nlet a;\n```');   // 言語つきのコードには付けない
+  assert.strictEqual(S.add('```\n引用の行\n2026-11-13 10:00 付いている行\n```\n後', '2026-11-13 13:05'), '```\n2026-11-13 13:05 引用の行\n2026-11-13 10:00 付いている行\n```\n2026-11-13 13:05 後');   // 言語なしの囲みの中は、行ごとに付ける
   assert.strictEqual(S.add('一\n二\n三', '2026-11-13 13:05', new Set([1])), '一\n2026-11-13 13:05 二\n三');
 });
 test('行ごとの日時: 昔の形（行末）も読め、先頭の形に直せる', () => {
@@ -41,4 +43,18 @@ test('行ごとの日時: 秒までの日時も、先頭で読める', () => {
   assert.deepStrictEqual(S.parse('2026-11-13 12:54:30 本文'), { p: 0, at: '2026-11-13 12:54:30', end: 20 });
   assert.strictEqual(S.strip('# 2026-11-13 12:54:30 題\n2026-11-13 12:54 分まで'), '# 題\n分まで');
   assert.strictEqual(S.add('本文', '2026-11-13 12:54:30'), '2026-11-13 12:54:30 本文');
+});
+
+test('行ごとの日時: 全部・カスタムの見せ方', () => {
+  const at = '2026-11-13 12:54:30', F = f => S.format(at, f, '2026-11-13');
+  assert.strictEqual(F({ all: true }), at); assert.strictEqual(F(undefined), at);
+  assert.strictEqual(F({ y: false, s: false }), '11-13 12:54');
+  assert.strictEqual(F({ y: false, mo: false, d: false, s: false }), '12:54');
+  assert.strictEqual(F({ mo: false, d: false, h: false, mi: false, s: false }), '2026');
+  assert.strictEqual(F({ dsep: '/', tsep: '.' }), '2026/11/13 12.54.30');
+  assert.strictEqual(F({ short: true }), '12:54:30');
+  assert.strictEqual(S.format('2026-11-12 12:54:30', { short: true }, '2026-11-13'), '2026-11-12 12:54:30');
+  assert.strictEqual(F({ ja: true }), '2026年11月13日 12時54分30秒'); assert.strictEqual(F({ ja: true, y: false, s: false }), '11月13日 12時54分');
+  assert.strictEqual(F({ h: false, mi: false, s: false }), '2026-11-13');
+  assert.strictEqual(F({ y: false, mo: false, d: false, h: false, mi: false, s: false }), '');
 });

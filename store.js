@@ -348,6 +348,7 @@ function openVault(vault) {
   const topicOf = (s, id) => [...topics.values()].find(t => t.entry && t.entry.s === s && t.entry.id === id);
   const label = (s, id) => (s === 'p' ? '紙' : '') + id;
 
+  const RED = c => `<span style="color:#c0392b">${c}</span>`;   // 印は、赤で
   const titleOfNote = n => n.title ? n.title : n.kind && n.kind !== 'text' ? ((n.data && n.data.title) || (n.kind === 'rp' ? '会話' : n.kind === 'memo-group' ? 'チャットメモのノート' : 'キャンバス')) : (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 30);
   // ノートの md（Gnosis 風）:  YAML ／ # 題 ／ ParentBranch: TopicBranch: Topic: ／ 本文 ／ ChildBranch:   空の行は出さない。前・次・一覧へのリンクは Index.md にだけ
   //   ParentBranch ＝ 親（番号の1つ上）　TopicBranch ＝ このノートが入口のトピックIndex　Topic ＝ このノートが載っているトピックIndex　ChildBranch ＝ 分岐（子）
@@ -456,11 +457,11 @@ function openVault(vault) {
         out.push(`| ${esc(r.kw)} | ${[dotted('d', r.d), dotted('p', r.p)].filter(Boolean).join(' ')} |`);
       }
     }
-    if (ups.length) out.push('', ...ups.map(u => `↑ ${esc(u.kw)} ${u.ids.map(x => '[' + label(x.s, x.id) + '](' + noteHref(x.s, x.id) + ')').join(' ')}  `));
-    if (marks.length) out.push('', ...marks.map(k => `◯ ${esc(k)}  `));
-    if (stars.length) out.push('', ...stars.map(s => `★ [${esc(s)}](${topicHref(s)})  `));
+    if (ups.length) out.push('', ...ups.map(u => `${RED('↰')} ${esc(u.kw)} ${u.ids.map(x => '[' + label(x.s, x.id) + '](' + noteHref(x.s, x.id) + ')').join(' ')}  `));
+    if (marks.length) out.push('', ...marks.map(k => `${RED('◯')} ${esc(k)}  `));
+    if (stars.length) out.push('', ...stars.map(s => `${RED('★')} [${esc(s)}](${topicHref(s)})  `));
     if (chats.length) out.push('', ...chats.map(c => `💬 ${esc(c)}  `));   // チャットメモのトピック（案内だけ。メモは、C_YYYY-MM-DD.md に）
-    if (refs.length) out.push('', ...refs.map(r => `★ ${esc(r.label)} [${label(r.s, r.id)}](${noteHref(r.s, r.id)})  `));
+    if (refs.length) out.push('', ...refs.map(r => `${RED('↳')} ${esc(r.label)} [${label(r.s, r.id)}](${noteHref(r.s, r.id)})  `));
     return out.join('\n') + '\n';
   }
 

@@ -6,17 +6,25 @@ import Stamp from '../stamp.js';
 
 const KEY = 'pkm-stamp-show';
 let show = (() => { try { return localStorage.getItem(KEY) !== '0'; } catch { return true; } })();
-const FMT_KEY = 'pkm-stamp-fmt';
-// 見せ方: sec = 秒まで出す、short = 今日の行は年月日を省く（保存は、いつも「年月日 時:分:秒」）
-let fmt = (() => { try { return { sec: true, short: false, ...JSON.parse(localStorage.getItem(FMT_KEY) || '{}') }; } catch { return { sec: true, short: false }; } })();
+// 見せ方: 「全部」か、名前をつけて保存した「カスタム」（Stamp.format）。保存は、いつも「年月日 時:分:秒」
+const FMT_KEY = 'pkm-stamp-fmt', PRESETS_KEY = 'pkm-stamp-presets';
+let presets = (() => { try { const d = JSON.parse(localStorage.getItem(PRESETS_KEY) || 'null'); if (d && Array.isArray(d.list)) return { current: d.current || 'all', list: d.list.map(x => Stamp.normFmt(x)).filter(x => x.name) }; } catch { }
+  // 昔の「秒まで出す・今日は省く」の設定があれば、カスタムとして引き継ぐ
+  try { const o = JSON.parse(localStorage.getItem(FMT_KEY) || 'null'); if (o && (o.sec === false || o.short)) return { current: '前の設定', list: [{ ...Stamp.normFmt(o), name: '前の設定' }] }; } catch { }
+  return { current: 'all', list: [] }; })();
+const curFmt = () => presets.current === 'all' ? Stamp.normFmt(null) : (presets.list.find(x => x.name === presets.current) || Stamp.normFmt(null));
 const views = new Set();
 const refresh = StateEffect.define();
 export const stampsShown = () => show;
-export const stampFormat = () => ({ ...fmt });
-export function setStampFormat(part) {
-  fmt = { ...fmt, ...part }; try { localStorage.setItem(FMT_KEY, JSON.stringify(fmt)); } catch { }
-  for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } }
+const refreshAll = () => { try { localStorage.setItem(PRESETS_KEY, JSON.stringify(presets)); } catch { } for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } } };
+export const stampPresets = () => ({ current: presets.current, list: presets.list.map(x => ({ ...x })) });
+export const stampFormat = () => ({ ...curFmt() });
+export function useStampPreset(name) { presets.current = name === 'all' || presets.list.some(x => x.name === name) ? name : 'all'; refreshAll(); }
+export function saveStampPreset(p) {   // 同じ名前があれば、上書き
+  const f = { ...Stamp.normFmt(p), name: String(p.name || '').trim() }; if (!f.name || f.name === 'all') return false;
+  presets.list = [...presets.list.filter(x => x.name !== f.name), f]; presets.current = f.name; refreshAll(); return true;
 }
+export function deleteStampPreset(name) { presets.list = presets.list.filter(x => x.name !== name); if (presets.current === name) presets.current = 'all'; refreshAll(); }
 export function setStampsShown(on) {
   show = !!on; try { localStorage.setItem(KEY, show ? '1' : '0'); } catch { }
   for (const v of views) { try { v.dispatch({ effects: refresh.of(null) }); } catch { } }
@@ -36,7 +44,7 @@ function build(view) {
     for (let pos = from; pos <= to;) {
       const ln = view.state.doc.lineAt(pos); pos = ln.to + 1; if (seen.has(ln.number)) continue; seen.add(ln.number);
       const s = Stamp.parse(ln.text); if (!s || s.end <= s.p) continue;
-      ranges.push((show ? Decoration.replace({ widget: new StampWidget(s.at, fmt) }) : markHidden).range(ln.from + s.p, ln.from + s.end));
+      ranges.push((show ? Decoration.replace({ widget: new StampWidget(s.at, curFmt()) }) : markHidden).range(ln.from + s.p, ln.from + s.end));
     }
   }
   return Decoration.set(ranges, true);
@@ -143,4 +151,17 @@ const keys = Prec.highest(keymap.of([
     return true;
   } }
 ]));
-export const stampExtensions = [keys, snap, dirty, display, auto];
+// 時刻の表示がオフのときは、コピー・切り取りした文字にも、時刻を入れない
+const clip = EditorView.domEventHandlers({
+  copy(e, view) { return clipOut(e, view, false); },
+  cut(e, view) { return clipOut(e, view, true); }
+});
+function clipOut(e, view, cut) {
+  if (show || !e.clipboardData) return false;
+  const st = view.state, rs = st.selection.ranges.filter(r => !r.empty); if (!rs.length) return false;
+  const text = Stamp.strip(rs.map(r => st.sliceDoc(r.from, r.to)).join('\n'));
+  e.clipboardData.setData('text/plain', text); e.preventDefault();
+  if (cut && !st.readOnly) view.dispatch({ changes: rs.map(r => ({ from: r.from, to: r.to })), scrollIntoView: true, userEvent: 'delete.cut' });
+  return true;
+}
+export const stampExtensions = [keys, snap, dirty, display, auto, clip];
