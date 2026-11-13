@@ -616,6 +616,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 't') { e.preventDefault(); tabs.push({ k: 'empty' }); show(tabs.length - 1); }
   if (e.key === 'Tab' && tabs.length) { e.preventDefault(); show((active + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length); }
 });
+// Ctrl+D（Diary）: どこからでも、今日の日記を開く。キーの位置で見るので、日本語入力がオンでも効く
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.code !== 'KeyD') return;
+  if ($('#modal').style.display === 'flex' || $('#scan').style.display === 'flex') return;
+  e.preventDefault(); e.stopImmediatePropagation(); openTodayDiary();
+}, true);
 // ===== 左の一覧のキー操作（文字を入力していないとき）=====
 // ↓/j ↑/k: 次・前のノート  ←/h: 親  →/l: 子  [ ]: 前・次の兄弟  Enter: そのノートに決める（書き始める）  o: 探し始めたノートに戻る  Esc: 一覧の操作をやめる
 // 動かすと右のノートも切り替わる（プレビュー。履歴は増えない）
