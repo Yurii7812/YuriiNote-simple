@@ -339,7 +339,7 @@ function editor(parent, doc, mode, space, onChange, ph, read, isDiary = false) {
       doc, extensions: [history(), ...(mode === 'note' ? ReferencePicker.extension(space) : []), Prec.high(EditorView.domEventHandlers({   // Ctrl+M（新しい (n)）、Ctrl+R（時刻のオン・オフ）。キーの位置で見るので、日本語入力がオンでも効く
         keydown(e, v) {
           const ctl = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
-          if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyF') { e.preventDefault(); $('#q').focus(); $('#q').select(); return true; }   // Ctrl+F: 左の検索
+          if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyF') { e.preventDefault(); openSearchTab(); return true; }   // Ctrl+F: 左の検索
           if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyE') { e.preventDefault(); openSearchPanel(v); return true; }   // Ctrl+E: 今のページの中の検索・置換
           if (ctl && e.code === 'KeyG') { e.preventDefault(); insertBoard(); return true; }
           if (ctl && e.code === 'KeyM') { e.preventDefault(); insertNextAnchor(v); return true; }
@@ -559,6 +559,8 @@ function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→�
 }
 $('#sort-key').onclick = () => { if (mode === 'diary') return; const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
 $('#sort-dir').onclick = () => { if (mode === 'diary') diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); renderList(); };
+// 🔍 検索の画面を開いて、検索欄に入る
+function openSearchTab() { mode = 'notes'; tab = 's'; renderList(); $('#q').focus(); $('#q').select(); }
 function renderList() {
   rowDots = null;
   drawSortBtns();
@@ -566,6 +568,9 @@ function renderList() {
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', !!b.dataset.mode && b.dataset.mode === mode));
   $('#paperonly').classList.toggle('on', paperOnly);
+  const searchTab = tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
+  $('#q').style.display = searchTab ? '' : 'none';
+  if (!searchTab && $('#q').value) $('#q').value = '';
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
@@ -591,6 +596,8 @@ function renderList() {
     const dh = diaries.filter(d => qm({ id: '', s: 'd', noid: true, title: [d.date, d.title].join(' '), body: Stamp.strip(d.body), kw: [], readings: '', created: d.date, updated: d.date })).sort((a, b) => b.date.localeCompare(a.date));
     if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, searchQ)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, searchQ) ? `<div class="sn">${snippet(d.body, searchQ)}</div>` : ''}</div></div>`));
     if (!out.length) out.push('<div class="none">見つかりません</div>');
+  } else if (tab === 's') {
+    out.push('<div class="none">検索語を入れてください。<br>空白=かつ　a OR b=または　-a=除く　"a b"=並びのまま<br>id:1a　kw:GUI　title:題　body:本文　date:2026-11　is:paper　has:link</div>');
   } else if (tab === 'f') {
     refreshFiles();
     const fl = filesCache.filter(f => fileFilter === 'all' || !f.title);
@@ -686,7 +693,7 @@ $('#q').oninput = renderList;
 $('#q').onkeydown = e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').blur(); renderList(); if (lastView && cur && cur.k === 'note') lastView.focus(); searchMark(); } };
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey) || $('#modal').style.display === 'flex' || $('#scan').style.display === 'flex') return;
-  if ((e.key === 'f' || e.key === 'F') && !e.defaultPrevented) { e.preventDefault(); $('#q').focus(); $('#q').select(); }   // Ctrl+F: 左の検索
+  if ((e.key === 'f' || e.key === 'F') && !e.defaultPrevented) { e.preventDefault(); openSearchTab(); }   // Ctrl+F: 左の検索（🔍 の画面を開く）
   if ((e.key === 'e' || e.key === 'E') && !e.shiftKey && !e.defaultPrevented) { e.preventDefault(); if (lastView && lastView.dom.isConnected) openSearchPanel(lastView); }   // Ctrl+E: 今のページの中の検索・置換
   if ((e.key === 'j' || e.key === 'J') && !e.shiftKey && !e.altKey) { e.preventDefault(); toggleFoldAll(); return; }   // Ctrl+J: 左の一覧の Folgezettel の折りたたみを、全部たたむ／全部ひらく
   if (e.key === 'w') { e.preventDefault(); closeTab(active); }

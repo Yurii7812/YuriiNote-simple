@@ -153,9 +153,11 @@ test('renderer: bulk selection buttons copy, cancel, wrap and exclude topic rows
     startSel(); c.click('#sel-all'); c.click('#sel-exp');
     assert.equal($('#modal').style.display, 'flex');
     escape($('#modal')); assert.equal($('#modal').style.display, 'none'); assert.ok($('#sel-end'));
+    c.click('[data-tab="s"]');   // 検索は、🔍 の画面だけ
     $('#q').value = '残す検索語'; escape($('#q'));
     assert.equal($('#selbar').style.display, 'none'); assert.equal($('#q').value, '残す検索語');
     $('#q').value = ''; $('#q').dispatchEvent(new c.w.Event('input', { bubbles: true }));
+    c.click('[data-tab="d"]');
     startSel(); c.open('1');
     c.w.document.body.dispatchEvent(new c.w.KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true }));
     assert.ok($('#sel-end')); escape(c.w.document.body); assert.equal($('#selbar').style.display, 'none');
