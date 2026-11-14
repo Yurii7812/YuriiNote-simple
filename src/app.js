@@ -566,7 +566,8 @@ function renderList() {
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
-  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', !!b.dataset.mode && b.dataset.mode === mode));
+  if (['d', 'p', 'u'].includes(tab)) lastNotesTab = tab;
+  document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.tab ? (mode === 'notes' && b.dataset.tab === tab) : b.dataset.mode === 'notes' ? (mode === 'notes' && ['d', 'p', 'u'].includes(tab)) : b.dataset.mode === 'diary' ? (mode === 'diary' && curKind !== 'メモ帳') : b.id === 'memopad' ? (mode === 'diary' && curKind === 'メモ帳') : false));
   $('#paperonly').classList.toggle('on', paperOnly);
   const searchTab = tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
   $('#q').style.display = searchTab ? '' : 'none';
@@ -574,7 +575,7 @@ function renderList() {
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
-  $('#tabs').style.display = mode === 'notes' || q ? '' : 'none';
+  $('#tabs').style.display = mode === 'notes' && ['d', 'p', 'u'].includes(tab) ? '' : 'none';   // ノートのときだけ、デジタル・紙・未整理のタブ
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
   if (q) {
     // 1. Index  2. 索引  3. ノート
@@ -676,7 +677,16 @@ async function openMemoPad() {
   setKind(NAME); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, NAME);
   setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
 }
-$('#rail').onclick = e => { const b = e.target.closest('button'); if (b && b.id === 'settings-btn') return settingsDialog(); if (b && b.id === 'memopad') return openMemoPad(); if (b && b.dataset.mode === 'diary') return openTodayDiary(); if (b) { mode = b.dataset.mode; $('#q').value = ''; renderList(); } };
+let lastNotesTab = 'd';   // ノートのタブ（デジタル・紙・未整理）の、最後に見ていたもの
+$('#rail').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'settings-btn') return settingsDialog();
+  if (b.id === 'memopad') return openMemoPad();
+  if (b.dataset.mode === 'diary') return openTodayDiary();
+  if (b.dataset.tab === 's') return openSearchTab();
+  if (b.dataset.tab) { mode = 'notes'; tab = b.dataset.tab; $('#q').value = ''; renderList(); return; }   // タグ・ファイル
+  if (b.dataset.mode === 'notes') { mode = 'notes'; tab = ['d', 'p', 'u'].includes(tab) ? tab : lastNotesTab; $('#q').value = ''; renderList(); }
+};
 document.addEventListener('auxclick', e => { if (e.button === 1 && !e.target.closest('#tabbar')) { bgOpen = true; try { onOpenClick(e); } finally { setTimeout(() => { bgOpen = false; renderTabs(); }, 0); } } });
 // 一覧から索引の欄へドラッグすると ID が入る
 $('#list').addEventListener('click', e => {
