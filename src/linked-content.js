@@ -136,15 +136,15 @@ export function embed(uri,path=[],occurrence='',label='',virtualLink=null,existi
 }
 const pendingMetadata=new Map();
 export function urlPreview(url,key,existingRoot=null,label='') {
-  const root=existingRoot||document.createElement('div');root.replaceChildren();root.className='url-preview';root.dataset.user='';root._lcBound=true;label=label||root.dataset.label||'';Object.assign(root.dataset,{url,occurrence:key,label});const hidden=pref(key).preview===false,data=cache[url];root.classList.toggle('url-preview-off',hidden||!!data?.error);
+  const root=existingRoot||document.createElement('div');root.replaceChildren();root.className='url-preview';root.dataset.user='';root._lcBound=true;label=label||root.dataset.label||'';Object.assign(root.dataset,{url,occurrence:key,label});const hidden=pref(key).preview===false,data=cache[url];const broken=!!data?.error&&!(data.title||data.thumbnail||data.description);root.classList.toggle('url-preview-off',hidden||broken);
   const link=document.createElement('a');link.dataset.file=url;link.className='url-preview-link';
-  if(hidden||data?.error){link.textContent=label||url;}else{
+  if(hidden||broken){link.textContent=label||url;}else{
     if(data?.thumbnail&&/^data:image\/(png|jpeg|webp|gif|x-icon|vnd.microsoft.icon);base64,/.test(data.thumbnail)){const img=document.createElement('img');img.src=data.thumbnail;img.alt='';link.append(img);}
     const texts=document.createElement('span'),title=document.createElement('b'),description=document.createElement('small'),domain=document.createElement('small');title.textContent=data?.title||url;description.textContent=data?.description||'';try{domain.textContent=new URL(url).hostname;}catch{}texts.append(title,description,domain);link.append(texts);
   }
   const menu=document.createElement('button');menu.className='url-menu';menu.textContent='⋯';menu.title='URLプレビューの設定';
   menu.onclick=e=>{e.preventDefault();e.stopPropagation();popMenu({clientX:e.clientX,clientY:e.clientY},[[hidden?'プレビューを表示':'プレビューを非表示',()=>{changePref(key,{preview:hidden});urlPreview(url,key,root);}],['情報を再取得',async()=>{try{cache[url]=await ctx.api.urlPreview(url,true);urlPreview(url,key,root);}catch{toast('URL情報を取得できませんでした');}}]]);};root.append(link,menu);
-  if(!data&&!pendingMetadata.has(url)&&ctx.api.urlPreview){const request=Promise.resolve(ctx.api.urlPreview(url)).then(data=>{cache[url]=data||{error:'取得できません'};for(const el of document.querySelectorAll('.url-preview[data-url]'))if(el.dataset.url===url)urlPreview(url,el.dataset.occurrence,el);refresh();}).catch(()=>{cache[url]={error:'取得できません'};}).finally(()=>pendingMetadata.delete(url));pendingMetadata.set(url,request);}
+  if(!data&&!pendingMetadata.has(url)&&ctx.api.urlPreview){const request=Promise.resolve(ctx.api.urlPreview(url)).then(data=>{cache[url]=data||(cache[url]?{...cache[url],error:'取得できません'}:{error:'取得できません'});for(const el of document.querySelectorAll('.url-preview[data-url]'))if(el.dataset.url===url)urlPreview(url,el.dataset.occurrence,el);refresh();}).catch(()=>{cache[url]=cache[url]?{...cache[url],error:'取得できません'}:{error:'取得できません'};}).finally(()=>pendingMetadata.delete(url));pendingMetadata.set(url,request);}
   return root;
 }
 function occurrenceKey(owner,text,from,uri){const prefix=text.slice(Math.max(0,from-32),from),before=text.slice(0,from);const nth=before.split(uri).length-1;return JSON.stringify([owner,uri,prefix,nth]);}

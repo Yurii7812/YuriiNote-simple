@@ -54,7 +54,7 @@ function urlsIn(text) { const urls=U.bareUrls(text).map(x=>x.url);for(const m of
 function createService(store,{fetcher=fetchMetadata,onProgress=()=>{}}={}) {
   const doc=(store.state().docs||{}).K_urlCache||{items:{},scanned:false};doc.items||={};let progress={running:false,total:0,done:0,failed:0,...doc.progress,running:false},inflight=new Map(),active=0,waiting=[];
   const persist=()=>store.saveDoc('K_urlCache',doc);
-  async function fetchOne(url,force=false){checkedUrl(url);if(!force&&doc.items[url])return doc.items[url];if(inflight.has(url))return inflight.get(url);
+  async function fetchOne(url,force=false){checkedUrl(url);if(!force&&doc.items[url]&&!(doc.items[url].error&&!(doc.items[url].title||doc.items[url].thumbnail)&&Date.now()-(doc.items[url].fetchedAt||0)>3600000))return doc.items[url];   // 取れなかったものは、1 時間たったら、また取りに行く（前に取れた題・説明・サムネは、失敗しても残る）if(inflight.has(url))return inflight.get(url);
     const p=(async()=>{if(active>=3)await new Promise(r=>waiting.push(r));active++;
       try{const item={...await fetcher(url),url,fetchedAt:Date.now()};doc.items[url]=item;persist();return item;}
       catch(e){const item={...(doc.items[url]||{}),url,error:String(e.message||e),fetchedAt:Date.now()};doc.items[url]=item;persist();return item;}
