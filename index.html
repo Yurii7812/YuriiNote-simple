@@ -135,6 +135,39 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #scan .sc-row2 input{flex:1;min-width:0;height:40px;box-sizing:border-box;padding:0 8px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:13px;background:var(--bg);color:var(--fg)}
 #scan #sc-msg{min-height:20px;font-size:13px}#scan #sc-msg.ok{color:#198754}#scan #sc-msg.bad{color:var(--red,#c0392b)}
 #scan .sc-keys{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12px;color:var(--sub);padding-top:10px;border-top:1px solid var(--line)}#scan .sc-keys span{display:inline-flex;align-items:center;gap:5px}
+/* IDをつける帯: 静かに。左に題、右に、文字つきの候補（新しく / 分岐 / 並列） */
+#idbar{gap:8px;padding:7px 14px;background:var(--hl);border-bottom:1px solid var(--line);font-size:13px}
+#idbar .idb-t{font-weight:600;color:var(--fg);font-size:13px}#idbar .idb-title{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto}
+#idbar button.idb{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--sub);font-size:12.5px;cursor:pointer}
+#idbar button.idb b{font:600 13px ui-monospace,monospace;color:var(--fg)}#idbar button.idb:hover{border-color:var(--acc)}#idbar button.idb:hover b{color:var(--acc)}
+#idbar button.idb.x{width:30px;padding:0;justify-content:center;border:0;background:none;font-size:14px}
+/* スキャン画面: 静かに。ラベルは小さな文字、候補は文字つきの小さなボタン、キーの説明は 1 行（残りは「ほかのキー」に） */
+#scan .sc-side{gap:8px;padding:20px 22px;overflow-x:hidden}
+#scan .sc-side>*{min-width:0}
+#scan .sc-head{font-size:13px;color:var(--sub);letter-spacing:.02em}#scan #sc-n{font-variant-numeric:tabular-nums}
+#scan .sc-x{width:30px;height:30px;border:0;background:none;color:var(--sub);font-size:15px;border-radius:8px}#scan .sc-x:hover{background:var(--hl)}
+#scan .sc-bar{height:3px}
+#scan .sc-lab{font-size:11.5px;color:var(--sub);margin-top:10px;letter-spacing:.06em}#scan .sc-lab small{font-size:11.5px;letter-spacing:0;margin-left:6px;opacity:.8}
+#scan .sc-idrow{position:relative;display:block}
+#scan #sc-id{width:100%;height:54px;padding:0 48px 0 16px;border-width:1.5px}
+#scan #sc-mark{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:18px;width:auto}
+#scan .sc-hint{min-height:16px;font-size:12px}
+#scan .sc-quick{gap:8px}
+#scan .sc-quick button{flex-direction:row;justify-content:center;gap:8px;padding:8px 6px;border-radius:10px;font-size:13px;color:var(--sub);background:var(--bg)}
+#scan .sc-quick button b{color:var(--fg);font-size:14px}
+#scan #sc-kw{height:40px;font-size:14px}
+#scan .sc-primary{height:46px;font:600 15px inherit;margin-top:10px;border-radius:10px}
+#scan .sc-row2{gap:6px}
+#scan .sc-row2 button{flex:1;justify-content:center;gap:5px;height:38px;padding:0 6px;font-size:15px;border-radius:9px;background:none;color:var(--sub)}
+#scan .sc-row2 button span{font-size:12px}#scan .sc-row2 button:hover{background:var(--hl);color:var(--fg)}
+#scan #sc-date{width:100%;height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);font:inherit;font-size:13px}
+#scan .sc-row3{display:flex;gap:8px}#scan .sc-row3 input{flex:1;min-width:0;height:38px;box-sizing:border-box;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px}#scan #si-id{flex:0 0 110px}
+#scan .sc-row3 button{height:42px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--sub);font-size:13px;cursor:pointer}#scan .sc-row3 .sc-primary{flex:1;border:0;background:var(--acc);color:#fff;margin-top:0;font-size:14px}
+#scan #sc-msg{min-height:18px;font-size:12.5px}
+#scan .sc-keys{margin-top:auto;display:flex;flex-wrap:wrap;gap:6px 12px;padding-top:12px;font-size:11.5px;color:var(--sub);border-top:1px solid var(--line)}
+#scan .sc-keys details{flex:1 0 100%}#scan .sc-keys summary{cursor:pointer;list-style:none;color:var(--sub);opacity:.8}#scan .sc-keys summary::-webkit-details-marker{display:none}
+#scan .sc-keys details[open] summary{margin-bottom:6px}#scan .sc-keys details span{display:inline-block;margin:0 12px 6px 0}
+#scan kbd{margin-right:3px}
 @media(max-width:760px){#scan{flex-direction:column}#scan .sc-side{flex:none;border-left:0}}
 .item .nt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .nrow{min-width:0}.item .ns{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -629,35 +662,40 @@ body{-webkit-user-select:none;user-select:none}
     <div class="sc-strip" id="sc-strip"></div>
   </div>
   <aside class="sc-side">
-    <div class="sc-head"><b>📥</b><span id="sc-n"></span><span class="sc-grow"></span><button id="sc-close" class="sc-x" title="閉じる (Esc)">✖️</button></div>
+    <div class="sc-head"><span id="sc-n"></span><span class="sc-grow"></span><button id="sc-close" class="sc-x" title="閉じる (Esc)" aria-label="閉じる">✕</button></div>
     <div class="sc-bar"><i id="sc-bar-i"></i></div>
-    <div class="sc-lab">🆔</div>
+    <label class="sc-lab" for="sc-id">ID</label>
     <div class="sc-idrow"><input id="sc-id" autocomplete="off" spellcheck="false" aria-label="紙のID"><span id="sc-mark"></span></div>
     <div id="sc-hint" class="sc-hint"></div>
     <div class="sc-quick">
-      <button data-sc-q="sib" title="直前の次（並列）  Ctrl+H" tabindex="-1">↔️ <b id="q-sib"></b><kbd>Ctrl H</kbd></button>
-      <button data-sc-q="chi" title="直前の子（分岐）  Ctrl+B" tabindex="-1">🌱 <b id="q-chi"></b><kbd>Ctrl B</kbd></button>
-      <button data-sc-q="up" title="直前の親の次  Ctrl+U" tabindex="-1">⤴️ <b id="q-up"></b><kbd>Ctrl U</kbd></button>
+      <button data-sc-q="sib" title="直前の次（並列）  Ctrl+H" tabindex="-1"><span>並列</span><b id="q-sib"></b></button>
+      <button data-sc-q="chi" title="直前の子（分岐）  Ctrl+B" tabindex="-1"><span>分岐</span><b id="q-chi"></b></button>
+      <button data-sc-q="up" title="直前の親の次  Ctrl+U" tabindex="-1"><span>親の次</span><b id="q-up"></b></button>
     </div>
-    <div class="sc-lab">🏷️</div>
-    <input id="sc-kw" placeholder="キーワード（、で区切る）" autocomplete="off" aria-label="キーワード">
+    <label class="sc-lab" for="sc-kw">キーワード</label>
+    <input id="sc-kw" placeholder="、で区切る" autocomplete="off" aria-label="キーワード">
     <div id="sc-kwchips" class="sc-kcs"></div>
-    <button id="sc-save" class="sc-primary" title="保存して次へ  Enter">⏎ 保存して次へ</button>
+    <button id="sc-save" class="sc-primary" title="保存して次へ  Enter">保存して次へ</button>
     <div class="sc-row2">
-      <button id="sc-skip" title="飛ばす  Ctrl+S" tabindex="-1">⏭️<kbd>Ctrl S</kbd></button>
-      <button id="sc-del" title="この画像を、捨てる（取り込まない）  Delete" tabindex="-1">🗑️<kbd>Del</kbd></button>
-      <button id="sc-index" title="この紙は Index。画像は取り込まず、中身を、データとして書く  Ctrl+I" tabindex="-1">📑<kbd>Ctrl I</kbd></button>
-      <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Ctrl+D で日付の欄へ）" tabindex="-1">📔<kbd>Ctrl D</kbd></button>
-      <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1">
+      <button id="sc-skip" title="飛ばす  Ctrl+S" tabindex="-1">⏭️<span>飛ばす</span></button>
+      <button id="sc-del" title="この画像を、捨てる（取り込まない）  Delete" tabindex="-1">🗑️<span>捨てる</span></button>
+      <button id="sc-index" title="この紙は Index。画像は取り込まず、中身を、データとして書く  Ctrl+I" tabindex="-1">📑<span>Index</span></button>
+      <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Ctrl+D で日付の欄へ）" tabindex="-1">📔<span>日記</span></button>
     </div>
+    <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1" hidden>
     <div id="sc-iform" hidden>
-      <div class="sc-lab">📑 紙の Index（画像は、取り込みません）</div>
-      <div class="sc-row2"><input id="si-id" placeholder="入口の紙ID（例: 1）" autocomplete="off" aria-label="入口の紙ID" style="max-width:130px"><input id="si-name" placeholder="名前（例: 算数）" autocomplete="off" aria-label="Index の名前"></div>
-      <textarea id="si-text" rows="9" spellcheck="false" placeholder="1 行に 1 つ: キーワード ID ID …&#10;例: 分数 1 1a&#10;⭐掛け算 1e　　↑ ⬆️上位 1-2　　|> 独立 2" aria-label="Index の中身"></textarea>
-      <div class="sc-row2"><button id="si-ok" class="sc-primary" style="flex:1">📑 Index を保存<kbd>Ctrl Enter</kbd></button><button id="si-cancel" tabindex="-1">やめる<kbd>Esc</kbd></button></div>
+      <div class="sc-lab">紙の Index <small>画像は取り込まず、中身をデータとして</small></div>
+      <div class="sc-row3"><input id="si-id" placeholder="入口の紙ID" autocomplete="off" aria-label="入口の紙ID"><input id="si-name" placeholder="名前" autocomplete="off" aria-label="Index の名前"></div>
+      <textarea id="si-text" rows="8" spellcheck="false" placeholder="1 行に 1 つ: キーワード ID ID …&#10;例: 分数 1 1a&#10;⭐掛け算 1e　　⬆️上位 1-2　　|> 独立 2" aria-label="Index の中身"></textarea>
+      <div class="sc-row3"><button id="si-ok" class="sc-primary" title="Ctrl+Enter">Index を保存</button><button id="si-cancel" tabindex="-1" title="Esc">やめる</button></div>
     </div>
     <div id="sc-msg"></div>
-    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Ctrl K</kbd>前と同じ🏷️</span><span><kbd>Ctrl D</kbd>📔日付→Enter</span><span><kbd>Ctrl E</kbd>拡大</span><span><kbd>→</kbd>次（並列）で保存</span><span><kbd>↓</kbd>子（分岐）で保存</span><span><kbd>↑</kbd>前のIDを直す</span><span><kbd>←</kbd>保存を戻す</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
+    <div class="sc-keys">
+      <span><kbd>Enter</kbd> 保存</span><span><kbd>→</kbd> 並列で保存</span><span><kbd>↓</kbd> 分岐で保存</span><span><kbd>←</kbd> 戻す</span>
+      <details><summary>ほかのキー</summary>
+        <span><kbd>↑</kbd> 前のIDを直す</span><span><kbd>Tab</kbd> ID⇄キーワード</span><span><kbd>Ctrl K</kbd> 前と同じキーワード</span><span><kbd>Ctrl S</kbd> 飛ばす</span><span><kbd>Del</kbd> 捨てる</span><span><kbd>Ctrl I</kbd> Index</span><span><kbd>Ctrl D</kbd> 日記</span><span><kbd>Ctrl E</kbd> 拡大</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd> 画像を移る</span><span><kbd>Esc</kbd> 閉じる</span>
+      </details>
+    </div>
   </aside>
 </div>
 <script src="dist/app.js"></script>

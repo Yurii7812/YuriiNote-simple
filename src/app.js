@@ -1091,12 +1091,12 @@ function drawIdBar() {
   const ok = base && base.s === 'd' && !base.noid && base !== subject;
   const child = ok ? X.suggest(notes, base, 'child') : '', sib = ok ? X.suggest(notes, base, 'sibling') : '';
   bar.hidden = false;
-  bar.innerHTML = `<span class="idb-t" title="${esc(titleOf(subject) || '（無題）')}">🆔 <span class="idb-title">${esc(titleOf(subject) || '（無題）')}</span></span>`
-    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="新規（次の空き番号）">🆕 <b>${esc(X.nextRoot(notes))}</b></button>`
-    + (ok ? `<span class="idb-base" title="${esc(titleOf(base))}">${esc(base.id)}</span>`
-      + `<button class="idb on" data-idpick="${esc(child)}" title="${esc(base.id)} に分岐">🌱 <b>${esc(child)}</b></button>`
-      + `<button class="idb on" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列">↔️ <b>${esc(sib)}</b></button>` : '')
-    + '<span class="grow"></span><button class="idb" data-idcancel title="やめる（Esc）">✖️</button>';
+  bar.innerHTML = `<span class="idb-t">IDをつける</span><span class="idb-title" title="${esc(titleOf(subject) || '（無題）')}">${esc(limit(titleOf(subject) || '（無題）', 28))}</span>`
+    + '<span class="grow"></span>'
+    + `<button class="idb" data-idpick="${esc(X.nextRoot(notes))}" title="新しい番号（次の空き）"><span>新しく</span><b>${esc(X.nextRoot(notes))}</b></button>`
+    + (ok ? `<button class="idb" data-idpick="${esc(child)}" title="${esc(base.id)} の下に分岐"><span>${esc(base.id)} の分岐</span><b>${esc(child)}</b></button>`
+      + `<button class="idb" data-idpick="${esc(sib)}" title="${esc(base.id)} と並列"><span>${esc(base.id)} と並列</span><b>${esc(sib)}</b></button>` : '')
+    + '<button class="idb x" data-idcancel title="やめる（Esc）" aria-label="やめる">✕</button>';
 }
 const limit = (t, n) => String(t || '').length > n ? String(t).slice(0, n) + '…' : String(t || '');
 document.addEventListener('click', async e => {
@@ -2054,7 +2054,7 @@ function showScan() {
   $('#sc-n').textContent = `${finished + 1} / ${queue.length}`;
   $('#sc-bar-i').style.width = Math.round(finished / queue.length * 100) + '%';
   $('#sc-img').src = scanThumbs[qi]; $('#scan').classList.remove('zoomed');
-  $('#sc-iform').hidden = true;
+  $('#sc-iform').hidden = true; $('#sc-date').hidden = !lastDiary;
   $('#sc-id').value = scanSuggest.sib(); $('#sc-id').dataset.touched = ''; $('#sc-kw').value = '';
   $('#q-sib').textContent = scanSuggest.sib(); $('#q-chi').textContent = scanSuggest.chi(); $('#q-up').textContent = scanSuggest.up();
   if (!$('#sc-date').value && lastDiary) $('#sc-date').value = lastDiary;   // 同じ日の紙の日記が続くときだけ、前の日付が残る。今日には、勝手にしない
@@ -2150,7 +2150,7 @@ function closeScan() {
   renderList();
 }
 $('#sc-save').onclick = scanOk;
-$('#sc-diary').onclick = () => { if (!L.isDate($('#sc-date').value)) { $('#sc-date').focus(); return scanFlash('日記の日付を入れて、Enter'); } diaryScanOk(); };
+$('#sc-diary').onclick = () => { $('#sc-date').hidden = false; if (!L.isDate($('#sc-date').value)) { $('#sc-date').focus(); return scanFlash('日記の日付を入れて、Enter'); } diaryScanOk(); };
 $('#sc-skip').onclick = scanSkip;
 $('#sc-del').onclick = scanRemove;
 $('#sc-index').onclick = () => scanIndexOpen($('#sc-iform').hidden);
@@ -2184,7 +2184,7 @@ $('#scan').onkeydown = e => {
   else if (alt && k === 'u') { stop(); $('#sc-id').value = scanSuggest.up(); scanCheck(); $('#sc-id').focus(); }
   else if (alt && k === 'k') { stop(); $('#sc-kw').value = lastKws; }
   else if (alt && k === 's') { stop(); scanSkip(); }
-  else if (alt && k === 'd') { stop(); $('#sc-date').focus(); scanFlash('日記の日付を入れて、Enter（Esc で戻る）'); }   // 勝手に今日にしない。日付を決めてから Enter
+  else if (alt && k === 'd') { stop(); $('#sc-date').hidden = false; $('#sc-date').focus(); scanFlash('日記の日付を入れて、Enter（Esc で戻る）'); }   // 勝手に今日にしない。日付を決めてから Enter
   else if (alt && k === 'e') { stop(); $('#scan').classList.toggle('zoomed'); }
   else if (e.key === 'Delete' && (e.target.id !== 'sc-kw' && e.target.id !== 'sc-date') && !$('#sc-id').dataset.touched) { stop(); scanRemove(); }
   // Gnosis と同じ: 自動で入っている ID のままなら、矢印が効く。→ 次（並列）で保存　↓ 子（分岐）で保存　↑ 前の ID を直す　← 保存を戻す。打ち始めたら、ふつうの文字の動き
