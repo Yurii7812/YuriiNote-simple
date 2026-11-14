@@ -728,10 +728,10 @@ function locateCur() {
   if (cur.k === 'note') { const n = get(cur.s, cur.id); if (n) tab = n.noid ? 'u' : n.s; }
   else if (cur.k === 'topic') { const t = topics.find(x => x.name === cur.name); if (t && t.entry && get(t.entry.s, t.entry.id)) tab = t.entry.s; }
   else return;
-  mode = 'notes'; $('#q').value = ''; renderList(); centerOn();
+  mode = 'notes'; $('#q').value = ''; renderList(); centerOn('#list .item.on', true);
 }
 // 見ているノートを、一覧の真ん中に
-function centerOn(sel = '#list .item.on') { const on = document.querySelector(sel) || document.querySelector('#list .item.on'); if (on) on.scrollIntoView({ block: 'nearest' }); }   // 見えているなら動かさない。隠れているときだけ、見える所まで
+function centerOn(sel = '#list .item.on', force = false) { const on = document.querySelector(sel) || document.querySelector('#list .item.on'); if (on) on.scrollIntoView({ block: force ? 'center' : 'nearest' }); }   // ふだんは、見えているなら動かさない。o で戻るときだけ（force）、真ん中に。隠れているときだけ、見える所まで
 // 決めたノート（Enter で決めた・クリックして開いた）。o で、ここへ戻る。一覧では黄色の背景で示す
 let decided = null;
 const isDecided = (s_, id) => decided && decided.k === 'note' && decided.s === s_ && decided.id === id;
@@ -778,6 +778,7 @@ document.addEventListener('keydown', e => {
   if (k === 'o') { // 決めたノート（Enter で決めた・開いたもの）へ戻る。一覧の真ん中に
     if (!decided) return; e.preventDefault(); const d = decided;
     if (d.k === 'note' && get(d.s, d.id)) kbMove({ dataset: { s: d.s, id: d.id } }); else if (d.k === 'topic' && topics.find(t => t.name === d.name)) kbMove({ dataset: { topic: d.name } });
+    centerOn('#list .item.on', true);   // o で戻るときは、一覧の真ん中に
     return;
   }
   if (k === 'Enter') { // いま見ているものを「決める」（黄色の印。o で戻る先になる）
