@@ -47,6 +47,8 @@ export function extension(space='d') {
   const cancel=()=>{session.close();close();};
   const update=u=>{
     view=u.view;if(!u.docChanged&&!u.selectionSet)return;
+    // 行頭の時刻（自動で入る）などで、前の文字が増えても、候補を出している途中の位置を、ずらして続ける
+    if(session.active&&u.docChanged){const a=session.active;a.from=u.changes.mapPos(a.from,1);a.colon=u.changes.mapPos(a.colon,1);a.to=u.changes.mapPos(a.to,1);}
     let inserted='';u.changes.iterChanges((_a,_b,_c,_d,text)=>{inserted+=text.toString();});
     const state=session.update(u.state.doc.toString(),u.state.selection.main.head,inserted);
     if(!state){if(controller&&controller.owner===view)close();return;}
