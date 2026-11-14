@@ -554,6 +554,7 @@ const SORT_ICON = { fz: '🔢', created: '🕒', updated: '✏️' }, SORT_NAME 
 function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→作成→更新）と、昇順・降順。日記・メモ帳・時系列記録の並びと、ふつうのノートの並びは、別々に覚える
   const k = $('#sort-key'), d = $('#sort-dir'); if (!k || !d) return;
   const dm = mode === 'diary', dir = dm ? diarySortDir : sortDir;
+  k.hidden = dm;   // 日記・メモは、日付順だけなので、並びの種類のボタンは、出さない
   k.textContent = dm ? '📅' : (SORT_ICON[sortBy] || '🔢'); k.title = dm ? '日記・メモ帳・時系列記録は、日付順です' : `並び順: ${SORT_NAME[sortBy] || ''}（押すと切り替え）`; k.classList.toggle('dim', dm);
   d.textContent = dir === 'asc' ? '⬆️' : '⬇️'; d.title = (dm ? '日記・メモ帳・時系列記録の並び: ' : 'ノートの並び: ') + (dir === 'asc' ? '昇順（押すと降順）' : '降順（押すと昇順）');
 }
@@ -566,7 +567,8 @@ function renderList() {
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
   const dpu = mode === 'notes' && ['d', 'p', 'u'].includes(tab);
-  document.querySelectorAll('#tabs > button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = !dpu || (paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u')) ? 'none' : ''; });
+  { const kp = $('#kind-pill'); kp.hidden = !(mode === 'diary' && curKind !== 'メモ帳'); if (!kp.hidden) kp.textContent = `${kindIcon(curKind)} ${curKind} ▾`; }   // 日記・夢・ビジネス…を選ぶ（メモ帳には、要らない）
+  document.querySelectorAll('#tabs > button[data-tab]').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = !dpu || (paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u')) ? 'none' : ''; });
   if (['d', 'p', 'u'].includes(tab)) lastNotesTab = tab;
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.tab ? (mode === 'notes' && b.dataset.tab === tab) : b.dataset.mode === 'notes' ? (mode === 'notes' && ['d', 'p', 'u'].includes(tab)) : b.dataset.mode === 'diary' ? (mode === 'diary' && curKind !== 'メモ帳') : b.id === 'memopad' ? (mode === 'diary' && curKind === 'メモ帳') : false));
   $('#paperonly').classList.toggle('on', paperOnly);
@@ -580,8 +582,8 @@ function renderList() {
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
-  $('#tabs').style.display = dpu || mode === 'diary' ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
-  if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
+  $('#tabs').style.display = dpu || (mode === 'diary' && curKind !== 'メモ帳') ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
+  if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); { const dt = document.querySelector('#dlist .dtop'), ts = document.querySelector('.tsort'); if (dt && ts) dt.append(ts); } renderSelbar(); return; }   // 並び替えは、「今日」と日付と、同じ行の右端に
   if (q && indexTab) {   // グローバルインデックスの中の検索（キーワードと、よみ）
     const hq = L.toHira(q), kwf = k => ({ id: '', s: 'd', noid: true, title: k, body: '', kw: [k], readings: readings[k] || '', created: '' });
     const gi = globalIndex().filter(([k]) => qm(kwf(k)) || (!/\s|[()|"]/.test(q) && (readings[k] || '').includes(hq)));
@@ -1845,8 +1847,7 @@ function diaryList() {
     const open = first; first = false;
     return grp(g.label, g.months ? g.months.map((m, i) => grp(m.label, days(m.days), open && i === 0)).join('') : days(g.days), open);
   }).join('');
-  const top = `<div class="kp"><button class="kp-sel" data-kindopen title="時系列記録を選ぶ・探す・直す"><span>${kindIcon(kind)} ${esc(kind)}</span><i aria-hidden="true">▾</i></button></div>`;
-  return `<div id="dlist">${top}<div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">📅 今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
+  return `<div id="dlist"><div class="dtop"><button class="p" id="d-today" title="今日の${esc(kind)}を開く（無ければ作る）">今日</button><input type="date" id="d-pick" value="${L.todayStr()}" title="日付を選ぶと、その日の${esc(kind)}を開きます（無ければ作る）"></div>${html || `<div class="none">${esc(kind)}はまだありません</div>`}</div>`;
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-kindopen]')) recordsDialog(); });
 $('#list').addEventListener('change', e => { if (e.target.id === 'd-pick' && L.isDate(e.target.value)) openDiary(e.target.value); });
@@ -1952,7 +1953,7 @@ async function openDiary(date, keep, kind) {
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
   $('#pane').innerHTML = `
     <div class="row">
-      <button class="dh-kind" data-kindopen title="時系列記録を選ぶ・探す・直す">${kindIcon(kind)} ${esc(kind)}</button>
+      ${kind === 'メモ帳' ? '' : `<button class="dh-kind" data-kindopen title="時系列記録を選ぶ・探す・直す">${kindIcon(kind)} ${esc(kind)}</button>`}
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>

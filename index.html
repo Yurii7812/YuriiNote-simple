@@ -102,7 +102,7 @@ button:disabled{opacity:.4;cursor:default}
 .similar{padding:18px 24px;max-width:860px}.sm-head{display:flex;align-items:center;gap:6px}.sm-head h2{margin:0;font-size:20px}.sm-b{height:34px;min-width:34px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);font-size:16px;cursor:pointer;opacity:.45}.sm-b.on{opacity:1;background:var(--acc-bg);border-color:var(--acc)}.sm-b.wide{font-size:13px;opacity:1}.sm-base{margin:12px 0;font-size:13px;color:var(--sub)}.similar .sm-list .sm-row{display:block;padding:10px 12px;margin:0 0 8px;border:1px solid var(--line);border-radius:10px}.sm-top{display:flex;align-items:baseline;gap:10px}.sm-top b{font-family:ui-monospace,monospace;font-size:13px;color:var(--sub)}.sm-t{flex:1;font-weight:600;min-width:0}.sm-p{font-size:13px;color:var(--acc);font-weight:700}.similar .sm-meter{display:block;height:4px;border-radius:2px;background:var(--hl);margin:6px 0}.sm-meter i{display:block;height:100%;border-radius:2px;background:var(--acc)}.sm-re{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
 #idbar button.idb{font-size:16px}#idbar button.idb b{font-size:14px}.idline .gid{font-size:18px!important;line-height:1}
 .kwlist{display:flex;flex-direction:column;gap:2px}.kwrow{padding:4px 8px;margin:0 -8px;border-radius:7px;font-size:14px;color:var(--acc);cursor:default}.kwrow:hover{background:var(--hl)}
-button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);background:var(--bg)}button.ic.dj:hover{background:var(--hl)}button.ic.dj.on{background:var(--acc-bg);border-color:var(--acc)}#dlist .dtop #d-today{flex:1}
+button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);background:var(--bg)}button.ic.dj:hover{background:var(--hl)}button.ic.dj.on{background:var(--acc-bg);border-color:var(--acc)}#dlist .dtop .tsort{margin-left:auto;display:flex;gap:4px}#dlist .dtop .tsort .ic{flex:none;width:30px;height:30px;font-size:14px;background:var(--hl);border:0;border-radius:8px;padding:0}#dlist .dtop #d-today{flex:1}
 #scan{position:fixed;inset:0;background:var(--bg);display:none;z-index:9;color:var(--fg)}
 #scan .sc-stage{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:#20232d}
 #scan .sc-view{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:18px}
@@ -152,6 +152,13 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #tabs button{display:inline-flex;align-items:center;gap:5px}
 #tabs{align-items:center}#tabs .tsort{margin-left:auto;display:flex;gap:4px}#searchbox .tsort{display:flex;gap:4px}#searchbox #ix-add{flex:none;width:32px;height:32px;padding:0;font-size:17px;border:0;border-radius:8px;background:var(--hl)}
 #tabs .tsort .ic,#searchbox .tsort .ic{flex:none;width:32px;height:32px;font-size:15px;background:var(--hl);border:0;border-radius:8px;padding:0}
+/* 日記・メモ: 余白を詰める。上の選び方（メモ帳には無い）、今日・日付は 1 行、日の一覧は低く */
+#tabs #kind-pill[hidden],.tsort .ic[hidden]{display:none!important}
+#tabs #kind-pill{height:30px;padding:0 10px;border:0;border-radius:8px;background:var(--hl);font:inherit;font-size:13px;white-space:nowrap;cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+#tabs{padding:8px 10px 4px}
+#dlist .dtop{padding:4px 10px 6px;gap:6px}#dlist .dtop #d-today{height:30px;padding:0 12px;font-size:13px;border-radius:8px}#dlist .dtop input[type=date]{height:30px;box-sizing:border-box}
+#dlist summary{padding:3px 12px;font-size:13px}#dlist .day{padding:2px 12px 2px 24px;font-size:13.5px}
+#pane>.row:first-child{margin-bottom:2px}
 /* スキャン画面: 静かに。ラベルは小さな文字、候補は文字つきの小さなボタン、キーの説明は 1 行（残りは「ほかのキー」に） */
 #scan .sc-side{gap:8px;padding:20px 22px;overflow-x:hidden}
 #scan .sc-side>*{min-width:0}
@@ -654,7 +661,7 @@ body{-webkit-user-select:none;user-select:none}
     <button id="more" class="ic" title="メニュー">🧰</button>
   </nav>
   <aside>
-    <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><span class="tsort"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></span></div>
+    <div id="tabs"><button id="kind-pill" data-kindopen hidden title="時系列記録を選ぶ・探す・直す"></button><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><span class="tsort"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></span></div>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F（今のページの中は Ctrl+E）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"><button id="ix-add" class="tbtn" hidden>＋</button></div>
     <div id="selbar"></div>
     <div id="list"></div>
