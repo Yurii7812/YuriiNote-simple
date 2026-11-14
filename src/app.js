@@ -565,17 +565,18 @@ function renderList() {
   rowDots = null;
   drawSortBtns();
   if (paperOnly && (tab === 'd' || tab === 'u')) tab = 'p';
-  document.querySelectorAll('#tabs button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u') ? 'none' : ''; });
+  const dpu = mode === 'notes' && ['d', 'p', 'u'].includes(tab);
+  document.querySelectorAll('#tabs > button').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.style.display = !dpu || (paperOnly && (b.dataset.tab === 'd' || b.dataset.tab === 'u')) ? 'none' : ''; });
   if (['d', 'p', 'u'].includes(tab)) lastNotesTab = tab;
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.tab ? (mode === 'notes' && b.dataset.tab === tab) : b.dataset.mode === 'notes' ? (mode === 'notes' && ['d', 'p', 'u'].includes(tab)) : b.dataset.mode === 'diary' ? (mode === 'diary' && curKind !== 'メモ帳') : b.id === 'memopad' ? (mode === 'diary' && curKind === 'メモ帳') : false));
   $('#paperonly').classList.toggle('on', paperOnly);
   const searchTab = tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
-  $('#q').style.display = searchTab ? '' : 'none';
+  $('#q').style.display = searchTab ? '' : 'none'; $('#searchbox').style.display = searchTab ? '' : 'none';
   if (!searchTab && $('#q').value) $('#q').value = '';
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
-  $('#tabs').style.display = mode === 'notes' && ['d', 'p', 'u'].includes(tab) ? '' : 'none';   // ノートのときだけ、デジタル・紙・未整理のタブ
+  $('#tabs').style.display = dpu || (mode === 'notes' && tab === 's') || mode === 'diary' ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
   if (q) {
     // 1. Index  2. 索引  3. ノート
