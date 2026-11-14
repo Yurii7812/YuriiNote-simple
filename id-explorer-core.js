@@ -48,7 +48,7 @@ function topicEntries(topic, notes) {
     entry: topic.entry ? by.get(topic.entry.s + ':' + topic.entry.id) || null : null,
     rows: merged.rows.map(r => ({ keyword: r.kw, notes: ['d', 'p'].flatMap(s =>
       r[s].map(raw => { const ref = L.splitAnchor(raw); return { s, id: ref.id, anchor: ref.n || '', note: by.get(s + ':' + ref.id) || null }; })
-    ) })),
+    ) })).concat(merged.rels.map(r => ({ keyword: r.kw, rel: true, notes: r.ids.map(x => { const ref = L.splitAnchor(x.raw); return { s: x.s, id: ref.id, anchor: ref.n || '', note: by.get(x.s + ':' + ref.id) || null }; }) }))),   // ⭐（関連）: 紙とデジタルをまたぐ行も、ここに
     stars: merged.stars, refs: merged.refs
   };
 }

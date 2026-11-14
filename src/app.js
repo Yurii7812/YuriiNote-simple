@@ -1393,7 +1393,7 @@ function topicAddDialog(note) {
     const hit = t => !q || t.name.toLowerCase().includes(q) || L.mergeTopic(t).rows.some(r => r.kw.toLowerCase().includes(q));
     rank = topicRank(note, q);
     const sc = t => rank.get(t.name)?.near ? 1 : 0;
-    const list = topics.filter(hit).sort((a, b) => TopicRanking.compare(rank, a, b));
+    const list = topics.filter(t => L.defOf(t) === note.s).filter(hit).sort((a, b) => TopicRanking.compare(rank, a, b));   // 紙のノートは紙のIndexへ、デジタルはデジタルへ（交わらない）
     if (sel && !list.includes(sel)) sel = null;
     if (!sel && list.length) choose(list[0], false);
     const row = t => { const r = rank.get(t.name); return `<div class="ta-row${t === sel ? ' on' : ''}" data-name="${esc(t.name)}">${esc(stripId(t.name))}${t.entry ? `<small> ${t.entry.s === 'p' ? '紙' : ''}${esc(t.entry.id)}</small>` : ''}${r ? r.why.map(w => `<em>${esc(w)}</em>`).join('') : ''}</div>`; };
@@ -1423,6 +1423,7 @@ function topicAddDialog(note) {
   $('#ta-ok').onclick = async () => {
     const kw = $('#ta-kw').value.trim();
     if (!sel) return alert('索引を選んでください');
+    if (L.defOf(sel) !== note.s) return alert('紙のIndex には紙のノートだけ、デジタルのIndex にはデジタルのノートだけ入れられます（関連づけは、⭐ で）');
     if (!kw) return $('#ta-kw').focus();
     await flush();
     sel.text = L.addToTopic(L.topicText(sel), kw, note.s === L.defOf(sel) ? note.id : `${note.id}(${note.s})`);
@@ -1588,7 +1589,7 @@ function openTopic(name, tmode = 'view', keep, focus) {   // focus: ノートか
     return x0 ? `<span class="chip ${x0.s}" data-s="${x0.s}" data-id="${esc(x0.id)}">${name}</span>` : `<span class="chip miss">${name}</span>`;
   };
   let body;
-  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ キーワード ID ID … ・ 1a(p) は紙 ・ ^ ⬆️ ・ _ ⬇️ ・ |&gt; ↪️ ・ &lt;| ↩️ ・ @ ⭕ ・ + ⭐ ・ *ID 🔴（右クリックでも） ・ 行の終わりの 0-1 は索引へのリンク</div>
+  if (tmode === 'edit') body = `<div class="tedit-hint">✏️ キーワード ID ID … ・ 1a(p) は紙 ・ ^ ⬆️ ・ _ ⬇️ ・ |&gt; ↪️ ・ &lt;| ↩️ ・ @ ⭕ ・ + ⭐ ・ *ID 🔴（右クリックでも） ・ 紙とデジタルは混ぜません（別の側は ⭐ だけ） ・ 行の終わりの 0-1 は索引へのリンク</div>
       <div class="ed" id="ed-t"></div>`;
   else if (tmode === 'conf') body = `<div class="tconf">
       <div class="tc-row"><span class="tc-l">📝 名前</span><input id="t-name" value="${esc(t.name)}"></div>

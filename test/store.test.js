@@ -43,7 +43,8 @@ test('全部が1つのフォルダに平らに置かれ、リンクは同じフ�
   assert.match(r('デジタル.md'), /^# デジタル\n\n\[1\]\(T_1-PKM\.md\)\n/);   // 最上位の番号だけ。トピックIndex があればそこへ
   assert.match(r('紙.md'), /\[紙1\]\([^)]*\.md\)/);
   assert.ok(r('T_1-PKM.md').includes(`入口 <a href="${D1}">1</a>`));
-  assert.ok(r('T_1-PKM.md').includes(`| PKM | [1](${D1}) [1a](${D1a}) [紙1](${P1}.md) |`));
+  assert.ok(r('T_1-PKM.md').includes(`| PKM | [1](${D1}) [1a](${D1a}) |`));   // デジタルのIndex に、紙のIDは入らない
+  assert.ok(r('T_1-PKM.md').includes(`⭐ PKM [紙1](${P1}.md)`));   // ⭐（関連）の行として
   assert.doesNotMatch(r('デジタル.md'), /1a/); // 先頭の ID だけ
 
   v = openVault(dir); // 読み直し
@@ -441,9 +442,10 @@ test('紙のトピックIndex: 入口の紙のノートが、まだ無くても�
   assert.ok(v.saveTopic({ name: '12-紙の索引', entry: { s: 'p', id: '12' }, keyword: '', text: '書き分け 3 1(d)\n+hoge 3' }));   // 紙の 12 は、まだ取り込んでいない
   const st = openVault(dir).state(), t = st.topics.find(x => x.name === '12-紙の索引');
   assert.deepStrictEqual(t.entry, { s: 'p', id: '12' }); const m = require('../lib').mergeTopic(t);
-  assert.deepStrictEqual([m.rows[0].p, m.rows[0].d, m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)])], [['3'], ['1'], [['hoge', ['p3']]]]);   // 入口が紙なので、印なしは紙。(d) はデジタル
+  assert.deepStrictEqual([m.rows[0].p, m.rows[0].d, m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)])], [['3'], [], [['書き分け', ['d1']], ['hoge', ['p3']]]]);   // 入口が紙なので、印なしは紙。(d) のデジタルは、⭐ の行に
   const md = r('T_12-紙の索引.md');
-  assert.match(md, /\| 書き分け \| \[1\]\([^)]*\.md\) \[紙3\]\([^)]*\.md\) \|/);
+  assert.match(md, /\| 書き分け \| \[紙3\]\([^)]*\.md\) \|/);   // 紙のIndex の欄は、紙だけ
+  assert.match(md, /⭐ 書き分け \[1\]\([^)]*\.md\)/);   // デジタルの 1 は、⭐（関連）の行に
   // 紙のノートの md: 印なしの ->1 は紙の 1（まだ無いので # のリンク）、->1(d) はデジタルの 1
   const p3 = st.notes.find(n => n.s === 'p' && n.id === '3'), d1 = st.notes.find(n => n.s === 'd' && n.id === '1');
   assert.ok(r(p3.stem + '.md').includes(`[->1(d)](${d1.stem}.md)`));

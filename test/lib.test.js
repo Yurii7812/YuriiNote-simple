@@ -43,8 +43,9 @@ test('トピックIndex の行', () => {
   assert.deepStrictEqual(L.topicLine('キーワード 1').ids.map(x => x.id), ['1']);
   assert.strictEqual(L.topicLine('タイトル検索 7b1, 7b2').kw, 'タイトル検索');
   assert.strictEqual(L.topicLine('★ 7b-デジタルPKM').star, '7b-デジタルPKM');
-  const m = L.mergeTopic({ d: 'PKM 1a 3\n★ 9-x', p: 'PKM 2\n紙だけ 5' });
-  assert.deepStrictEqual(m.rows, [{ kw: 'PKM', d: ['1a', '3'], p: ['2'], t: [] }, { kw: '紙だけ', d: [], p: ['5'], t: [] }]);
+  const m = L.mergeTopic({ d: 'PKM 1a 3\n★ 9-x', p: 'PKM 2\n紙だけ 5' });   // 古い形（d 欄・p 欄）。デジタルのIndex では、紙の欄は、⭐ の行になる
+  assert.deepStrictEqual(m.rows, [{ kw: 'PKM', d: ['1a', '3'], p: [], t: [] }]);
+  assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)]), [['PKM', ['p2']], ['紙だけ', ['p5']]]);
   assert.deepStrictEqual(m.stars, ['9-x']);
 });
 
@@ -145,9 +146,9 @@ test('紙とデジタルの書き分け: ->ID(p)・(d)・(番号) の順は自�
 });
 test('トピックIndex: 1 つの文字に、印つきで。入口が紙なら、印なしは紙', () => {
   const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'デジタルと紙の書き分け 1g(1) 2(p) 3(2)(p)\n+hoge 5(p)' });
-  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p], [['1g(1)'], ['2', '3(2)']]); assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)]), [['hoge', ['p5']]]);
+  assert.deepStrictEqual([m.rows[0].d, m.rows[0].p], [['1g(1)'], []]); assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.raw)]), [['デジタルと紙の書き分け', ['p2', 'p3(2)']], ['hoge', ['p5']]]);   // 紙のIDは、⭐ の行に
   const p = L.mergeTopic({ entry: { s: 'p', id: '9' }, text: 'x 1 2(d)' });   // 紙のトピックIndex
-  assert.deepStrictEqual([p.rows[0].p, p.rows[0].d], [['1'], ['2']]);
+  assert.deepStrictEqual([p.rows[0].p, p.rows[0].d, p.rels.map(r => r.ids.map(i => i.s + i.id))], [['1'], [], [['d2']]]);
   assert.strictEqual(L.removeFromTopic('x 1 2(p)', [{ s: 'p', id: '2' }], 'd'), 'x 1'); assert.strictEqual(L.addToTopic('x 1', 'x', '2(p)'), 'x 1 2(p)');
   assert.strictEqual(L.legacyTopicText({ entry: { s: 'd', id: '1' }, d: 'PKM 1', p: 'PKM 2' }), 'PKM 1\nPKM 2(p)');
 });
@@ -242,4 +243,13 @@ test('HTMLの書き出し: ノートごとの節・目次・範囲の中のリ�
   assert.ok(!h.includes('<b>') || h.includes('&lt;b&gt;'));   // 題の < は、そのまま出さない
   assert.ok(h.includes('（3件）') && h.includes('hashchange'));
   const m = h.match(/<script>([\s\S]*)<\/script>/)[1]; new Function(m);   // 中のスクリプトに、文法の誤りがない
+});
+
+test('紙のIndex と デジタルのIndex は交わらない: 別の側のIDは、⭐（関連）の行として見せるだけ', () => {
+  const m = L.mergeTopic({ entry: { s: 'd', id: '1' }, text: 'キーワード 1a 2(p) 3\n^上位 4(p)\n|> 独立 5(p)\n⭐関連 6(p)\n@見出し 7(p)' });
+  assert.deepStrictEqual(m.rows.map(r => [r.kw, r.d, r.p]), [['キーワード', ['1a', '3'], []]]);
+  assert.deepStrictEqual(m.rels.map(x => [x.kw, x.ids.map(i => i.s + i.id)]), [['キーワード', ['p2']], ['上位', ['p4']], ['独立', ['p5']], ['関連', ['p6']], ['見出し', ['p7']]]);
+  assert.deepStrictEqual([m.ups.length, m.refs.length], [1, 0]);   // 上位は名前だけ残り、独立（|>）は、⭐ に
+  const p = L.mergeTopic({ entry: { s: 'p', id: '9' }, text: 'x 1 2(d)' });   // 紙のIndex
+  assert.deepStrictEqual([p.rows[0].p, p.rows[0].d, p.rels.map(r => r.ids.map(i => i.s + i.id))], [['1'], [], [['d2']]]);
 });

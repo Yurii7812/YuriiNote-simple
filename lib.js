@@ -283,6 +283,18 @@ function mergeTopic(t) {
   const m = new Map(), stars = [], refs = [], chats = [], ups = [], downs = [], befores = [], marks = [], rels = [], order = [], def = defOf(t);   // order: 書いた順（行ごとの印も、ふつうの行も）
   for (const line of topicText(t).split('\n')) {
     const r = topicLine(line);
+    // 紙のIndex と デジタルのIndex は、交わらない。別の側の ID は、⭐（関連）の行として、見せるだけ（⭐ の行そのものは、側をまたいでよい）
+    if (!r.rel && !r.chat) {
+      const cross = (r.ids || []).filter(x => (x.sp || def) !== def), crossRef = r.ref && (r.ref.sp || def) !== def;
+      if (cross.length || crossRef) {
+        const label = crossRef ? r.ref.label : (r.up !== undefined ? r.up : r.down !== undefined ? r.down : r.before !== undefined ? r.before : r.mark !== undefined ? r.mark : r.kw) || '';
+        const o = { kw: label, ids: crossRef ? [{ s: r.ref.sp, id: r.ref.id, raw: r.ref.id }] : cross.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: [], auto: true };
+        rels.push(o); order.push({ k: 'rel', o });
+        if (crossRef) continue;
+        r.ids = r.ids.filter(x => (x.sp || def) === def);
+        if (!r.ids.length && r.up === undefined && r.down === undefined && r.before === undefined && r.mark === undefined && !(r.tnos || []).length) continue;
+      }
+    }
     if (r.chat) { if (!chats.includes(r.chat)) chats.push(r.chat); continue; }
     if (r.rel) { const o = { kw: r.rel.kw, ids: r.ids.map(i => ({ s: i.sp || def, id: i.id, raw: i.raw })), tnos: (r.tnos || []).map(x => x.tno) }; rels.push(o); order.push({ k: 'rel', o }); continue; }
     if (r.ref) { const s = r.ref.sp || def; if (!refs.some(x => x.s === s && x.id === r.ref.id && x.label === r.ref.label)) { const o = { s, label: r.ref.label, id: r.ref.id }; refs.push(o); order.push({ k: 'ref', o }); } continue; }
@@ -298,6 +310,7 @@ function mergeTopic(t) {
     for (const x of r.tnos || []) if (!m.get(k).t.includes(x.tno)) m.get(k).t.push(x.tno);
     for (const x of r.ids) { const s = x.sp || def; if (!m.get(k)[s].includes(x.raw)) m.get(k)[s].push(x.raw); if (x.dot && !m.get(k).dot) m.get(k).dot = { s, id: x.id }; }   // 並びには (番号) つきのまま入れる
   }
+  for (let i = 0; i + 1 < order.length; i++) if (order[i].k === 'rel' && order[i].o.auto && !(order[i + 1].k === 'rel' && order[i + 1].o.auto)) { [order[i], order[i + 1]] = [order[i + 1], order[i]]; i++; }   // 別の側のIDの ⭐ は、その行の、すぐ後ろに
   return { rows: [...m.values()], stars, refs, chats, ups, downs, befores, marks, rels, order };
 }
 
