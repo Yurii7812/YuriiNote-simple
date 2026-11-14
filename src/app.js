@@ -1957,6 +1957,7 @@ async function openDiary(date, keep, kind) {
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
   $('#pane').innerHTML = `
     <div class="row">
+      ${kind === 'メモ帳' ? `<span class="dh-kind static" title="メモ帳">${kindIcon(kind)} ${esc(kind)}</span>` : `<button class="dh-kind" data-kindopen title="${esc(kind)}（押すと、時系列記録を選ぶ・探す・直す）">${kindIcon(kind)} ${esc(kind)}</button>`}
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
