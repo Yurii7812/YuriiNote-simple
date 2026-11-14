@@ -111,6 +111,7 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #scan .sc-strip{flex:none;display:flex;gap:8px;padding:10px 14px;overflow-x:auto;background:#181b23;scrollbar-width:thin}
 #scan .sc-th{position:relative;flex:none;width:62px;height:62px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#2a2e3a;cursor:pointer;opacity:.55}
 #scan .sc-th img{width:100%;height:100%;object-fit:cover;display:block}
+#scan #sc-iform textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);resize:vertical}#scan #sc-iform input{min-width:0}
 #scan .sc-th.on{border-color:var(--acc);opacity:1}#scan .sc-th.done,#scan .sc-th.gone{opacity:.35;cursor:default}#scan .sc-th.gone img{filter:grayscale(1)}
 #scan .sc-th i{position:absolute;right:2px;bottom:1px;font-style:normal;font-size:15px}
 #scan .sc-side{flex:0 0 360px;display:flex;flex-direction:column;gap:10px;padding:18px 20px;overflow-y:auto;border-left:1px solid var(--line)}
@@ -645,8 +646,15 @@ body{-webkit-user-select:none;user-select:none}
     <div class="sc-row2">
       <button id="sc-skip" title="飛ばす  Ctrl+S" tabindex="-1">⏭️<kbd>Ctrl S</kbd></button>
       <button id="sc-del" title="この画像を、捨てる（取り込まない）  Delete" tabindex="-1">🗑️<kbd>Del</kbd></button>
+      <button id="sc-index" title="この紙は Index。画像は取り込まず、中身を、データとして書く  Ctrl+I" tabindex="-1">📑<kbd>Ctrl I</kbd></button>
       <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Ctrl+D で日付の欄へ）" tabindex="-1">📔<kbd>Ctrl D</kbd></button>
       <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1">
+    </div>
+    <div id="sc-iform" hidden>
+      <div class="sc-lab">📑 紙の Index（画像は、取り込みません）</div>
+      <div class="sc-row2"><input id="si-id" placeholder="入口の紙ID（例: 1）" autocomplete="off" aria-label="入口の紙ID" style="max-width:130px"><input id="si-name" placeholder="名前（例: 算数）" autocomplete="off" aria-label="Index の名前"></div>
+      <textarea id="si-text" rows="9" spellcheck="false" placeholder="1 行に 1 つ: キーワード ID ID …&#10;例: 分数 1 1a&#10;⭐掛け算 1e　　↑ ⬆️上位 1-2　　|> 独立 2" aria-label="Index の中身"></textarea>
+      <div class="sc-row2"><button id="si-ok" class="sc-primary" style="flex:1">📑 Index を保存<kbd>Ctrl Enter</kbd></button><button id="si-cancel" tabindex="-1">やめる<kbd>Esc</kbd></button></div>
     </div>
     <div id="sc-msg"></div>
     <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Ctrl K</kbd>前と同じ🏷️</span><span><kbd>Ctrl D</kbd>📔日付→Enter</span><span><kbd>Ctrl E</kbd>拡大</span><span><kbd>→</kbd>次（並列）で保存</span><span><kbd>↓</kbd>子（分岐）で保存</span><span><kbd>↑</kbd>前のIDを直す</span><span><kbd>←</kbd>保存を戻す</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>

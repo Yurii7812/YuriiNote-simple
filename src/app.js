@@ -2044,7 +2044,7 @@ function scanCheck() {   // ID が使えるか。✅ / ❌ と、枠の色で見
   return ok;
 }
 function scanStrip() {
-  $('#sc-strip').innerHTML = queue.map((f, i) => `<button class="sc-th${i === qi ? ' on' : ''}${scanSt[i] === 'done' || scanSt[i] === 'diary' ? ' done' : ''}${scanSt[i] === 'del' ? ' gone' : ''}" data-sc-i="${i}" title="${esc(f.name)}" tabindex="-1"><img src="${scanThumbs[i]}" alt="">${scanSt[i] === 'done' ? '<i>✅</i>' : scanSt[i] === 'diary' ? '<i>📔</i>' : scanSt[i] === 'skip' ? '<i>⏭️</i>' : scanSt[i] === 'del' ? '<i>🗑️</i>' : ''}</button>`).join('');
+  $('#sc-strip').innerHTML = queue.map((f, i) => `<button class="sc-th${i === qi ? ' on' : ''}${scanSt[i] === 'done' || scanSt[i] === 'diary' || scanSt[i] === 'index' ? ' done' : ''}${scanSt[i] === 'del' ? ' gone' : ''}" data-sc-i="${i}" title="${esc(f.name)}" tabindex="-1"><img src="${scanThumbs[i]}" alt="">${scanSt[i] === 'done' ? '<i>✅</i>' : scanSt[i] === 'diary' ? '<i>📔</i>' : scanSt[i] === 'skip' ? '<i>⏭️</i>' : scanSt[i] === 'del' ? '<i>🗑️</i>' : scanSt[i] === 'index' ? '<i>📑</i>' : ''}</button>`).join('');
   const on = $('#sc-strip .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 function showScan() {
@@ -2054,6 +2054,7 @@ function showScan() {
   $('#sc-n').textContent = `${finished + 1} / ${queue.length}`;
   $('#sc-bar-i').style.width = Math.round(finished / queue.length * 100) + '%';
   $('#sc-img').src = scanThumbs[qi]; $('#scan').classList.remove('zoomed');
+  $('#sc-iform').hidden = true;
   $('#sc-id').value = scanSuggest.sib(); $('#sc-id').dataset.touched = ''; $('#sc-kw').value = '';
   $('#q-sib').textContent = scanSuggest.sib(); $('#q-chi').textContent = scanSuggest.chi(); $('#q-up').textContent = scanSuggest.up();
   if (!$('#sc-date').value && lastDiary) $('#sc-date').value = lastDiary;   // 同じ日の紙の日記が続くときだけ、前の日付が残る。今日には、勝手にしない
@@ -2091,6 +2092,31 @@ async function diaryScanOk() { // 紙の日記: ID は付けず、日付の日�
   } finally { scanBusy = false; }
 }
 function scanSkip() { scanSt[qi] = 'skip'; qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan(); }
+// 📑 紙の Index: 画像は取り込まず、中身（キーワード ID …）を、データとして書く。紙の Index（入口は紙のID）になる
+let lastIndexEntry = '', lastIndexName = '';
+function scanIndexOpen(on = true) {
+  $('#sc-iform').hidden = !on;
+  if (on) { $('#si-id').value = $('#si-id').value || lastIndexEntry; $('#si-name').value = ''; $('#si-text').value = ''; ($('#si-id').value ? $('#si-name') : $('#si-id')).focus(); scanFlash('Index の入口の紙ID・名前・中身を書いて、Ctrl+Enter'); }
+  else { $('#sc-id').focus(); $('#sc-id').select(); }
+}
+async function scanIndexOk() {
+  if (scanBusy) return;
+  const id = $('#si-id').value.trim().toLowerCase(), name = $('#si-name').value.trim(), text = $('#si-text').value.replace(/\s+$/, '');
+  const bad = m => { scanFlash(m); $('#sc-msg').className = 'bad'; };
+  if (!L.isId(id)) { bad('入口の紙IDの形が違います（例: 2a1）'); return $('#si-id').focus(); }
+  if (!name) { bad('Index の名前を入れてください'); return $('#si-name').focus(); }
+  if (topics.find(t => t.name === name)) { bad('その名前の Index は、もうあります'); return $('#si-name').focus(); }
+  scanBusy = true;
+  try {
+    const srcFile = queue[qi], g = { name, entry: { s: 'p', id }, keyword: '', text: text ? text + '\n' : '' }, sv = await api.saveTopic(g);
+    if (!sv) { bad('保存できませんでした'); return; }
+    g.num = sv === true ? 1 : sv; topics.push(g);
+    if (srcFile._phone) api.phonePaperDone(srcFile.name);   // 画像は、取り込まない（スマホの写真も、使い終わり）
+    lastIndexEntry = id; lastIndexName = name; scanSt[qi] = 'index'; scanBatch = 'index';
+    $('#sc-iform').hidden = true; scanFlash(`📑 紙の Index ${id}-${g.num} ${name} を、保存しました`); renderList();
+    qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
+  } finally { scanBusy = false; }
+}
 function scanRemove() {   // 🗑️ この画像を捨てる（取り込まない）。スマホの写真は、スマホから来たファイルも、消える
   const f = queue[qi]; if (!f || scanBusy) return;
   if (f._phone && !confirm(`「${f.name}」を捨てますか？\n（スマホから受け取った写真のファイルも、消えます）`)) return;
@@ -2119,6 +2145,7 @@ function closeScan() {
   clearTimeout(scanTimer); $('#scan').style.display = 'none';
   scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = [];
   if (scanBatch === 'diary' && lastDiary) { renderList(); return openDiary(lastDiary); }
+  if (scanBatch === 'index' && lastIndexName && topics.find(t => t.name === lastIndexName)) { tab = 'p'; mode = 'notes'; renderList(); return openTopic(lastIndexName); }
   if (scanBatch === 'note') { tab = 'p'; mode = 'notes'; renderList(); if (lastId && get('p', lastId)) openNote('p', lastId); return; }
   renderList();
 }
@@ -2126,6 +2153,9 @@ $('#sc-save').onclick = scanOk;
 $('#sc-diary').onclick = () => { if (!L.isDate($('#sc-date').value)) { $('#sc-date').focus(); return scanFlash('日記の日付を入れて、Enter'); } diaryScanOk(); };
 $('#sc-skip').onclick = scanSkip;
 $('#sc-del').onclick = scanRemove;
+$('#sc-index').onclick = () => scanIndexOpen($('#sc-iform').hidden);
+$('#si-ok').onclick = scanIndexOk;
+$('#si-cancel').onclick = () => scanIndexOpen(false);
 $('#sc-close').onclick = closeScan;
 $('#sc-id').addEventListener('input', scanCheck);
 $('#scan').addEventListener('click', e => {
@@ -2141,6 +2171,12 @@ $('#scan').onkeydown = e => {
   const ctl = e.ctrlKey || e.metaKey;
   if ((e.isComposing || e.keyCode === 229) && !ctl) return;   // 日本語入力の変換中でも、Ctrl つきのキーは効かせる
   const alt = ctl && !e.altKey && !e.shiftKey, k = /^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase(), stop = () => { e.preventDefault(); e.stopPropagation(); };   // 文字は、キーの位置（KeyD など）で見る。日本語入力がオンでも同じ
+  if (e.target.closest && e.target.closest('#sc-iform')) {   // Index の入力中: Ctrl+Enter で保存、Esc でやめる。ほかは、ふつうの入力
+    if (e.key === 'Enter' && ctl) { stop(); scanIndexOk(); }
+    else if (e.key === 'Escape') { stop(); scanIndexOpen(false); }
+    return;
+  }
+  if (alt && k === 'i') { stop(); scanIndexOpen($('#sc-iform').hidden); return; }
   if (e.key === 'Enter') { stop(); if (e.target.id === 'sc-date') diaryScanOk(); else scanOk(); }   // 日付の欄で Enter なら、紙の日記に入れる
   else if (e.key === 'Escape') { stop(); if (e.target.id === 'sc-date') { $('#sc-id').focus(); } else closeScan(); }
   else if (alt && k === 'h') { stop(); $('#sc-id').value = scanSuggest.sib(); scanCheck(); $('#sc-id').focus(); }
