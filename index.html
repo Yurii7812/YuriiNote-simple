@@ -159,6 +159,19 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #dlist .dtop{padding:4px 10px 6px;gap:6px}#dlist .dtop #d-today{height:30px;padding:0 12px;font-size:13px;border-radius:8px}#dlist .dtop input[type=date]{height:30px;box-sizing:border-box}
 #dlist summary{padding:3px 12px;font-size:13px}#dlist .day{padding:2px 12px 2px 24px;font-size:13.5px}
 #pane>.row:first-child{margin-bottom:2px}
+/* 左の画面の、いちばん上の行は、どの画面でも、同じ高さ・同じ位置（56px、真ん中ぞろえ）。検索欄・＋・並び替え・フィルタは、この行に */
+#tabs,#searchbox,.fbar,#dlist .dtop.first{box-sizing:border-box;height:56px;min-height:56px;padding:0 10px;display:flex;align-items:center;gap:6px;border-bottom:0}
+#searchbox{padding:0 10px}
+.fbar{position:sticky;top:0;background:var(--bg,#fff);z-index:2}
+.fbar .fpill{height:30px;padding:0 12px;border:0;border-radius:999px;background:none;color:var(--sub);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.fbar .fpill b{font-weight:500;margin-left:3px;opacity:.7}.fbar .fpill:hover{background:var(--hl)}.fbar .fpill.on{background:var(--hl);color:var(--fg)}
+.fbar #ff-add{flex:none;width:32px;height:32px;padding:0;font-size:17px;border:0;border-radius:8px;background:var(--hl);color:var(--fg)}
+/* 日記・メモのページの上: 小さく */
+#pane>.row:first-child{gap:6px;margin:2px 0 4px;flex-wrap:nowrap}
+#pane>.row:first-child h2{font-size:17px;white-space:nowrap}
+#pane>.row:first-child #d-title{height:30px;font-size:14px;padding:0 10px}
+#pane>.row:first-child button.ic.dj{width:28px;height:28px;font-size:14px}
+#pane:has(#d-title) .md-h2{font-size:1.15em}#pane:has(#d-title) .md-h1{font-size:1.3em}#pane:has(#d-title) .cm-content{padding-top:2px}
 /* スキャン画面: 静かに。ラベルは小さな文字、候補は文字つきの小さなボタン、キーの説明は 1 行（残りは「ほかのキー」に） */
 #scan .sc-side{gap:8px;padding:20px 22px;overflow-x:hidden}
 #scan .sc-side>*{min-width:0}

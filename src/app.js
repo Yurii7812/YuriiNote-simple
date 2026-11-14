@@ -583,7 +583,7 @@ function renderList() {
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
   $('#tabs').style.display = dpu || (mode === 'diary' && curKind !== 'メモ帳') ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
-  if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); { const dt = document.querySelector('#dlist .dtop'), ts = document.querySelector('.tsort'); if (dt && ts) dt.append(ts); } renderSelbar(); return; }   // 並び替えは、「今日」と日付と、同じ行の右端に
+  if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); { const dt = document.querySelector('#dlist .dtop'), ts = document.querySelector('.tsort'); if (dt && ts) dt.append(ts); if (dt) dt.classList.toggle('first', curKind === 'メモ帳'); } renderSelbar(); return; }   // 並び替えは、「今日」と日付と、同じ行の右端に
   if (q && indexTab) {   // グローバルインデックスの中の検索（キーワードと、よみ）
     const hq = L.toHira(q), kwf = k => ({ id: '', s: 'd', noid: true, title: k, body: '', kw: [k], readings: readings[k] || '', created: '' });
     const gi = globalIndex().filter(([k]) => qm(kwf(k)) || (!/\s|[()|"]/.test(q) && (readings[k] || '').includes(hq)));
@@ -612,7 +612,8 @@ function renderList() {
   } else if (tab === 'f') {
     refreshFiles();
     const fl = filesCache.filter(f => fileFilter === 'all' || !f.title);
-    out.push(`<div class="sortbar"><select id="ff-sel"><option value="all"${fileFilter === 'all' ? ' selected' : ''}>すべて（${filesCache.length}）</option><option value="untitled"${fileFilter === 'untitled' ? ' selected' : ''}>タイトルなし（${filesCache.filter(f => !f.title).length}）</option></select><span class="grow"></span><button class="mini" id="ff-add" title="ファイルを取り込む">＋ 取り込む</button></div>`);
+    const nUntitled = filesCache.filter(f => !f.title).length;
+    out.push(`<div class="fbar"><button class="fpill${fileFilter === 'all' ? ' on' : ''}" data-ff="all">すべて <b>${filesCache.length}</b></button><button class="fpill${fileFilter === 'untitled' ? ' on' : ''}" data-ff="untitled">題なし <b>${nUntitled}</b></button><span class="grow"></span><button class="mini" id="ff-add" title="ファイルを取り込む">＋</button></div>`);
     out.push(...fl.map(f => fileRow(f)));   // map にそのまま渡すと、行の番号が検索語の欄に入って落ちる
     if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
   } else if (tab === 'i') {
@@ -705,7 +706,7 @@ $('#list').addEventListener('click', e => {
   { const sd = e.target.closest('#sb-dir'); if (sd) { if (sd.dataset.diary) diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); return renderList(); } }
 });
 $('#list').addEventListener('dragstart', e => { const n = e.target.closest('[data-id]'); if (n) e.dataTransfer.setData('text/plain', n.dataset.id); });
-$('#list').addEventListener('change', e => { if (e.target.id === 'ff-sel') { fileFilter = e.target.value; renderList(); } });
+$('#list').addEventListener('click', e => { const p = e.target.closest('[data-ff]'); if (p) { fileFilter = p.dataset.ff; renderList(); } });
 $('#list').addEventListener('change', e => { if (e.target.id === 'sb-by') { sortBy = e.target.value; savePrefs(); renderList(); } });
 $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) { tab = b.dataset.tab; $('#q').value = ''; renderList(); } };
 $('#q').oninput = renderList;
@@ -1953,7 +1954,6 @@ async function openDiary(date, keep, kind) {
   const lower = (d.lower || []).map(k => `<span class="chip t" data-dkind="${esc(k)}">${esc(k)}</span>`).join('');
   $('#pane').innerHTML = `
     <div class="row">
-      ${kind === 'メモ帳' ? '' : `<button class="dh-kind" data-kindopen title="時系列記録を選ぶ・探す・直す">${kindIcon(kind)} ${esc(kind)}</button>`}
       <h2 style="margin:0">${date}（${L.weekday(date)}）</h2>
       <input class="kw" id="d-title" style="flex:1;min-width:140px;margin:0" value="${esc(d.title)}" placeholder="タイトル">
       <button data-act="dprev" class="ic dj" title="前の${esc(kind)}" aria-label="前">⬅️</button><button data-act="dnext" class="ic dj" title="次の${esc(kind)}" aria-label="次">➡️</button>
