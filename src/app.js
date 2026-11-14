@@ -120,7 +120,7 @@ function links(mode, space) {
     if (mode === 'note') {
       const items = [], syms = [];
       for (const t of L.tokens(text)) {
-        if (t.k === 'day') { const dd = diaries.find(x => x.date === t.date && (x.kind || '日記') === t.kind); if (dd) items.push([t.from, t.to, { t: 'file', rel: dd.stem + '.md' }, true, 'file']); else items.push([t.from, t.to, 'mk']); }
+        if (t.k === 'day') { const dd = diaries.find(x => x.date === t.date && (x.kind || '日記') === t.kind); if (dd) items.push([t.from, t.to, { t: 'day', date: dd.date, kind: dd.kind || '日記' }, true, 'ref']); else items.push([t.from, t.to, 'mk']); }   // クラス 'file' は、](パス) を隠す処理に入るので使わない
         else if (t.k === 'ref') items.push([t.from, t.to, { t: 'ref', s: t.sp || space, id: t.id, n: t.n }, !!get(t.sp || space, t.id)]);   // (p) 紙・(d) デジタル。書かなければ、いまのノートと同じ側
         else if (t.bare) items.push([t.from, t.to, 'mk']); // 素の (1) は赤いだけ
         else items.push([t.from, t.to, { t: 'self', n: t.n, bare: t.bare }, L.selfTarget(text, t.n, t.bare) >= 0]);
@@ -374,6 +374,7 @@ function openLink(rel) {
 async function follow(l, view) {
   if (l.t === 'self') { const p = L.selfTarget(view.state.doc.toString(), l.n, l.bare); if (p >= 0) jump(view, p); return; }
   if (l.t === 'file') return openLink(l.rel);
+  if (l.t === 'day') return openDiary(l.date, false, l.kind);   // ->2026-10-11 / ->2026-10-21-夢
   if (l.t === 'topic') { if (topics.find(t => t.name === l.name)) openTopic(l.name); return; }
   if (get(l.s, l.id)) return openNote(l.s, l.id, l.n);
   if (confirm(`${SP[l.s]} ${l.id} はまだありません。作りますか？`)) create(l.s, l.id);

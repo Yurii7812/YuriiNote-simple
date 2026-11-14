@@ -26,9 +26,9 @@ export function targetMemo(m, selection) { return Core.targetOf({...m,kind:'memo
 export function search(query, withDiaries=false) {
   const q=query.trim().toLowerCase();
   return sources().filter(x=>withDiaries||x.kind!=='diary').map(x=>{
-    const fields=[x.id,x.title,x.text,...(x.keywords||[]),x.topic,...(x.ups||[])].filter(Boolean).map(v=>String(v).toLowerCase());
+    const fields=[x.id,x.title,x.text,x.date,x.recordKind,...(x.keywords||[]),x.topic,...(x.ups||[])].filter(Boolean).map(v=>String(v).toLowerCase());
     return {x,score:!q?0:fields.some(v=>v===q)?3:fields.some(v=>v.startsWith(q))?2:fields.some(v=>v.includes(q))?1:-1};
-  }).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score||(b.x.t||L.parseTime(b.x.created)?.getTime()||0)-(a.x.t||L.parseTime(a.x.created)?.getTime()||0)||String(a.x.id).localeCompare(String(b.x.id))).map(x=>x.x);
+  }).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score||(b.x.t||L.parseTime(b.x.created||(b.x.date&&b.x.date+' 12:00:00'))?.getTime()||0)-(a.x.t||L.parseTime(a.x.created||(a.x.date&&a.x.date+' 12:00:00'))?.getTime()||0)||String(a.x.id).localeCompare(String(b.x.id))).map(x=>x.x);
 }
 export function openTarget(target) {
   const item=Core.resolve(target,ctx.notes(),memos());
