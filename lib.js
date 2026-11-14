@@ -68,8 +68,9 @@ function tokens(text) {
   const re = new RegExp(RE, 'g'), out = [], skip = [...text.matchAll(MDLINK)].map(m => [m.index, m.index + m[0].length]).concat(codeRanges(text)); let m;
   const hit = (a, b) => skip.some(([x, y]) => a < y && b > x);
   // ->2026-10-11（日記）／->2026-10-21-夢（時系列記録の、その日）。ID とは別のトークン（k:'day'）
-  const DAY = /->(\d{4}-\d{2}-\d{2})(?:-([^\s,，、。．()（）\[\]「」]+))?/g, days = []; let dm;
-  while ((dm = DAY.exec(text))) { if (hit(dm.index, dm.index + dm[0].length)) continue; days.push({ k: 'day', date: dm[1], kind: dm[2] || '日記', from: dm.index, to: dm.index + dm[0].length, text: dm[0] }); }
+  // 前に付く ->2026-10-11（Enter）と、後ろに付く 2026-10-11->（Shift+Enter）。種類は、ハイフンの後ろ（夢など）
+  const DAY = /(?:->(\d{4}-\d{2}-\d{2})(?:-([^\s,，、。．()（）\[\]「」>→-]+))?|(?<![0-9A-Za-z-])(\d{4}-\d{2}-\d{2})(?:-([^\s,，、。．()（）\[\]「」>→-]+))?->)/g, days = []; let dm;
+  while ((dm = DAY.exec(text))) { if (hit(dm.index, dm.index + dm[0].length)) continue; const post = dm[3] !== undefined; days.push({ k: 'day', date: post ? dm[3] : dm[1], kind: (post ? dm[4] : dm[2]) || '日記', post, from: dm.index, to: dm.index + dm[0].length, text: dm[0] }); }
   const inDay = (a, b) => days.some(d => a < d.to && d.from < b);
   const extend = t => {
     let end = t.to;
