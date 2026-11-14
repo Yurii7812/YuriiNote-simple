@@ -111,7 +111,7 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #scan .sc-strip{flex:none;display:flex;gap:8px;padding:10px 14px;overflow-x:auto;background:#181b23;scrollbar-width:thin}
 #scan .sc-th{position:relative;flex:none;width:62px;height:62px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#2a2e3a;cursor:pointer;opacity:.55}
 #scan .sc-th img{width:100%;height:100%;object-fit:cover;display:block}
-#scan .sc-th.on{border-color:var(--acc);opacity:1}#scan .sc-th.done{opacity:.35;cursor:default}
+#scan .sc-th.on{border-color:var(--acc);opacity:1}#scan .sc-th.done,#scan .sc-th.gone{opacity:.35;cursor:default}#scan .sc-th.gone img{filter:grayscale(1)}
 #scan .sc-th i{position:absolute;right:2px;bottom:1px;font-style:normal;font-size:15px}
 #scan .sc-side{flex:0 0 360px;display:flex;flex-direction:column;gap:10px;padding:18px 20px;overflow-y:auto;border-left:1px solid var(--line)}
 #scan .sc-head{display:flex;align-items:center;gap:10px;font-size:15px}#scan .sc-head b{font-size:22px}#scan .sc-grow{flex:1}#scan #sc-n{font-weight:700;color:var(--sub)}
@@ -644,11 +644,12 @@ body{-webkit-user-select:none;user-select:none}
     <button id="sc-save" class="sc-primary" title="保存して次へ  Enter">⏎ 保存して次へ</button>
     <div class="sc-row2">
       <button id="sc-skip" title="飛ばす  Ctrl+S" tabindex="-1">⏭️<kbd>Ctrl S</kbd></button>
+      <button id="sc-del" title="この画像を、捨てる（取り込まない）  Delete" tabindex="-1">🗑️<kbd>Del</kbd></button>
       <button id="sc-diary" title="紙の日記に入れる。日付を決めて Enter（Ctrl+D で日付の欄へ）" tabindex="-1">📔<kbd>Ctrl D</kbd></button>
       <input id="sc-date" type="date" aria-label="日記の日付" tabindex="-1">
     </div>
     <div id="sc-msg"></div>
-    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Ctrl K</kbd>前と同じ🏷️</span><span><kbd>Ctrl D</kbd>📔日付→Enter</span><span><kbd>Ctrl E</kbd>拡大</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
+    <div class="sc-keys"><span><kbd>Enter</kbd>保存</span><span><kbd>Tab</kbd>ID⇄キーワード</span><span><kbd>Ctrl K</kbd>前と同じ🏷️</span><span><kbd>Ctrl D</kbd>📔日付→Enter</span><span><kbd>Ctrl E</kbd>拡大</span><span><kbd>→</kbd>次（並列）で保存</span><span><kbd>↓</kbd>子（分岐）で保存</span><span><kbd>↑</kbd>前のIDを直す</span><span><kbd>←</kbd>保存を戻す</span><span><kbd>PgUp</kbd><kbd>PgDn</kbd>画像を移る</span><span><kbd>Esc</kbd>閉じる</span></div>
   </aside>
 </div>
 <script src="dist/app.js"></script>

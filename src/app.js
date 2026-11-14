@@ -2006,11 +2006,11 @@ function shrink(file, max = 2000) {
 // 取り込み画面: 左に画像と、並んだ全部の小さな画像（✅=済み ⏭️=飛ばした 📔=日記）。右に ID・キーワード。キーだけで、どんどん進める
 //   Enter 保存して次へ ／ Ctrl+H 次(↔️) ／ Ctrl+B 子(🌱) ／ Ctrl+U 親の次(⤴️) ／ Ctrl+K 前と同じキーワード ／ Ctrl+S 飛ばす ／ Ctrl+D 日記へ ／ Ctrl+E 拡大 ／ PageUp/PageDown 画像を移る ／ Esc 閉じる
 let queue = [], qi = 0, lastId = '', lastKws = '', lastDiary = '';
-let scanSt = [], scanThumbs = [], scanBusy = false, scanBatch = '', scanTimer = null;
+let scanSt = [], scanThumbs = [], scanBusy = false, scanBatch = '', scanTimer = null, scanHist = [];   // scanHist: 保存した順 { i: 画像の番号, id }（← で戻す）
 const startScan = fs => {
   queue = [...fs].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   scanThumbs.forEach(u => URL.revokeObjectURL(u)); scanThumbs = queue.map(f => URL.createObjectURL(f));
-  scanSt = queue.map(() => ''); qi = 0; scanBatch = ''; lastKws = ''; lastDiary = ''; $('#sc-date').value = '';
+  scanSt = queue.map(() => ''); qi = 0; scanBatch = ''; lastKws = ''; lastDiary = ''; scanHist = []; $('#sc-date').value = '';
   $('#scan').style.display = 'flex'; $('#scan').classList.remove('zoomed'); showScan();
 };
 $('#imp').onclick = () => pick(true, startScan);
@@ -2043,7 +2043,7 @@ function scanCheck() {   // ID が使えるか。✅ / ❌ と、枠の色で見
   return ok;
 }
 function scanStrip() {
-  $('#sc-strip').innerHTML = queue.map((f, i) => `<button class="sc-th${i === qi ? ' on' : ''}${scanSt[i] === 'done' || scanSt[i] === 'diary' ? ' done' : ''}" data-sc-i="${i}" title="${esc(f.name)}" tabindex="-1"><img src="${scanThumbs[i]}" alt="">${scanSt[i] === 'done' ? '<i>✅</i>' : scanSt[i] === 'diary' ? '<i>📔</i>' : scanSt[i] === 'skip' ? '<i>⏭️</i>' : ''}</button>`).join('');
+  $('#sc-strip').innerHTML = queue.map((f, i) => `<button class="sc-th${i === qi ? ' on' : ''}${scanSt[i] === 'done' || scanSt[i] === 'diary' ? ' done' : ''}${scanSt[i] === 'del' ? ' gone' : ''}" data-sc-i="${i}" title="${esc(f.name)}" tabindex="-1"><img src="${scanThumbs[i]}" alt="">${scanSt[i] === 'done' ? '<i>✅</i>' : scanSt[i] === 'diary' ? '<i>📔</i>' : scanSt[i] === 'skip' ? '<i>⏭️</i>' : scanSt[i] === 'del' ? '<i>🗑️</i>' : ''}</button>`).join('');
   const on = $('#sc-strip .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 function showScan() {
@@ -2053,7 +2053,7 @@ function showScan() {
   $('#sc-n').textContent = `${finished + 1} / ${queue.length}`;
   $('#sc-bar-i').style.width = Math.round(finished / queue.length * 100) + '%';
   $('#sc-img').src = scanThumbs[qi]; $('#scan').classList.remove('zoomed');
-  $('#sc-id').value = scanSuggest.sib(); $('#sc-kw').value = '';
+  $('#sc-id').value = scanSuggest.sib(); $('#sc-id').dataset.touched = ''; $('#sc-kw').value = '';
   $('#q-sib').textContent = scanSuggest.sib(); $('#q-chi').textContent = scanSuggest.chi(); $('#q-up').textContent = scanSuggest.up();
   if (!$('#sc-date').value && lastDiary) $('#sc-date').value = lastDiary;   // 同じ日の紙の日記が続くときだけ、前の日付が残る。今日には、勝手にしない
   const recent = [...new Set([...L.splitKw(lastKws), ...allKeywords().slice(0, 40)])].slice(0, 12);
@@ -2066,12 +2066,12 @@ async function scanOk() {
   if (!scanCheck()) { $('#sc-id').focus(); return; }
   scanBusy = true;
   try {
-    const id = $('#sc-id').value.trim().toLowerCase(), srcFile = queue[qi];
+    const id = $('#sc-id').value.trim().toLowerCase(), srcFile = queue[qi], at = qi;
     await api.saveImage('p', id, await shrink(queue[qi]));
     const kws = L.splitKw($('#sc-kw').value);
     for (const k of kws) if (!readings[k]) { readings[k] = await api.suggest(k); await api.setReading(k, readings[k]); }
     const n = await api.saveNote({ s: 'p', id, keywords: kws, body: '' });
-    notes.push(n); lastId = id; lastKws = kws.join('、'); scanSt[qi] = 'done'; scanBatch = 'note'; if (srcFile._phone) api.phonePaperDone(srcFile.name);   // スマホの写真は、ノートにしたら、PC の置き場から外す
+    notes.push(n); scanHist.push({ i: at, id }); lastId = id; lastKws = kws.join('、'); scanSt[qi] = 'done'; scanBatch = 'note'; if (srcFile._phone) api.phonePaperDone(srcFile.name);   // スマホの写真は、ノートにしたら、PC の置き場から外す
     scanFlash(`✅ 紙 ${id} を保存しました`); renderList();
     qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
   } finally { scanBusy = false; }
@@ -2090,6 +2090,25 @@ async function diaryScanOk() { // 紙の日記: ID は付けず、日付の日�
   } finally { scanBusy = false; }
 }
 function scanSkip() { scanSt[qi] = 'skip'; qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan(); }
+function scanRemove() {   // 🗑️ この画像を捨てる（取り込まない）。スマホの写真は、スマホから来たファイルも、消える
+  const f = queue[qi]; if (!f || scanBusy) return;
+  if (f._phone && !confirm(`「${f.name}」を捨てますか？\n（スマホから受け取った写真のファイルも、消えます）`)) return;
+  if (f._phone) api.phonePaperDone(f.name);
+  scanSt[qi] = 'del'; scanFlash(`🗑️ ${f.name} を捨てました`);
+  qi = scanNext(qi + 1) >= 0 ? scanNext(qi + 1) : scanNext(0); showScan();
+}
+async function scanUndo() {   // ← 直前に保存した紙を、取り消して、その画像に戻る（ノートは .trash に移る）
+  if (scanBusy) return; const h = scanHist.pop();
+  if (!h) return scanFlash('取り消せる保存が、ありません');
+  scanBusy = true;
+  try {
+    const st = await api.deleteNotes([{ s: 'p', id: h.id }]);
+    ({ notes, topics } = st); readings = st.readings || readings;
+    scanSt[h.i] = ''; qi = h.i; lastId = scanHist.length ? scanHist[scanHist.length - 1].id : '';
+    renderList(); scanFlash(`↩️ 紙 ${h.id} の保存を取り消しました`);
+  } finally { scanBusy = false; }
+  showScan();
+}
 function scanGo(dir) {
   const to = dir > 0 ? scanNext(qi + 1) : scanPrevious(qi - 1);
   if (to < 0) return; qi = to; showScan();
@@ -2105,6 +2124,7 @@ function closeScan() {
 $('#sc-save').onclick = scanOk;
 $('#sc-diary').onclick = () => { if (!L.isDate($('#sc-date').value)) { $('#sc-date').focus(); return scanFlash('日記の日付を入れて、Enter'); } diaryScanOk(); };
 $('#sc-skip').onclick = scanSkip;
+$('#sc-del').onclick = scanRemove;
 $('#sc-close').onclick = closeScan;
 $('#sc-id').addEventListener('input', scanCheck);
 $('#scan').addEventListener('click', e => {
@@ -2113,6 +2133,9 @@ $('#scan').addEventListener('click', e => {
   const th = e.target.closest('[data-sc-i]'); if (th) { const i = +th.dataset.scI; if (scanSt[i] === 'done' || scanSt[i] === 'diary') return; if (scanSt[i] === 'skip') scanSt[i] = ''; qi = i; showScan(); return; }
   if (e.target.closest('#sc-img')) { $('#scan').classList.toggle('zoomed'); $('#sc-id').focus(); }
 });
+// 矢印キーを、ショートカットとして使ってよいか（ID の欄が、自動で入った ID のままか、欄の外にいるとき）
+const arrowKey = e => ['ArrowRight', 'ArrowDown', 'ArrowUp', 'ArrowLeft'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.target.id !== 'sc-kw' && e.target.id !== 'sc-date' && !$('#sc-id').dataset.touched;
+$('#sc-id').addEventListener('input', () => { $('#sc-id').dataset.touched = '1'; });   // 打ち始めたら、矢印は、ふつうの動きに
 $('#scan').onkeydown = e => {
   const ctl = e.ctrlKey || e.metaKey;
   if ((e.isComposing || e.keyCode === 229) && !ctl) return;   // 日本語入力の変換中でも、Ctrl つきのキーは効かせる
@@ -2126,6 +2149,15 @@ $('#scan').onkeydown = e => {
   else if (alt && k === 's') { stop(); scanSkip(); }
   else if (alt && k === 'd') { stop(); $('#sc-date').focus(); scanFlash('日記の日付を入れて、Enter（Esc で戻る）'); }   // 勝手に今日にしない。日付を決めてから Enter
   else if (alt && k === 'e') { stop(); $('#scan').classList.toggle('zoomed'); }
+  else if (e.key === 'Delete' && (e.target.id !== 'sc-kw' && e.target.id !== 'sc-date') && !$('#sc-id').dataset.touched) { stop(); scanRemove(); }
+  // Gnosis と同じ: 自動で入っている ID のままなら、矢印が効く。→ 次（並列）で保存　↓ 子（分岐）で保存　↑ 前の ID を直す　← 保存を戻す。打ち始めたら、ふつうの文字の動き
+  else if (arrowKey(e)) {
+    stop();
+    if (e.key === 'ArrowRight') { $('#sc-id').value = scanSuggest.sib(); scanCheck(); scanOk(); }
+    else if (e.key === 'ArrowDown') { $('#sc-id').value = scanSuggest.chi(); scanCheck(); scanOk(); }
+    else if (e.key === 'ArrowUp') { $('#sc-id').value = lastId || ''; $('#sc-id').dataset.touched = '1'; scanCheck(); $('#sc-id').focus(); $('#sc-id').select(); }
+    else scanUndo();
+  }
   else if (e.key === 'PageDown') { stop(); scanGo(1); }
   else if (e.key === 'PageUp') { stop(); scanGo(-1); }
 };
