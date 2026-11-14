@@ -987,16 +987,15 @@ function openNote(s, id, n, keep, mid) {
 async function changeId(note, v) {
   if (!L.isId(v) || get(note.s, v)) return false;
   await flush(); await api.saveNote(pubNote(note));
-  const old = note.id, r = await api.rename(note.s, old, v);
+  const old = note.id, s = note.s;
+  // IDつきのノートは、子や孫も、一緒に、新しい ID の下へ（子は、子のまま）。タブも、新しい ID に直す
+  const moved = L.isNoid(old) ? new Map() : L.remapSubtree(notes.filter(x => x.s === s && !x.noid).map(x => x.id), old, v);
+  const r = await api.rename(s, old, v);
   if (!r) return false;
-  Object.assign(note, r, { body: r.body });
-  for (const t of topics) if (t.entry && t.entry.s === note.s && t.entry.id === old) t.entry.id = v;
-  for (const t of tabs) if (t.k === 'note' && t.s === note.s && t.id === old) t.id = v;
-  if (L.isNoid(old) && notes.some(x => x.parentStem === note.stem)) {   // IDなしだった親に ID が付いて、分岐していた子にも ID が付いた
-    const st = await api.state(); applyState(st);
-    for (const t of tabs) if (t.k === 'note' && t.s === 'd' && L.isNoid(t.id)) { const nn = notes.find(x => x.stem === t.id); if (nn) t.id = nn.id; }
-  }
-  await refreshDiaries(); openNote(note.s, v, null, true); return true;
+  const st = await api.state(); applyState(st);
+  for (const t of tabs) if (t.k === 'note' && t.s === s && moved.has(t.id)) t.id = moved.get(t.id);
+  if (L.isNoid(old)) for (const t of tabs) if (t.k === 'note' && t.s === 'd' && L.isNoid(t.id)) { const nn = notes.find(x => x.stem === t.id); if (nn) t.id = nn.id; }   // IDなしだった親に ID が付いて、分岐していた子にも ID が付いた
+  await refreshDiaries(); openNote(s, v, null, true); return true;
 }
 // ===== 類似検索（右クリック → 類似検索 ／ 複数選択 → 🔍）=====
 // 選んだノート（1つ以上）に似たノートを、本文の言葉・キーワード・リンク・索引から探して、度数の高い順に並べる
@@ -1300,13 +1299,14 @@ function idSettingsDialog(note) {
 }
 // IDを消す: このノートを指すリンクは、自動でファイルへのリンクに直る
 async function clearIdFlow(note) {
-  const n = backlinks(note).length;
-  if (!confirm(`「${titleOf(note)}」のIDを消して、IDなしにしますか？\n${n ? `このノートを指している ${n} 件のリンクは、自動で直ります。\n` : ''}子のノートのIDは、そのままです。`)) return;
+  const n = backlinks(note).length, kids = L.fzSubtree(notes.filter(x => x.s === note.s && !x.noid).map(x => x.id), note.id).length - 1;
+  if (!confirm(`「${titleOf(note)}」のIDを消して、IDなしにしますか？\n${n ? `このノートを指している ${n} 件のリンクは、自動で直ります。\n` : ''}${kids ? `子や孫の ${kids} 件も、IDなしの子になります（あとで新しいIDをつけると、子にも順にIDが付きます）。` : ''}`)) return;
   await flush(); await api.saveNote(pubNote(note));
-  const old = note.id, st = await api.clearId(note.s, old); if (!st) return alert('IDを消せませんでした');
+  const old = note.id, stemOf = new Map(notes.filter(x => x.s === note.s && !x.noid && L.fzSubtree([x.id], old).length).map(x => [x.id, x.stem]));
+  const st = await api.clearId(note.s, old); if (!st) return alert('IDを消せませんでした');
   ({ notes, topics } = st); diaries = st.diaries; records = st.records || records; readings = st.readings || readings;
   const stem = notes.find(x => x.noid && x.stem === note.stem);
-  for (const t of tabs) if (t.k === 'note' && t.s === note.s && t.id === old && stem) t.id = stem.id;
+  for (const t of tabs) if (t.k === 'note' && t.s === note.s && stemOf.has(t.id)) t.id = stemOf.get(t.id);   // 子や孫のタブも、IDなしの名前に
   if (stem) openNote('d', stem.id, null, true); else show(Math.max(0, active));
   toast('IDを消しました'); return true;
 }

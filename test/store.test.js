@@ -242,9 +242,10 @@ test('IDを消してIDなしに。このノートを指すリンクは、ファ�
   assert.ok(n.noid && /^\d{14}$/.test(n.id) && n.id === n.stem);
   assert.ok(fs.existsSync(path.join(dir, `${n.id}.md`)) && !/folgezettel/.test(r(`${n.id}.md`)));   // ファイルはそのまま、YAML から folgezettel が消える
   const b2 = st.notes.find(x => x.id === '2').body;
-  assert.strictEqual(b2, `参照 [PKMとは](${n.id}.md) と [PKMとは](${n.id}.md) と、->1a`); // ->1a は別のノートなのでそのまま
-  assert.ok(st.notes.find(x => x.id === '1a'));                                                   // 子はそのまま
-  assert.strictEqual(st.topics[0].entry, null); assert.strictEqual(st.topics[0].text, '基本 1a');      // 入口なし・索引の行から外れる
+  const kid = st.notes.find(x => x.body === '子のノート');
+  assert.ok(kid.noid && kid.parentStem === n.stem);                                               // 子も、IDなしの子になる（親を覚えている）
+  assert.strictEqual(b2, `参照 [PKMとは](${n.id}.md) と [PKMとは](${n.id}.md) と、[子のノート](${kid.id}.md)`);   // 子へのリンクも、ファイルへのリンクに
+  assert.strictEqual(st.topics[0].entry, null); assert.strictEqual(st.topics[0].text, '');      // 入口なし・索引の行（1 も 1a も消えた行）から外れる
   assert.ok(st.diaries[0].body.includes(`](${n.id}.md)`)); // 日記のリンクは、ファイル名なので、そのまま
   assert.ok(!v.clearId('d', n.id));                                                                // すでにIDなしなら何もしない
   fs.rmSync(dir, { recursive: true });
@@ -691,4 +692,36 @@ test('昔の :ID / ID: は、一度だけ ->ID / ID-> に直る（日記の「- 
   assert.strictEqual(v.state().notes.find(x => x.id === '1').body, '続き ->1a と 1a-> と ->(1) (1)-> と `:1a` 12:30');
   assert.ok(fs.readFileSync(path.join(dir, '.pkm-layout'), 'utf8').includes('arrow1'));
   assert.strictEqual(openVault(dir).state().notes.find(x => x.id === '1').body, '続き ->1a と 1a-> と ->(1) (1)-> と `:1a` 12:30');   // 二度目は変えない
+});
+
+test('IDを変える: 子や孫も、子のまま、新しいIDの下へ。本文の ->ID・索引の行・入口も書き換わる', () => {
+  const dir = tmp(), v = openVault(dir);
+  for (const [id, body] of [['1', '根'], ['1a', '枝A'], ['1a1', '孫 親は ->1a'], ['1a1a', 'ひ孫'], ['1a2', '孫2'], ['1b', '枝B'], ['2', '別 ->1a と ->1a1']]) v.saveNote({ s: 'd', id, created: '2026-11-07 10:00', keywords: [], body });
+  v.saveTopic({ name: '索引', entry: { s: 'd', id: '1a' }, keyword: '', text: 'キーワード 1a 1a1 *1a2\n|> 独立 1a1\n' });
+  assert.ok(v.rename('d', '1a', '5'));   // 終わりが 文字 → 数字: 子の段の数字⇄文字も入れ替わる
+  let st = v.state();
+  assert.deepStrictEqual(st.notes.map(n => n.id).sort(), ['1', '1b', '2', '5', '5a', '5a1', '5b']);
+  assert.strictEqual(st.notes.find(n => n.id === '5a').body.trim(), '孫 親は ->5');              // 孫: 1a1 → 5a
+  assert.strictEqual(st.notes.find(n => n.id === '5a1').body.trim(), 'ひ孫');                    // ひ孫: 1a1a → 5a1
+  assert.strictEqual(st.notes.find(n => n.id === '2').body.trim(), '別 ->5 と ->5a');
+  assert.deepStrictEqual([st.topics[0].entry.id, st.topics[0].text], ['5', 'キーワード 5 5a *5b\n|> 独立 5a\n']);
+  assert.ok(v.rename('d', '5', '1c'));   // 終わりが 数字 → 文字: 同じ段のまま
+  st = v.state();
+  assert.deepStrictEqual(st.notes.map(n => n.id).sort(), ['1', '1b', '1c', '1c1', '1c1a', '1c2', '2']);
+  assert.ok(!v.rename('d', '1c', '1c1'));      // 自分の子や孫の ID には、できない
+  assert.ok(!v.rename('d', '1c', '1b'));       // ほかのノートの ID にも、できない
+  assert.deepStrictEqual(v.state().notes.map(n => n.id).sort(), ['1', '1b', '1c', '1c1', '1c1a', '1c2', '2']);   // 失敗したら、何も変わらない
+});
+
+test('IDを消す→新しいIDをつける: 子は、IDなしの子として残り、新しいIDの下の子になる', () => {
+  const dir = tmp(), v = openVault(dir);
+  for (const [id, body] of [['1', '根'], ['1a', '枝A'], ['1a1', '孫'], ['1a2', '孫2'], ['1b', '枝B']]) v.saveNote({ s: 'd', id, created: '2026-11-07 10:0' + id.length, keywords: [], body });
+  let st = v.clearId('d', '1a');
+  const a = st.notes.find(n => n.body === '枝A'), g = st.notes.find(n => n.body === '孫'), g2 = st.notes.find(n => n.body === '孫2');
+  assert.ok(a.noid && g.noid && g2.noid); assert.strictEqual(g.parentStem, a.stem); assert.strictEqual(g2.parentStem, a.stem);
+  assert.deepStrictEqual(st.notes.filter(n => !n.noid).map(n => n.id).sort(), ['1', '1b']);
+  assert.ok(v.rename('d', a.id, '7'));   // 新しい ID をつけると、子にも順に ID が付く
+  st = v.state();
+  assert.deepStrictEqual(st.notes.filter(n => !n.noid).map(n => n.id).sort(), ['1', '1b', '7', '7a', '7b']);
+  assert.strictEqual(st.notes.find(n => n.id === '7a').body.trim(), '孫'); assert.strictEqual(st.notes.find(n => n.id === '7b').body.trim(), '孫2');
 });

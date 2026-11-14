@@ -754,21 +754,28 @@ function openVault(vault) {
     // 子のノートのIDはそのまま。トピックIndex の入口だった場合は、入口なしになる
     clearId(s, id) {
       const n = get('d', id); if (s !== 'd' || !n || L.isNoid(id)) return false;
-      const stem = n.stem, href = noteHref('d', id);
-      notes.delete(key('d', id)); n.id = stem; notes.set(key('d', stem), n); n.updated = L.now();
+      // 子や孫も、IDなしの子になる（親の stem を覚える）。あとで、親に新しい ID を付けると、子にも、順に ID が付く
+      const allIds = [...notes.values()].filter(x => x.s === 'd' && !L.isNoid(x.id)).map(x => x.id), has = x => !!get('d', x);
+      const subtree = L.fzSubtree(allIds, id).sort((a, b) => a.length - b.length || L.cmpId(a, b)), kids = subtree.filter(x => x !== id);
+      const parentStem = new Map(kids.map(k => [k, get('d', L.parentIn(k, has) || id).stem]));   // 先に決める（IDを消す前に）
+      const info = new Map(subtree.map(k => {
+        const m = get('d', k), label = (m.title || (Stamp.strip(m.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 24) || 'ノート').replace(/[\[\]]/g, '');
+        return [k, { href: noteHref('d', k), label, stem: m.stem }];
+      }));
+      for (const k of subtree) { const m = get('d', k); notes.delete(key('d', k)); if (k !== id) m.parentStem = parentStem.get(k); m.id = m.stem; notes.set(key('d', m.stem), m); m.updated = L.now(); }
+      const gone = new Set(subtree);
       for (const t of topics.values()) { // 入口と、索引の行から外す
-        if (t.entry && t.entry.s === 'd' && t.entry.id === id) t.entry = null;
-        t.text = L.removeFromTopic(t.text, [{ s: 'd', id }], L.defOf(t));
+        if (t.entry && t.entry.s === 'd' && gone.has(t.entry.id)) t.entry = null;
+        t.text = L.removeFromTopic(t.text, subtree.map(k => ({ s: 'd', id: k })), L.defOf(t));
       }
-      const label = (n.title || (Stamp.strip(n.body).split('\n').find(x => x.trim()) || '').replace(/^#+\s*/, '').slice(0, 24) || 'ノート').replace(/[\[\]]/g, '');
       const fix = (body, own = 'd') => { // :1a  1a:  1a(1)  などを、リンクに置き換える（紙の 1a を指すものは、そのまま）
         let out = '', last = 0;
-        for (const t of L.tokens(body)) { if (t.k !== 'ref' || t.id !== id || (t.sp || own) !== 'd') continue; out += body.slice(last, t.from) + `[${label}](${href})`; last = t.to; }
+        for (const t of L.tokens(body)) { if (t.k !== 'ref' || !gone.has(t.id) || (t.sp || own) !== 'd') continue; const f = info.get(t.id); out += body.slice(last, t.from) + `[${f.label}](${f.href})`; last = t.to; }
         return out + body.slice(last);
       };
-      for (const m of notes.values()) if (m !== n && (!m.kind || m.kind === 'text')) m.body = fix(m.body, m.s);
+      for (const m of notes.values()) if (!m.kind || m.kind === 'text') m.body = fix(m.body, m.s);
       for (const d of diaries.values()) d.body = fix(d.body);
-      for (const m of notes.values()) if (m.kind && m.kind !== 'text' && m.data) { const j = JSON.stringify(m.data); if (j.includes(`"nid":"${id}"`)) { for (const c of m.data.nodes || []) if (c.type === 'note' && c.s === 'd' && c.nid === id) c.nid = stem; m.body = L.deriveBody(m.kind, m.data); } }
+      for (const m of notes.values()) if (m.kind && m.kind !== 'text' && m.data) { let hit = false; for (const c of m.data.nodes || []) if (c.type === 'note' && c.s === 'd' && gone.has(c.nid)) { c.nid = info.get(c.nid).stem; hit = true; } if (hit) m.body = L.deriveBody(m.kind, m.data); }
       rebuild(); return this.state();
     },
     // IDを付け替える。ファイル名は日時のままなので、ファイルも他のノートのファイルへのリンクも動かない
@@ -776,6 +783,21 @@ function openVault(vault) {
       const n = get(s, from);
       if (!n || !validId(to) || get(s, to)) return false;
       const was = noteHref(s, from);
+      if (!L.isNoid(from)) {   // IDつきのノート: 子や孫も一緒に、新しい ID の下へ（子は、子のまま）。本文の ->ID も、索引の行も、書き換える
+        const ids = [...notes.values()].filter(x => x.s === s && !L.isNoid(x.id)).map(x => x.id), map = L.remapSubtree(ids, from, to);
+        if (L.fzSubtree([to], from).length) return false;   // 自分の子や孫の ID には、できない
+        for (const [o, nw] of map) if (o !== nw && (!validId(nw) || (get(s, nw) && !map.has(nw)))) return false;
+        const moving = [...map].map(([o, nw]) => [get(s, o), nw]);
+        for (const [m] of moving) notes.delete(key(s, m.id));
+        for (const [m, nw] of moving) { m.id = nw; notes.set(key(s, nw), m); m.updated = L.now(); }
+        for (const t of topics.values()) {
+          if (t.entry && t.entry.s === s && map.has(t.entry.id)) t.entry.id = map.get(t.entry.id);
+          if (t.text) t.text = L.remapTopicText(t.text, map, s, L.defOf(t));
+        }
+        for (const m of notes.values()) if (!m.kind || m.kind === 'text') m.body = L.remapRefs(m.body, m.s, s, map);
+        for (const d of diaries.values()) d.body = L.remapRefs(d.body, 'd', s, map);
+        rebuild(); return pub(n);
+      }
       notes.delete(key(s, from)); n.id = to; notes.set(key(s, to), n); n.updated = L.now();
       for (const t of topics.values()) if (t.entry && t.entry.s === s && t.entry.id === from) t.entry.id = to;
       // IDなしだった親に ID が付いたら、その下に分岐していたノートにも、順に ID が付く（1c → 1ca, 1cb …。孫も同じように）

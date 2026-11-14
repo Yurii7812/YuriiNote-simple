@@ -192,6 +192,42 @@ function fzSubtree(ids, root) {
   const r = tok(root);
   return ids.filter(i => { const t = tok(i); return t.length >= r.length && r.every((x, k) => t[k] === x); });
 }
+// ===== ID を変えたとき、子や孫も一緒に（子は、子のまま、新しい ID の下へ） =====
+const numToLet = n => { let s = '', k = +n; while (k > 0) { k--; s = String.fromCharCode(97 + k % 26) + s; k = Math.floor(k / 26); } return s; };
+const letToNum = s => [...s].reduce((a, c) => a * 26 + (c.charCodeAt(0) - 96), 0);
+// ids: そのノート群の、IDつきのIDすべて。from の部分木（from 自身・子・孫…）を、to の下へ移す対応表（旧→新）。
+// from と to の終わりが、数字と文字で違うときは、子の段の数字⇄文字も、入れ替える（1a → 5 なら、1a1 → 5a、1a1a → 5a1）
+function remapSubtree(ids, from, to) {
+  const map = new Map(), ft = tok(from), tt = tok(to);
+  if (!ft.length || !tt.length) return map;
+  const flip = /\d/.test(ft[ft.length - 1]) !== /\d/.test(tt[tt.length - 1]);
+  for (const id of fzSubtree(ids, from)) {
+    const suffix = tok(id).slice(ft.length);
+    map.set(id, to + suffix.map(t => !flip ? t : /\d/.test(t) ? numToLet(t) : String(letToNum(t))).join(''));
+  }
+  return map;
+}
+// 本文の中の ->ID（own: 本文があるノートの側）を、対応表で書き換える。s: 対応表の側（'d' か 'p'）
+function remapRefs(text, own, s, map) {
+  let out = '', last = 0;
+  for (const t of tokens(text || '')) {
+    if (t.k !== 'ref' || (t.sp || own) !== s || !map.has(t.id) || map.get(t.id) === t.id) continue;
+    const seg = String(text).slice(t.from, t.to), i = seg.indexOf(t.id); if (i < 0) continue;
+    out += String(text).slice(last, t.from) + seg.slice(0, i) + map.get(t.id) + seg.slice(i + t.id.length); last = t.to;
+  }
+  return out + String(text || '').slice(last);
+}
+// 索引の本文の、IDの部分を、対応表で書き換える（紙とデジタルの側の印を見て、s の側のIDだけ）
+function remapTopicText(text, map, s, def) {
+  return String(text || '').split('\n').map(line => {
+    const r = topicLine(line), edits = [];
+    for (const x of r.ids || []) if ((x.sp || def) === s && map.has(x.id)) edits.push([x.from, x.id, map.get(x.id)]);
+    if (r.ref && (r.ref.sp || def) === s && map.has(r.ref.id)) edits.push([r.ref.from, r.ref.id, map.get(r.ref.id)]);
+    let out = line;
+    for (const [at, oldId, newId] of edits.sort((a, b) => b[0] - a[0])) out = out.slice(0, at) + newId + out.slice(at + oldId.length);
+    return out;
+  }).join('\n');
+}
 // items: [{s,id,title,body,noid,created}]（出す順）。選んだノートの中を指すリンクだけ生かし、外へのリンクは普通の文字にする
 function exportMd(items) {
   const has = new Set(items.filter(n => !n.noid).map(n => n.s + ':' + n.id));
@@ -465,5 +501,5 @@ const parseTime = c => { const m = (c || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: 
 module.exports = { TMARK, colonToArrow, colonToArrowKeep,
   codeRanges, MDLINK, ID, isId, splitAnchor, tok, cmpId, sibling, child, parentIn, root,
   tokens, anchorPos, selfTarget, bodyToMd, mdToBody,
-  fzRange, fzSubtree, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now
+  fzRange, fzSubtree, remapSubtree, remapRefs, remapTopicText, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now
 };
