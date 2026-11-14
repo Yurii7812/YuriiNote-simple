@@ -153,7 +153,7 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #tabs{align-items:center}#tabs .tsort{margin-left:auto;display:flex;gap:4px}#searchbox .tsort{display:flex;gap:4px}#searchbox #ix-add{flex:none;width:32px;height:32px;padding:0;font-size:17px;border:0;border-radius:8px;background:var(--hl)}
 #tabs .tsort .ic,#searchbox .tsort .ic{flex:none;width:32px;height:32px;font-size:15px;background:var(--hl);border:0;border-radius:8px;padding:0}
 /* 日記・メモ: 余白を詰める。上の選び方（メモ帳には無い）、今日・日付は 1 行、日の一覧は低く */
-#tabs #kind-pill[hidden],.tsort .ic[hidden]{display:none!important}
+aside>.tsort .ic[hidden]{display:none!important}
 #tabs #kind-pill{height:30px;padding:0 10px;border:0;border-radius:8px;background:var(--hl);font:inherit;font-size:13px;white-space:nowrap;cursor:pointer;max-width:150px;overflow:hidden;text-overflow:ellipsis}
 #tabs{padding:8px 10px 4px}
 #dlist .dtop{padding:4px 10px 6px;gap:6px}#dlist .dtop #d-today{height:30px;padding:0 12px;font-size:13px;border-radius:8px}#dlist .dtop input[type=date]{height:30px;box-sizing:border-box}
@@ -172,6 +172,20 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #pane>.row:first-child #d-title{height:30px;font-size:14px;padding:0 10px}
 #pane>.row:first-child button.ic.dj{width:28px;height:28px;font-size:14px}
 #pane:has(#d-title) .md-h2{font-size:1.15em}#pane:has(#d-title) .md-h1{font-size:1.3em}#pane:has(#d-title) .cm-content{padding-top:2px}
+/* 並び替えは、どの画面でも、同じ場所（左の画面の右上）。ノート・検索・日記・メモを行き来しても、動かない */
+aside{position:relative;width:300px}
+aside>.tsort{position:absolute;right:10px;top:12px;height:32px;display:flex;gap:4px;z-index:3}
+aside>.tsort .ic{flex:none;width:32px;height:32px;font-size:15px;background:var(--hl);border:0;border-radius:8px;padding:0}
+aside>.tsort[hidden]{display:none}
+aside.sort2 #tabs,aside.sort2 #searchbox{padding-right:84px}
+aside.sort1 #dlist .dtop{padding-right:50px}
+/* 日記・メモの上の行: 日記▾（メモ帳は、名前だけ）・今日・日付 */
+#dlist .dtop.first{gap:4px;height:56px}
+#dlist .dkind{flex:none;height:32px;line-height:32px;padding:0 8px;border:0;border-radius:8px;background:var(--hl);color:var(--fg);font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}
+#dlist .dkind.static{display:inline-flex;align-items:center;background:none;cursor:default;padding:0 4px 0 2px}
+#dlist .dkind{max-width:104px;overflow:hidden;text-overflow:ellipsis}
+#dlist .dtop.first #d-today{flex:none;height:32px;padding:0 9px;font-size:13px;border-radius:8px}
+#dlist .dtop.first input[type=date]{flex:1 1 auto;min-width:0;width:0;height:32px;box-sizing:border-box;font-size:12px;padding:0 2px 0 6px}
 /* スキャン画面: 静かに。ラベルは小さな文字、候補は文字つきの小さなボタン、キーの説明は 1 行（残りは「ほかのキー」に） */
 #scan .sc-side{gap:8px;padding:20px 22px;overflow-x:hidden}
 #scan .sc-side>*{min-width:0}
@@ -674,8 +688,9 @@ body{-webkit-user-select:none;user-select:none}
     <button id="more" class="ic" title="メニュー">🧰</button>
   </nav>
   <aside>
-    <div id="tabs"><button id="kind-pill" data-kindopen hidden title="時系列記録を選ぶ・探す・直す"></button><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><span class="tsort"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></span></div>
+    <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button></div>
     <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F（今のページの中は Ctrl+E）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"><button id="ix-add" class="tbtn" hidden>＋</button></div>
+<span class="tsort"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></span>
     <div id="selbar"></div>
     <div id="list"></div>
   </aside>
