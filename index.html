@@ -181,8 +181,9 @@ aside.sort2 #tabs,aside.sort2 #searchbox{padding-right:84px}
 aside.sort1 #dlist .dtop{padding-right:50px}
 /* 日記・メモの上の行: 日記▾（メモ帳は、名前だけ）・今日・日付 */
 #dlist .dtop.first{gap:4px;height:56px}
-#dlist .dkind{flex:none;height:32px;line-height:32px;padding:0 8px;border:0;border-radius:8px;background:var(--hl);color:var(--fg);font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}
-#dlist .dkind.static{display:inline-flex;align-items:center;background:none;cursor:default;padding:0 4px 0 2px}
+#dlist .dkind{flex:none;width:84px;justify-content:center;text-align:center;height:32px;line-height:32px;padding:0 6px;border:0;border-radius:8px;background:var(--hl);color:var(--fg);font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}
+#dlist .dkind.static{display:inline-flex;align-items:center;cursor:default}
+#dlist .dkind:not(.static){display:inline-flex;align-items:center}
 #dlist .dkind{max-width:104px;overflow:hidden;text-overflow:ellipsis}
 #dlist .dtop.first #d-today{flex:none;height:32px;padding:0 9px;font-size:13px;border-radius:8px}
 #dlist .dtop.first input[type=date]{flex:1 1 auto;min-width:0;width:0;height:32px;box-sizing:border-box;font-size:12px;padding:0 2px 0 6px}

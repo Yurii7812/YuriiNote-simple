@@ -725,3 +725,14 @@ test('IDを消す→新しいIDをつける: 子は、IDなしの子として残
   assert.deepStrictEqual(st.notes.filter(n => !n.noid).map(n => n.id).sort(), ['1', '1b', '7', '7a', '7b']);
   assert.strictEqual(st.notes.find(n => n.id === '7a').body.trim(), '孫'); assert.strictEqual(st.notes.find(n => n.id === '7b').body.trim(), '孫2');
 });
+
+test('ファイル: html は、中の <title> と説明が、題・説明に出る（自分で付けた題が、先）', () => {
+  const dir = tmp(), v = openVault(dir);
+  fs.writeFileSync(path.join(dir, 'page.html'), '<!doctype html><html><head><title> 楔形文字\n 入門 </title><meta name=description content="粘土板に書く方法"></head><body>x</body></html>');
+  fs.writeFileSync(path.join(dir, 'plain.html'), '<html><body>題なし</body></html>');
+  let f = v.filesInfo().find(x => x.name === 'page.html');
+  assert.strictEqual(f.title, '楔形文字 入門'); assert.strictEqual(f.desc, '粘土板に書く方法');
+  assert.strictEqual(v.filesInfo().find(x => x.name === 'plain.html').desc, '');
+  v.setFileInfo('page.html', { title: '自分の題', desc: '' });
+  f = v.filesInfo().find(x => x.name === 'page.html'); assert.strictEqual(f.title, '自分の題'); assert.strictEqual(f.desc, '粘土板に書く方法');
+});

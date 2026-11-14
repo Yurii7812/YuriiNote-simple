@@ -573,12 +573,14 @@ function renderList() {
   if (['d', 'p', 'u'].includes(tab)) lastNotesTab = tab;
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.tab ? (mode === 'notes' && b.dataset.tab === tab) : b.dataset.mode === 'notes' ? (mode === 'notes' && ['d', 'p', 'u'].includes(tab)) : b.dataset.mode === 'diary' ? (mode === 'diary' && curKind !== 'メモ帳') : b.id === 'memopad' ? (mode === 'diary' && curKind === 'メモ帳') : false));
   $('#paperonly').classList.toggle('on', paperOnly);
-  const searchTab = tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
-  const indexTab = tab === 'i';   // グローバルインデックスの画面: 検索欄は、その中の検索（キーワードだけ）。＋は、その行の右端
-  $('#q').style.display = searchTab || indexTab ? '' : 'none'; $('#searchbox').style.display = searchTab || indexTab ? '' : 'none';
+  const onNotes = mode === 'notes';   // 日記・メモの画面では、前に見ていたタブが何でも、検索欄は出さない
+  const searchTab = onNotes && tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
+  const fileTab = onNotes && tab === 'f';   // ファイルの画面: 検索欄は、その中の検索
+  const indexTab = onNotes && tab === 'i';   // グローバルインデックスの画面: 検索欄は、その中の検索（キーワードだけ）。＋は、その行の右端
+  $('#q').style.display = searchTab || indexTab || fileTab ? '' : 'none'; $('#searchbox').style.display = searchTab || indexTab || fileTab ? '' : 'none';
   $('#q').placeholder = '検索';
-  $('#ix-add').hidden = !indexTab; $('#ix-add').title = paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る';
-  if (!searchTab && !indexTab && $('#q').value) $('#q').value = '';
+  $('#ix-add').hidden = !(indexTab || fileTab); $('#ix-add').title = fileTab ? 'ファイルを取り込む' : paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る';
+  if (!searchTab && !indexTab && !fileTab && $('#q').value) $('#q').value = '';
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
@@ -588,7 +590,7 @@ function renderList() {
     const hq = L.toHira(q), kwf = k => ({ id: '', s: 'd', noid: true, title: k, body: '', kw: [k], readings: readings[k] || '', created: '' });
     const gi = globalIndex().filter(([k]) => qm(kwf(k)) || (!/\s|[()|"]/.test(q) && (readings[k] || '').includes(hq)));
     out.push(...gi.map(ixRow)); if (!out.length) out.push('<div class="none">見つかりません</div>');
-  } else if (q) {
+  } else if (q && !fileTab) {
     // 1. Index  2. 索引  3. ノート
     const rank = k => (k.toLowerCase() === q ? 0 : k.toLowerCase().startsWith(q) ? 1 : 2);
     const hq = L.toHira(q), rk = k => Math.min(rank(k), readings[k] ? rank(readings[k]) : 9);
@@ -611,11 +613,11 @@ function renderList() {
   } else if (tab === 's') {
   } else if (tab === 'f') {
     refreshFiles();
-    const fl = filesCache.filter(f => fileFilter === 'all' || !f.title);
+    const fl = filesCache.filter(f => (fileFilter === 'all' || !f.title) && (!q || qm({ id: '', s: 'd', noid: true, title: f.title || '', body: [f.desc, f.orig, f.name].join('\n'), kw: [], readings: '', created: '' })));
     const nUntitled = filesCache.filter(f => !f.title).length;
-    out.push(`<div class="fbar"><button class="fpill${fileFilter === 'all' ? ' on' : ''}" data-ff="all">すべて <b>${filesCache.length}</b></button><button class="fpill${fileFilter === 'untitled' ? ' on' : ''}" data-ff="untitled">題なし <b>${nUntitled}</b></button><span class="grow"></span><button class="mini" id="ff-add" title="ファイルを取り込む">＋</button></div>`);
+    out.push(`<div class="fbar"><button class="fpill${fileFilter === 'all' ? ' on' : ''}" data-ff="all">すべて <b>${filesCache.length}</b></button><button class="fpill${fileFilter === 'untitled' ? ' on' : ''}" data-ff="untitled">題なし <b>${nUntitled}</b></button></div>`);
     out.push(...fl.map(f => fileRow(f)));   // map にそのまま渡すと、行の番号が検索語の欄に入って落ちる
-    if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
+    if (!fl.length) out.push(`<div class="none">${q ? '見つかりません' : fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
   } else if (tab === 'i') {
     // Index: グローバルIndex（キーワードの一覧）
     {
@@ -656,7 +658,7 @@ function onOpenClick(e) {
   const dd = e.target.closest('[data-diary]'); if (dd && !e.target.closest('.cm-editor')) return openDiary(dd.dataset.diary, undefined, dd.dataset.kind || '日記');
   const row = e.target.closest('#list .item');
   if (selMode && row) { if (row.matches('.note[data-s][data-id]')) togglePick(row, e.shiftKey); return; }
-  if (e.target.closest('#ix-add')) return newIndexDialog();
+  if (e.target.closest('#ix-add')) return tab === 'f' && mode === 'notes' ? pick(true, f => attach(null, f), '*') : newIndexDialog();
   const t = e.target.closest('[data-topic]'); if (t) return openTopic(t.dataset.topic, 'view', false, cur && cur.k === 'note' ? { s: cur.s, id: cur.id } : null);
   const n = e.target.closest('[data-id][data-s]');
   if (n && !e.target.closest('.cm-editor')) {
@@ -908,7 +910,7 @@ function closeTab(i) {
   show(active < 0 && tabs.length ? 0 : active);
 }
 const tabLabel = t => t.k === 'note' ? (n => `${n && icon(n) ? icon(n) + ' ' : ''}${n ? esc(titleOf(n).slice(0, 16)) : esc(t.id)}<small>${n && n.noid ? 'IDなし' : (t.s === 'p' ? '紙 ' : '') + esc(t.id)}</small>`)(get(t.s, t.id))
-  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `📔 ${esc(t.date.slice(5))}${t.kind && t.kind !== '日記' ? ' <small>' + esc(t.kind) + '</small>' : ''}` : t.k === 'similar' ? '🔍 類似' : t.k === 'tlist' ? `📑 ${esc(t.id)}` : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
+  : t.k === 'topic' ? `📑 ${esc(t.name)}` : t.k === 'diary' ? `${kindIcon(t.kind || '日記')} ${esc(t.date.slice(5))} <small>${esc(t.kind || '日記')}</small>` : t.k === 'similar' ? '🔍 類似' : t.k === 'tlist' ? `📑 ${esc(t.id)}` : t.k === 'export' ? '📤 エクスポート' : '新しいタブ';
 // 右のパネル（キーワード・索引・つながり）を、試しに、左の一覧の右（ノートの左）に置く。panelLeft を切ると、元の右に戻る
 let panelLeft = (() => { try { return localStorage.getItem('ysimple-panel-left') === '1'; } catch { return false; } })();   // 標準は、右（元の位置）
 function syncLeftPanel() {
@@ -1869,17 +1871,17 @@ function recordsDialog() {
     const box = $('#rd-list');
     const rank = n => FIXED.indexOf(n) < 0 ? 9 : FIXED.indexOf(n);
     const build = () => {
-      const s = q.trim().toLowerCase(), names = records.map(r => r.name);
+      const s = q.trim().toLowerCase(), names = records.map(r => r.name).filter(x => x !== 'メモ帳');   // メモ帳は、左のレールの 🗒️ から。時系列記録の一覧には、出さない
       const kinds = names.filter(n => !s || n.toLowerCase().includes(s)).map(n => ({ t: 'kind', kind: n, last: last(n) }))
         .sort((a, b) => rank(a.kind) - rank(b.kind) || b.last.localeCompare(a.last) || a.kind.localeCompare(b.kind, 'ja'));
-      const days = s ? diaries.filter(d => [d.date, d.title, plain(d), d.kind].join('\n').toLowerCase().includes(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(d => ({ t: 'day', kind: d.kind || '日記', date: d.date, title: d.title, text: snippet(plain(d), s).replace(/<[^>]+>/g, '').slice(0, 60) })) : [];
+      const days = s ? diaries.filter(d => (d.kind || '日記') !== 'メモ帳' && [d.date, d.title, plain(d), d.kind].join('\n').toLowerCase().includes(s)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30).map(d => ({ t: 'day', kind: d.kind || '日記', date: d.date, title: d.title, text: snippet(plain(d), s).replace(/<[^>]+>/g, '').slice(0, 60) })) : [];
       items = [...kinds, ...days]; if (at >= items.length) at = Math.max(0, items.length - 1);
     };
     const row = (x, i) => {
       if (x.t === 'day') return `<div class="rd-row day${i === at ? ' on' : ''}" data-i="${i}"><span class="rd-ic">${kindIcon(x.kind)}</span><b>${esc(x.kind)}　${esc(x.date)}${x.title ? '　' + esc(x.title) : ''}</b><small>${esc(x.text)}</small></div>`;
       const n = x.kind, r = records.find(y => y.name === n) || {}, ups = FIXED.includes(n) ? [] : (r.parents && r.parents.length ? r.parents : ['日記']);
       if (edit && edit.kind === n) {
-        const others = records.map(y => y.name).filter(y => y !== n);
+        const others = records.map(y => y.name).filter(y => y !== n && y !== 'メモ帳');
         return `<div class="rd-row edit" data-i="${i}"><span class="rd-ic">${kindIcon(n)}</span>${edit.mode === 'rename' ? `<input id="rd-edit" value="${esc(n)}" autocomplete="off" aria-label="新しい名前">` : `<select id="rd-edit" aria-label="まとめる先">${others.map(y => `<option>${esc(y)}</option>`).join('')}</select>`}<span class="rd-acts on"><button data-act="ok" title="決める">✅</button><button data-act="no" title="やめる">✖️</button></span></div>`;
       }
       const fixed = FIXED.includes(n);
@@ -1925,7 +1927,7 @@ function parentPickDialog(kind, date, onDone) {
     const q = $('#pp-q'), box = $('#pp-list');
     const finish = () => { close(); if (onDone) onDone(); };
     const draw = () => {
-      const s = q.value.trim().toLowerCase(), names = records.map(r => r.name).filter(n => n !== kind && (!s || n.toLowerCase().includes(s)));
+      const s = q.value.trim().toLowerCase(), names = records.map(r => r.name).filter(n => n !== kind && n !== 'メモ帳' && (!s || n.toLowerCase().includes(s)));
       box.innerHTML = names.map(n => `<div class="rs-row${sel.includes(n) ? ' on' : ''}" data-p="${esc(n)}"><b>${sel.includes(n) ? '✅' : '⬜'} ${esc(n)}</b></div>`).join('') || '<div class="none">見つかりません</div>';
     };
     box.onclick = async e => {
@@ -1965,7 +1967,7 @@ async function openDiary(date, keep, kind) {
     ${kind !== '日記' && kind !== 'メモ帳' ? `<div class="row sub" title="上位の時系列記録（選ぶと変えられる）"><span class="dh-upl" aria-hidden="true">↑</span>${(d.parents && d.parents.length ? d.parents : ['日記']).map(r => `<span class="rchip on" data-dparpick>${esc(r)}</span>`).join('')}<button class="dh-pen" data-dparpick title="上位を選ぶ" aria-label="上位を選ぶ">✏️</button></div>` : ''}
     <div class="ed" id="ed"></div>`;
   const view = editor($('#ed'), d.body, 'note', 'd', v => { d.body = v; saveDiary(d); },
-    kind === '日記' ? '今日のこと。書いたノートのリンクは、下の「今日のノート」に自動で入ります' : `今日の${kind}`, () => d.body, true);
+    `今日の${kind}`, () => d.body, true);
   $('#d-title').oninput = e => { d.title = e.target.value; saveDiary(d); renderList(); };
   document.querySelectorAll('[data-dparpick]').forEach(c => c.onclick = () => parentPickDialog(kind, date));
   renderTabs(); renderList();

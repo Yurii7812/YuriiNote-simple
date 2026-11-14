@@ -233,6 +233,17 @@ function openVault(vault) {
   const key = (s, id) => s + ':' + id;
   const get = (s, id) => notes.get(key(s, id));
   const abs = f => path.join(vault, f);
+  const htmlMetaCache = new Map();
+  function htmlMeta(name, st) {   // html の <title> と <meta description>（先頭 64KB から）。読み直しを減らすため、大きさと更新時刻で覚える
+    const k = name + ':' + st.size + ':' + st.mtimeMs, hit = htmlMetaCache.get(k); if (hit) return hit;
+    let r = { title: '', desc: '' };
+    try {
+      const fd = fs.openSync(abs(name), 'r'), buf = Buffer.alloc(Math.min(65536, st.size)); fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+      const t = buf.toString('utf8'), ti = /<title[^>]*>([^<]*)<\/title>/i.exec(t), de = /<meta[^>]+name=["']?description["']?[^>]*content=["']([^"']*)["']/i.exec(t) || /<meta[^>]+content=["']([^"']*)["'][^>]*name=["']?description["']?/i.exec(t);
+      r = { title: ti ? ti[1].replace(/\s+/g, ' ').trim().slice(0, 120) : '', desc: de ? de[1].replace(/\s+/g, ' ').trim().slice(0, 200) : '' };
+    } catch { }
+    htmlMetaCache.set(k, r); return r;
+  }
   const warnings = [];   // 起動のとき、壊れたファイルを直したことなどをアプリへ伝える
   const put = (file, data) => { snapshotBefore(vault, file, data); writeAtomic(file, data); };
   const stemOf = (s, id) => { const n = get(s, id); return n ? n.stem : null; };
@@ -855,7 +866,8 @@ function openVault(vault) {
       const sys = /^(D_|P_|T_|C_|K_|R_|V_)|^(Index|デジタル|紙|日記|未整理|キーワード)\.md$|^\./;
       return fs.readdirSync(vault, { withFileTypes: true }).filter(d => d.isFile() && !sys.test(d.name) && !imgs.has(d.name) && !(/^\d{14}(-\d+)?\.md$/.test(d.name))).map(d => {
         const st = fs.statSync(abs(d.name)), m = meta[d.name] || {};
-        return { name: d.name, orig: m.orig || d.name, title: m.title || autoTitle(m.orig || d.name), desc: m.desc || '', added: m.added || L.now(st.mtime), size: st.size, ext: path.extname(d.name).toLowerCase() };
+        const ext = path.extname(d.name).toLowerCase(), hm = /^\.html?$/.test(ext) && (!m.title || !m.desc) ? htmlMeta(d.name, st) : { title: '', desc: '' };   // html は、中の <title> と説明を、題・説明の代わりに（自分で付けた題が、先）
+        return { name: d.name, orig: m.orig || d.name, title: m.title || hm.title || autoTitle(m.orig || d.name), desc: m.desc || hm.desc || '', added: m.added || L.now(st.mtime), size: st.size, ext };
       }).sort((a, b) => b.added.localeCompare(a.added));
     },
     setFileInfo(name, { title, desc }) {
