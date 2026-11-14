@@ -57,7 +57,7 @@ export function extension(space='d') {
     if(!state){if(controller&&controller.owner===view)close();return;}
     const doc=plainDoc(u.state.doc.toString()),after=doc.slice(state.colon+state.len,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
     let choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
-    if(state.comma)choices=choices.filter(x=>x.kind!=='anchor'&&x.kind!=='memo'&&!x.noid&&x.id);   // コンマのあとは、ID だけ
+    if(state.comma)choices=choices.filter(x=>x.kind!=='anchor'&&x.kind!=='memo'&&x.kind!=='diary'&&!x.noid&&x.id);   // コンマのあとは、ID だけ
     if(!choices.length){close();return;}
     show(state,choices,()=>view.coordsAtPos(view.state.selection.main.head), (item,post)=>{
       const start=state.comma?state.colon+state.len:item.kind==='anchor'?state.colon:state.from,end=state.to;session.close();const text=state.comma?item.id+(item.s!==space?`(${item.s})`:''):insText(item,post,space)+' ';

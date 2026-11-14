@@ -52,6 +52,7 @@ function move(link, orderedKeys, from, to) {
   keys.splice(to, 0, keys.splice(from, 1)[0]); return { ...link, manual: keys, order: 'manual' };
 }
 function reference(item, postfix = false, space = 'd') {
+  if (item.kind === 'diary') { const k = item.recordKind || '日記'; return '->' + item.date + (k === '日記' ? '' : '-' + k); }   // 日記は ->2026-10-11、時系列記録は ->2026-10-21-夢
   if (item.kind === 'memo') { const md = `[${safeTitle(item.title || item.text?.split('\n')[0]) || 'メモ'}](memo:${item.id})`; return postfix ? md + '->' : '->' + md; }
   if (item.noid) return `[${safeTitle(item.title || item.body?.split('\n')[0]) || 'ノート'}](${item.stem}.md)`;
   const id = item.id + (item.s !== space ? `(${item.s})` : ''); return postfix ? id + '->' : '->' + id;

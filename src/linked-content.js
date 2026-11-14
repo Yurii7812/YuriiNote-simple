@@ -22,9 +22,10 @@ const sourceTitle = x => x.title || (x.text||x.body||'').split('\n')[0] || x.id;
 function targetTitle(t) {return Core.resolve(t,ctx.notes(),memos()).title;}
 export function targetNote(n, selection) { return Core.targetOf({...n,kind:'note'},selection?.from,selection?.to); }
 export function targetMemo(m, selection) { return Core.targetOf({...m,kind:'memo'},selection?.from,selection?.to); }
-export function search(query) {
+// withDiaries: 「:」の候補では日記も出す（リンク作成の画面は今まで通り、日記を出さない）
+export function search(query, withDiaries=false) {
   const q=query.trim().toLowerCase();
-  return sources().filter(x=>x.kind!=='diary').map(x=>{
+  return sources().filter(x=>withDiaries||x.kind!=='diary').map(x=>{
     const fields=[x.id,x.title,x.text,...(x.keywords||[]),x.topic,...(x.ups||[])].filter(Boolean).map(v=>String(v).toLowerCase());
     return {x,score:!q?0:fields.some(v=>v===q)?3:fields.some(v=>v.startsWith(q))?2:fields.some(v=>v.includes(q))?1:-1};
   }).filter(x=>x.score>=0).sort((a,b)=>b.score-a.score||(b.x.t||L.parseTime(b.x.created)?.getTime()||0)-(a.x.t||L.parseTime(a.x.created)?.getTime()||0)||String(a.x.id).localeCompare(String(b.x.id))).map(x=>x.x);

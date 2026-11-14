@@ -67,6 +67,10 @@ const SPN = /^[(（]([pdPD])[)）]/, NN = /^[(（](\d+)[)）]/;
 function tokens(text) {
   const re = new RegExp(RE, 'g'), out = [], skip = [...text.matchAll(MDLINK)].map(m => [m.index, m.index + m[0].length]).concat(codeRanges(text)); let m;
   const hit = (a, b) => skip.some(([x, y]) => a < y && b > x);
+  // ->2026-10-11（日記）／->2026-10-21-夢（時系列記録の、その日）。ID とは別のトークン（k:'day'）
+  const DAY = /->(\d{4}-\d{2}-\d{2})(?:-([^\s,，、。．()（）\[\]「」]+))?/g, days = []; let dm;
+  while ((dm = DAY.exec(text))) { if (hit(dm.index, dm.index + dm[0].length)) continue; days.push({ k: 'day', date: dm[1], kind: dm[2] || '日記', from: dm.index, to: dm.index + dm[0].length, text: dm[0] }); }
+  const inDay = (a, b) => days.some(d => a < d.to && d.from < b);
   const extend = t => {
     let end = t.to;
     for (let g = 0; g < 2; g++) {
@@ -79,7 +83,7 @@ function tokens(text) {
   };
   const A_OK = 'x', arrowLen = (pos) => text.startsWith('->', pos) ? 2 : text.startsWith('→', pos) ? 1 : 0;
   while ((m = re.exec(text))) {
-    if (hit(m.index, m.index + m[0].length)) continue;
+    if (hit(m.index, m.index + m[0].length) || inDay(m.index, m.index + m[0].length)) continue;
     const [all, c1, id1, n, c2, idB, idC] = m; let t;
     if (idC !== undefined) {   // 1a,1b,1c->  （矢印は最後に一度だけ）
       let p = m.index;
@@ -109,6 +113,7 @@ function tokens(text) {
       }
     }
   }
+  out.push(...days); out.sort((a, b) => a.from - b.from);
   return out;
 }
 // 昔の :ID / ID: / :(n) / (n): を、->ID / ID-> / ->(n) / (n)-> に直す（コードやリンクの中は変えない）
@@ -394,6 +399,8 @@ const setDayStart = h => { DAY_START = Math.max(0, Math.min(12, Math.floor(+h) |
 const pad2 = x => String(x).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const todayStr = (now = new Date()) => { const d = new Date(now); d.setHours(d.getHours() - DAY_START); return ymd(d); };
+// 暦の今日（0 時になったら変わる）。Ctrl+D の今日の日記は、日付の区切り時刻の設定に関係なくこれを使う
+const calendarToday = (now = new Date()) => ymd(new Date(now));
 function dayOf(created) { // 'YYYY-MM-DD HH:MM' → 日記の日付
   const m = (created || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?/); if (!m) return '';
   const d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0)); d.setHours(d.getHours() - DAY_START); return ymd(d);
@@ -501,5 +508,5 @@ const parseTime = c => { const m = (c || '').match(/^(\d{4})-(\d{2})-(\d{2})(?: 
 module.exports = { TMARK, colonToArrow, colonToArrowKeep,
   codeRanges, MDLINK, ID, isId, splitAnchor, tok, cmpId, sibling, child, parentIn, root,
   tokens, anchorPos, selfTarget, bodyToMd, mdToBody,
-  fzRange, fzSubtree, remapSubtree, remapRefs, remapTopicText, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now
+  fzRange, fzSubtree, remapSubtree, remapRefs, remapTopicText, exportMd, defOf, topicText, legacyTopicText, parseIdTok, isNoid, noidStem, isStem, STEM, fmParse, fmDump, parseTime, KINDS, deriveBody, setDayStart, todayStr, calendarToday, dayOf, weekday, isDate, addToSection, normDay, diaryTree, topicLine, mergeTopic, addToTopic, removeFromTopic, toHira, kanaRow, ROWS, byReading, kwAnchor, fileName, splitKw, now
 };

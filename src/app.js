@@ -120,7 +120,8 @@ function links(mode, space) {
     if (mode === 'note') {
       const items = [], syms = [];
       for (const t of L.tokens(text)) {
-        if (t.k === 'ref') items.push([t.from, t.to, { t: 'ref', s: t.sp || space, id: t.id, n: t.n }, !!get(t.sp || space, t.id)]);   // (p) 紙・(d) デジタル。書かなければ、いまのノートと同じ側
+        if (t.k === 'day') { const dd = diaries.find(x => x.date === t.date && (x.kind || '日記') === t.kind); if (dd) items.push([t.from, t.to, { t: 'file', rel: dd.stem + '.md' }, true, 'file']); else items.push([t.from, t.to, 'mk']); }
+        else if (t.k === 'ref') items.push([t.from, t.to, { t: 'ref', s: t.sp || space, id: t.id, n: t.n }, !!get(t.sp || space, t.id)]);   // (p) 紙・(d) デジタル。書かなければ、いまのノートと同じ側
         else if (t.bare) items.push([t.from, t.to, 'mk']); // 素の (1) は赤いだけ
         else items.push([t.from, t.to, { t: 'self', n: t.n, bare: t.bare }, L.selfTarget(text, t.n, t.bare) >= 0]);
         if (t.arrow) syms.push([t.arrow, 'arrow', t]);   // -> は、見た目では → に。コンマも赤
@@ -681,7 +682,7 @@ $('#paperonly').onclick = () => { paperOnly = !paperOnly; savePrefs(); toast(pap
 // 🗒️ メモ帳: 日記と同じ、1日ごとの記録。ボタンを押すと、今日のメモ帳がすぐ開く
 // 📔: 今日の日記をすぐ開く
 async function openTodayDiary() {
-  setKind('日記'); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.todayStr(), false, '日記');
+  setKind('日記'); mode = 'diary'; $('#q').value = ''; renderList(); await openDiary(L.calendarToday(), false, '日記');
   setTimeout(() => { if (lastView && lastView.dom.isConnected) lastView.focus(); }, 60);
 }
 async function openMemoPad() {
@@ -2568,7 +2569,7 @@ Object.assign(ctx, {
   renderMemoGroupPlain: LC.legacyGroup,
   memoReferenceBacklinks: LC.memoBacklinks,
   highlightMemo: (id, range) => { setTimeout(() => highlightMemoRange(id, range), 30); },
-  enhanceRendered: LC.enhance, searchReferences: LC.search, memos: () => [], diaries: () => diaries, gotoMemo: () => {},
+  enhanceRendered: LC.enhance, searchReferences: q => LC.search(q, true), memos: () => [], diaries: () => diaries, gotoMemo: () => {},
   selectRange: (from, to) => { if (lastView?.dom.isConnected) { lastView.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) }); lastView.focus(); } },
   targetMemo: LC.targetMemo, addNote: n => notes.push(n),
   renderChanged: () => LC.refresh(), renderTabs, openLink, applyState, readings: () => readings, lastNote: () => lastNote,
