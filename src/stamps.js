@@ -38,6 +38,14 @@ class StampWidget extends WidgetType {
   toDOM() { const e = document.createElement('span'); e.className = 'stamp'; e.textContent = Stamp.format(this.at, JSON.parse(this.f)); e.title = this.at; return e; }
   ignoreEvent() { return true; }
 }
+// まだ日時が付いていない行（書いている行・改行したばかりの行）に、あとで入る日時と同じ幅の、見えない場所を、先に取っておく
+// （日時が入った瞬間に、本文が右へずれて、画面ががたつくのを防ぐ）
+class SpacerWidget extends WidgetType {
+  constructor(at, f) { super(); this.at = at; this.f = JSON.stringify(f); }
+  eq(o) { return o.f === this.f && o.at.length === this.at.length; }
+  toDOM() { const e = document.createElement('span'); e.className = 'stamp spacer'; e.textContent = Stamp.format(this.at, JSON.parse(this.f)); e.setAttribute('aria-hidden', 'true'); return e; }
+  ignoreEvent() { return true; }
+}
 const markHidden = Decoration.replace({});
 // 見えている範囲の、日時の場所（見せる・隠す）。カーソルが入れないように、atomic にもする
 function build(view) {
@@ -49,11 +57,28 @@ function build(view) {
       ranges.push((show ? Decoration.replace({ widget: new StampWidget(s.at, curFmt()) }) : markHidden).range(ln.from + s.p, ln.from + s.end));
     }
   }
+  if (show) ranges.push(...spacers(view));
   return Decoration.set(ranges, true);
+}
+function spacers(view) {
+  const st = view.state, doc = st.doc, d = st.field(dirty, false) || [], lines = new Map(), out = [];
+  for (const e of d) { const ln = doc.lineAt(Math.min(e.pos, doc.length)); lines.set(ln.number, e.at); }
+  const cur = doc.lineAt(st.selection.main.head);
+  if (!lines.has(cur.number) && !cur.text.trim()) lines.set(cur.number, Stamp.nowStamp());   // 改行したばかりの、空の行にも
+  if (!lines.size) return out;
+  const orig = doc.toString().split('\n');
+  for (const [n, at] of lines) {
+    const ln = doc.line(n); if (Stamp.parse(ln.text)) continue;
+    const probe = orig.slice(); if (!ln.text.trim()) probe[n - 1] = 'x';   // 空の行は、字を 1 つ書いたとして、日時が付く行か調べる
+    const res = Stamp.add(probe.join('\n'), at, new Set([n - 1])).split('\n');
+    if (res[n - 1] === probe[n - 1]) continue;   // 日時が付かない行（囲みの中・表・区切り線など）
+    out.push(Decoration.widget({ widget: new SpacerWidget(at, curFmt()), side: -1 }).range(ln.from + Stamp.prefixLen(orig[n - 1])));
+  }
+  return out;
 }
 const display = ViewPlugin.fromClass(class {
   constructor(view) { this.v = view; this.d = build(view); views.add(view); }
-  update(u) { if (u.docChanged || u.viewportChanged || u.transactions.some(t => t.effects.some(e => e.is(refresh)))) this.d = build(u.view); }
+  update(u) { if (u.docChanged || u.viewportChanged || u.selectionSet || u.transactions.some(t => t.effects.some(e => e.is(refresh)))) this.d = build(u.view); }
   destroy() { views.delete(this.v); }
 }, { decorations: p => p.d, provide: p => EditorView.atomicRanges.of(v => v.plugin(p)?.d || Decoration.none) });
 
