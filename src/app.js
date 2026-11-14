@@ -788,7 +788,7 @@ function kbNav(k) {
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || $('#modal').style.display === 'flex' || $('#idpop')) return;
   const ae = document.activeElement, editing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable);
-  if (editing) { if (e.key === 'Escape' && ae.closest && ae.closest('.cm-editor')) { ae.blur(); e.preventDefault(); } return; }   // Esc で書く状態から抜けると、キー操作が使える
+  if (editing) { if (e.key === 'Escape' && ae.closest && ae.closest('.cm-editor') && !e.defaultPrevented) { ae.blur(); e.preventDefault(); } return; }   // 候補（: や ->）を閉じたときの Esc は、ここまで届けない（書く状態は、そのまま）   // Esc で書く状態から抜けると、キー操作が使える
   const k = e.key;
   if (k === 'Backspace' && !$('#q').value) { e.preventDefault(); go(-1); const off = () => { const a = document.activeElement; if (a && a !== document.body && (a.closest('.cm-editor') || /^(INPUT|TEXTAREA)$/.test(a.tagName))) a.blur(); }; off(); setTimeout(off, 0); setTimeout(off, 80); return; }   // 戻っても入力状態にならない（続けて Backspace で戻れる）   // 前に開いていたものへ（戻るボタンと同じ）
   if (k === 'o' && !decided && cur && ['note', 'topic'].includes(cur.k)) { e.preventDefault(); return locateCur(); }   // 黄色（決めたもの）が無いときは、いま開いているものを一覧の真ん中に

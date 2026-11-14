@@ -38,7 +38,8 @@ test('reference search directions are determined by Enter/Shift+Enter, with pape
  const s=new R.Session();assert.equal(s.update(':',1,':').query,'');assert.equal(s.update(':哲学',3,'哲学').query,'哲学');
  s.close();assert.equal(s.update(':哲学の続き',7,'の続き'),null);assert.equal(s.update(':哲学',2,''),null);assert.ok(s.update(':哲学\n:',5,':'));
  const ar=new R.Session();let a=ar.update('続き ->',5,'>');assert.ok(a);assert.deepEqual([a.colon,a.len,a.query],[3,2,'']);assert.equal(ar.update('続き ->哲学',7,'哲学').query,'哲学');assert.equal(new R.Session().update('→',1,'→').len,1);assert.equal(new R.Session().update('a -->',5,'>'),null);assert.equal(new R.Session().update('1a->',4,'>'),null);
- const p=new R.Session();const state=p.update('ヘーゲル:',5,':');assert.equal(state.from,0);assert.equal(state.query,'ヘーゲル');
+ const p=new R.Session();const state=p.update('ヘーゲル:',5,':');assert.equal(state.from,4);assert.equal(state.query,'');   // 記号の前の言葉は、検索語にしない。記号のあとに打った文字だけ
+ const p2=new R.Session();p2.update('ヘーゲル:',5,':');assert.equal(p2.update('ヘーゲル:哲',6,'哲').query,'哲');
 });
 test('reference triggers ignore code fences, inline code, URLs, time and existing references',()=>{
  for(const text of ['```js\nfoo:','~~~\nfoo:','`foo:`','[site](https:','https:','10:','1a:','[memo](memo:']) {
@@ -61,4 +62,16 @@ test('topic addition preserves differing existing memberships; replacement requi
  assert.equal(JSON.stringify(before),copy);
  const replace=B.assign(before,['認識論'],'replace');assert.deepEqual(replace.map(B.members),[['認識論'],['認識論']]);
  const primary=B.assign(before,[],'add','新しい所属');assert.ok(B.members(primary[0]).includes('哲学'));
+});
+
+test('候補: ->1a, のように ID のあとのコンマでも出る。記号のあとに打った文字だけが、検索語', () => {
+  const s = new R.Session();
+  let a = s.update('->1a,', 5, ',');
+  assert.ok(a); assert.deepStrictEqual([a.colon, a.len, a.mark, a.comma, a.query], [4, 1, ',', true, '']);
+  assert.strictEqual(s.update('->1a,分', 6, '分').query, '分');
+  assert.strictEqual(s.update('->1a,分,', 7, ','), null);   // 途中で、さらにコンマを打ったら、候補を閉じる（文字は、そのまま残る）
+  assert.ok(new R.Session().update('->1a,1b,', 8, ','));
+  assert.strictEqual(new R.Session().update('1, 2, 3,', 8, ','), null);   // ふつうの文の、コンマでは出さない
+  assert.strictEqual(new R.Session().update('りんご,', 4, ','), null);
+  assert.ok(new R.Session().update('->1a(p),', 8, ','));
 });

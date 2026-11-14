@@ -23,7 +23,7 @@ export function plainDoc(doc){
 function close(){popup?.remove();popup=null;controller=null;}
 function show(session,items,anchor,choose,onCancel,space='d') {
   close();popup=document.createElement('div');popup.className='reference-picker';popup.dataset.user='';let at=0;
-  const draw=()=>{popup.innerHTML='<div class="reference-help">Enter：前置　Shift+Enter：後置　Esc：やめる</div>'+items.slice(0,60).map((x,i)=>`<div class="reference-candidate${at===i?' on':''}"><button data-ref="${i}">${x.kind==='anchor'?'🔖':x.kind==='memo'?'💬':x.s==='p'?'📜':'📝'} ${esc((x.title||x.text||x.body||x.id).slice(0,x.kind==='anchor'?90:65))}<small>${esc(insText(x,false,space))}　／　${esc(insText(x,true,space))}</small></button><button data-ref="${i}" data-post="1" title="後置で挿入">後置</button></div>`).join('');};
+  const draw=()=>{popup.innerHTML=`<div class="reference-help"><b class="reference-q">${session.mark?esc(session.mark):''}${esc(session.query||'')}</b>　Enter：前置　Shift+Enter：後置　Esc：そのまま残す</div>`+items.slice(0,60).map((x,i)=>`<div class="reference-candidate${at===i?' on':''}"><button data-ref="${i}">${x.kind==='anchor'?'🔖':x.kind==='memo'?'💬':x.s==='p'?'📜':'📝'} ${esc((x.title||x.text||x.body||x.id).slice(0,x.kind==='anchor'?90:65))}<small>${esc(insText(x,false,space))}　／　${esc(insText(x,true,space))}</small></button><button data-ref="${i}" data-post="1" title="後置で挿入">後置</button></div>`).join('');};
   const pick=(i,post=false)=>{const item=items[i];if(!item)return;close();choose(item,post);};
   controller={key:e=>{if(e.isComposing||e.keyCode===229)return false;if(e.key==='Escape'){close();onCancel();return true;}if(e.key==='ArrowDown'||e.key==='ArrowUp'){at=Math.max(0,Math.min(Math.min(60,items.length)-1,at+(e.key==='ArrowDown'?1:-1)));draw();return true;}if(e.key==='Enter'){pick(at,e.shiftKey);return true;}return false;}};
   popup.onmousedown=e=>{const b=e.target.closest('[data-ref]');if(b){e.preventDefault();pick(+b.dataset.ref,!!b.dataset.post);}};
@@ -36,7 +36,10 @@ const toArrowTyped=(before)=>{
   m=before.match(new RegExp(`(^|[\\s、。（(])(${IDS})[:：]$`));if(m)return {from:before.length-m[0].length+m[1].length,text:m[2]+'->'};
   return null;
 };
+const SPACE_BEFORE_COMMA=new RegExp(`(?:->|→)${IDRE}(?:\\([pd0-9]*\\))*(?:[,，、]${IDRE}(?:\\([pd0-9]*\\))*)*[ 　]$`);
 export const arrowInput=EditorView.inputHandler.of((view,from,to,text)=>{
+  // 候補を選ぶと、ID のあとに空白が入る。そのあとにコンマを打ったら、空白を、コンマに置き換える（->1a,1b と続けられるように）
+  if(/^[,，、]$/.test(text)&&from===to&&from>0){const ln=view.state.doc.lineAt(from);if(SPACE_BEFORE_COMMA.test(ln.text.slice(0,from-ln.from))){view.dispatch({changes:{from:from-1,to:from,insert:text},selection:{anchor:from},userEvent:'input.type'});return true;}}
   if(text!==' '&&text!=='　')return false;
   const ln=view.state.doc.lineAt(from),before=ln.text.slice(0,from-ln.from),r=toArrowTyped(before);if(!r)return false;
   const start=ln.from+r.from;
@@ -53,10 +56,11 @@ export function extension(space='d') {
     const state=session.update(u.state.doc.toString(),u.state.selection.main.head,inserted);
     if(!state){if(controller&&controller.owner===view)close();return;}
     const doc=plainDoc(u.state.doc.toString()),after=doc.slice(state.colon+state.len,state.to),other=after.match(/^([0-9][0-9a-z]*)\((\d*)$/);
-    const choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
+    let choices=after.startsWith('(')?anchorChoices(doc,after):other?anchorChoices(ctx.get?.('d',other[1])?.body||'','('+other[2],other[1]):(ctx.searchReferences?.(state.query)||[]);
+    if(state.comma)choices=choices.filter(x=>x.kind!=='anchor'&&x.kind!=='memo'&&!x.noid&&x.id);   // コンマのあとは、ID だけ
     if(!choices.length){close();return;}
     show(state,choices,()=>view.coordsAtPos(view.state.selection.main.head), (item,post)=>{
-      const start=item.kind==='anchor'?state.colon:state.from,end=state.to;session.close();const text=insText(item,post,space)+' ';
+      const start=state.comma?state.colon+state.len:item.kind==='anchor'?state.colon:state.from,end=state.to;session.close();const text=state.comma?item.id+(item.s!==space?`(${item.s})`:''):insText(item,post,space)+' ';
       view.dispatch({changes:{from:start,to:end,insert:text},selection:{anchor:start+text.length}});view.focus();
     },cancel,space);controller.owner=view;
   };
