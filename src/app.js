@@ -2542,7 +2542,7 @@ function restoreRecovery(st) {
 }
 // 本文のリンク・参照などの部品に、アプリの機能を渡す
 Object.assign(ctx, {
-  api, later, flush, place,
+  api, later, flush, place, fileInfo: name => filesCache.find(f => f.name === name) || null,
   renderMemoGroupPlain: LC.legacyGroup,
   memoReferenceBacklinks: LC.memoBacklinks,
   highlightMemo: (id, range) => { setTimeout(() => highlightMemoRange(id, range), 30); },

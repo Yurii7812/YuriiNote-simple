@@ -153,6 +153,36 @@ export function enhance(el,{path=[],owner='rendered'}={}) {
   for(const img of [...el.querySelectorAll('img')]){const src=img.getAttribute('src')||'';let uri=src;if(/^\d{14}(?:-\d+)?\.md$/.test(src))uri='note:'+src.slice(0,-3);if(/^(link|memo|note):/.test(uri))img.replaceWith(embed(uri,path,JSON.stringify([owner,uri,img.alt]),img.alt));}
   for(const a of [...el.querySelectorAll('p>a:only-child')]){const url=a.dataset.file||a.getAttribute('href');if(!/^https?:\/\//.test(url||''))continue;const p=a.parentElement;if(Stamp.stripLine(p.textContent).trim()!==a.textContent.trim())continue;const index=[...el.querySelectorAll('a')].filter(x=>(x.dataset.file||x.getAttribute('href'))===url).indexOf(a);p.replaceWith(urlPreview(url,JSON.stringify([owner,url,index]),null,a.textContent));}
 }
+// ===== 取り込んだファイルの紹介の札（URL の札と同じ形）: 行が [名前](ファイル名) だけで、そのファイルが取り込み済みのとき =====
+const fileMeta = {};   // html の <title> と説明（読んだら覚える）
+const FILE_ICON = e => /^\.(png|jpe?g|gif|webp|svg|bmp|avif)$/.test(e) ? '🖼' : /^\.html?$/.test(e) ? '🌐' : /^\.(csv|tsv|xlsx?)$/.test(e) ? '📊' : /^\.pdf$/.test(e) ? '📕' : '📄';
+const fmtSize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+export function filePreview(name, label = '', existingRoot = null) {
+  const info = ctx.fileInfo && ctx.fileInfo(name); if (!info) return null;
+  const root = existingRoot || document.createElement('div'); root.replaceChildren(); root.className = 'url-preview file-preview'; root.dataset.user = ''; root.dataset.fileCard = name; root._lcBound = true;
+  const link = document.createElement('a'); link.dataset.file = name; link.className = 'url-preview-link';
+  const ic = document.createElement('span'); ic.className = 'fc-ic'; ic.textContent = FILE_ICON(info.ext);
+  const texts = document.createElement('span'), title = document.createElement('b'), desc = document.createElement('small'), meta = document.createElement('small');
+  const m = fileMeta[name] || {};
+  title.textContent = m.title || info.title || label || name; desc.textContent = m.desc || info.desc || '';
+  meta.textContent = [info.ext.replace('.', '').toUpperCase(), fmtSize(info.size || 0), info.orig && info.orig !== name ? info.orig : ''].filter(Boolean).join(' · ');
+  texts.append(title, ...(desc.textContent ? [desc] : []), meta); link.append(ic, texts); root.append(link);
+  if (/^\.html?$/.test(info.ext) && !fileMeta[name] && ctx.api.filePreview) {
+    fileMeta[name] = {};
+    Promise.resolve(ctx.api.filePreview(name)).then(r => {
+      const t = r && r.text || '', ti = /<title[^>]*>([^<]*)<\/title>/i.exec(t), de = /<meta[^>]+name=["']?description["']?[^>]*content=["']([^"']*)["']/i.exec(t) || /<meta[^>]+content=["']([^"']*)["'][^>]*name=["']?description["']?/i.exec(t);
+      fileMeta[name] = { title: ti ? ti[1].trim() : '', desc: de ? de[1].trim().slice(0, 140) : '' };
+      for (const el of document.querySelectorAll('.file-preview[data-file-card]')) if (el.dataset.fileCard === name) filePreview(name, label, el);
+    }).catch(() => { });
+  }
+  return root;
+}
+class FileCardWidget extends WidgetType {
+  constructor(name, label) { super(); Object.assign(this, { name, label }); }
+  eq(o) { return o.name === this.name && o.label === this.label; }
+  toDOM() { return filePreview(this.name, this.label) || document.createElement('span'); }
+  ignoreEvent() { return true; }
+}
 export class ContentWidget extends WidgetType {
   constructor(uri,label,key,path=[]){super();Object.assign(this,{uri,label,key,path,version});}
   eq(o){return o.uri===this.uri&&o.label===this.label&&o.key===this.key&&o.version===this.version;}
@@ -172,6 +202,7 @@ export function decorations(owner,space='d') {
         if(!embeds){
           const token=Stamp.stripLine(line).trim(),md=/^\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/.exec(token),url=md?.[2]||(/^https?:\/\/\S+$/.test(token)?token:null);
           if(url)result.push(Decoration.widget({widget:new ContentWidget(url,md?.[1]||'',occurrenceKey(owner,text,pos,url)),block:true,side:1}).range(pos+line.length));
+          else { const fm=/^\[([^\]]*)\]\(([^)\s/:]+\.[A-Za-z0-9]{1,8})\)$/.exec(token); if(fm&&!/\.md$/i.test(fm[2])){let nm=fm[2];try{nm=decodeURIComponent(nm);}catch{}if(ctx.fileInfo&&ctx.fileInfo(nm))result.push(Decoration.widget({widget:new FileCardWidget(nm,fm[1]),block:true,side:1}).range(pos+line.length));} }
         }
       }
       pos+=line.length+1;
