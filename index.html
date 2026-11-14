@@ -143,14 +143,15 @@ button.ic.dj{width:34px;height:34px;font-size:17px;border:1px solid var(--line);
 #idbar button.idb.x{width:30px;padding:0;justify-content:center;border:0;background:none;font-size:14px}
 .file-preview .fc-ic{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:26px;border-radius:8px;background:var(--hl)}
 .file-preview .url-preview-link{display:flex;align-items:center;gap:12px}
-/* 左のレール: 検索・ノート・メモ・日記・タグ・ファイル（ノートの中の、デジタル・紙・未整理は、リストの上のタブ） */
+/* 左のレール: 検索・ノート・メモ・日記・グローバルインデックス・ファイル（ノートの中の、デジタル・紙・未整理は、リストの上のタブ） */
 #rail{width:54px;gap:6px;padding:12px 0}
 #rail button{width:42px;height:42px;font-size:11px;line-height:1;opacity:.6;border-radius:10px}
 #rail button i{font-style:normal;font-size:23px;line-height:1}
 #rail button.on{opacity:1}#rail button:hover{opacity:1}
 #rail #more{height:44px;width:44px;font-size:20px;opacity:.55}
 #tabs button{display:inline-flex;align-items:center;gap:5px}
-#tabs{align-items:center}#tabs .tsort{margin-left:auto;display:flex;gap:4px}#tabs .tsort .ic{flex:none;width:32px;height:32px;font-size:15px;background:var(--hl);border:0;border-radius:8px;padding:0}
+#tabs{align-items:center}#tabs .tsort{margin-left:auto;display:flex;gap:4px}#searchbox .tsort{display:flex;gap:4px}#searchbox #ix-add{flex:none;width:32px;height:32px;padding:0;font-size:17px;border:0;border-radius:8px;background:var(--hl)}
+#tabs .tsort .ic,#searchbox .tsort .ic{flex:none;width:32px;height:32px;font-size:15px;background:var(--hl);border:0;border-radius:8px;padding:0}
 /* スキャン画面: 静かに。ラベルは小さな文字、候補は文字つきの小さなボタン、キーの説明は 1 行（残りは「ほかのキー」に） */
 #scan .sc-side{gap:8px;padding:20px 22px;overflow-x:hidden}
 #scan .sc-side>*{min-width:0}
@@ -648,13 +649,13 @@ body{-webkit-user-select:none;user-select:none}
     <button data-mode="notes" title="ノート（上のタブで、デジタル・紙・未整理）"><i>📝</i></button>
     <button id="memopad" title="メモ（今日のメモ帳をすぐ開く）"><i>🗒️</i></button>
     <button data-mode="diary" title="日記（今日の日記をすぐ開く）"><i>📔</i></button>
-    <button data-tab="i" title="タグ（キーワードの一覧）"><i>🏷️</i></button>
+    <button data-tab="i" title="グローバルインデックス（キーワードの一覧）"><i>🏷️</i></button>
     <button data-tab="f" title="ファイル（画像・html・csv など）"><i>📎</i></button>
     <button id="more" class="ic" title="メニュー">🧰</button>
   </nav>
   <aside>
     <div id="tabs"><button data-tab="d" title="デジタル"><span class="te">💻</span></button><button data-tab="p" title="紙"><span class="te">📜</span></button><button data-tab="u" title="未整理（IDなし）"><span class="te">📥</span></button><span class="tsort"><button id="sort-key" class="ic"></button><button id="sort-dir" class="ic"></button></span></div>
-    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F（今のページの中は Ctrl+E）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"></div>
+    <div id="searchbox"><input id="q" placeholder="検索" title="Ctrl+F（今のページの中は Ctrl+E）　Esc でやめる&#10;書き方: 空白=かつ　a OR b / a | b=または　-a=除く　&quot;a b&quot;=並びのまま　( )=まとめる&#10;id:1a　fz:1a（子孫も）　kw:GUI　title:題　body:本文　date:2026-11　date:2026-11-01..2026-11-13　is:paper/digital/noid　has:kw/link"><button id="ix-add" class="tbtn" hidden>＋</button></div>
     <div id="selbar"></div>
     <div id="list"></div>
   </aside>

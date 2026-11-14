@@ -560,7 +560,7 @@ function drawSortBtns() {   // 検索欄の右: 並び順（押すと 番号→�
 $('#sort-key').onclick = () => { if (mode === 'diary') return; const o = ['fz', 'created', 'updated']; sortBy = o[(o.indexOf(sortBy) + 1) % o.length]; savePrefs(); renderList(); };
 $('#sort-dir').onclick = () => { if (mode === 'diary') diarySortDir = diarySortDir === 'asc' ? 'desc' : 'asc'; else sortDir = sortDir === 'asc' ? 'desc' : 'asc'; savePrefs(); renderList(); };
 // 🔍 検索の画面を開いて、検索欄に入る
-function openSearchTab() { mode = 'notes'; tab = 's'; renderList(); $('#q').focus(); $('#q').select(); }
+function openSearchTab() { if (tab !== 's') $('#q').value = ''; mode = 'notes'; tab = 's'; renderList(); $('#q').focus(); $('#q').select(); }
 function renderList() {
   rowDots = null;
   drawSortBtns();
@@ -571,14 +571,22 @@ function renderList() {
   document.querySelectorAll('#rail button').forEach(b => b.classList.toggle('on', b.dataset.tab ? (mode === 'notes' && b.dataset.tab === tab) : b.dataset.mode === 'notes' ? (mode === 'notes' && ['d', 'p', 'u'].includes(tab)) : b.dataset.mode === 'diary' ? (mode === 'diary' && curKind !== 'メモ帳') : b.id === 'memopad' ? (mode === 'diary' && curKind === 'メモ帳') : false));
   $('#paperonly').classList.toggle('on', paperOnly);
   const searchTab = tab === 's';   // 検索は、🔍 の画面だけ（Obsidian と同じ）。ほかの画面では、検索欄を出さない
-  $('#q').style.display = searchTab ? '' : 'none'; $('#searchbox').style.display = searchTab ? '' : 'none';
-  if (!searchTab && $('#q').value) $('#q').value = '';
+  const indexTab = tab === 'i';   // グローバルインデックスの画面: 検索欄は、その中の検索（キーワードだけ）。＋は、その行の右端
+  $('#q').style.display = searchTab || indexTab ? '' : 'none'; $('#searchbox').style.display = searchTab || indexTab ? '' : 'none';
+  $('#q').placeholder = '検索';
+  $('#ix-add').hidden = !indexTab; $('#ix-add').title = paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る';
+  { const ts = document.querySelector('.tsort'), want = searchTab ? $('#searchbox') : $('#tabs'); if (ts && ts.parentElement !== want) want.append(ts); }   // 検索の画面では、並び替えを、検索欄と同じ行に
+  if (!searchTab && !indexTab && $('#q').value) $('#q').value = '';
   const q = $('#q').value.trim().toLowerCase(), out = []; searchQ = $('#q').value.trim();   // 演算子の OR / NOT は大文字で書くので、検索語は、小文字にする前の形で渡す
   const qm = q ? Q.matcher(searchQ) : null;   // 検索の書き方（演算子）も使える
   const nf = n => ({ id: n.id, s: n.s, noid: n.noid, title: n.title || '', body: Stamp.strip(n.body || ''), kw: n.keywords || [], readings: (n.keywords || []).map(k => readings[k] || '').join(' '), created: n.created, updated: n.updated });
-  $('#tabs').style.display = dpu || (mode === 'notes' && tab === 's') || mode === 'diary' ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
+  $('#tabs').style.display = dpu || mode === 'diary' ? '' : 'none';   // タブの行: ノートでは、デジタル・紙・未整理のタブと、並び替え。検索・日記では、並び替えだけ
   if (!q && mode === 'diary') { $('#list').innerHTML = diaryList(); renderSelbar(); return; }
-  if (q) {
+  if (q && indexTab) {   // グローバルインデックスの中の検索（キーワードと、よみ）
+    const hq = L.toHira(q), kwf = k => ({ id: '', s: 'd', noid: true, title: k, body: '', kw: [k], readings: readings[k] || '', created: '' });
+    const gi = globalIndex().filter(([k]) => qm(kwf(k)) || (!/\s|[()|"]/.test(q) && (readings[k] || '').includes(hq)));
+    out.push(...gi.map(ixRow)); if (!out.length) out.push('<div class="none">見つかりません</div>');
+  } else if (q) {
     // 1. Index  2. 索引  3. ノート
     const rank = k => (k.toLowerCase() === q ? 0 : k.toLowerCase().startsWith(q) ? 1 : 2);
     const hq = L.toHira(q), rk = k => Math.min(rank(k), readings[k] ? rank(readings[k]) : 9);
@@ -599,7 +607,6 @@ function renderList() {
     if (dh.length) out.push('<h4>日記</h4>', ...dh.map(d => `<div class="item note" data-diary="${d.date}" data-kind="${esc(d.kind || '日記')}"><div class="nrow"><div class="nt">${mk(d.title || d.date, searchQ)}</div><div class="ns">${esc(d.kind || '日記')} · ${d.date}</div>${snippet(d.body, searchQ) ? `<div class="sn">${snippet(d.body, searchQ)}</div>` : ''}</div></div>`));
     if (!out.length) out.push('<div class="none">見つかりません</div>');
   } else if (tab === 's') {
-    out.push('<div class="none">検索語を入れてください。<br>空白=かつ　a OR b=または　-a=除く　"a b"=並びのまま<br>id:1a　kw:GUI　title:題　body:本文　date:2026-11　is:paper　has:link</div>');
   } else if (tab === 'f') {
     refreshFiles();
     const fl = filesCache.filter(f => fileFilter === 'all' || !f.title);
@@ -608,7 +615,6 @@ function renderList() {
     if (!fl.length) out.push(`<div class="none">${fileFilter === 'untitled' ? 'タイトルのないファイルはありません' : '取り込んだ画像・html・csv などが、ここに並びます。ノートにドラッグしても取り込めます'}</div>`);
   } else if (tab === 'i') {
     // Index: グローバルIndex（キーワードの一覧）
-    out.push(`<div class="grpbar"><button id="ix-add" class="tbtn" title="${paperOnly ? '新しい紙のキーワードを作る' : '新しいデジタルのキーワードを作る'}">＋</button></div>`);
     {
       let row = null;
       for (const e of globalIndex()) {
@@ -616,7 +622,7 @@ function renderList() {
         if (r !== row) { out.push(`<h4>${r}</h4>`); row = r; }
         out.push(ixRow(e));
       }
-      if (out.length === 1) out.push(`<div class="none">${paperOnly ? '紙のキーワードはまだありません。右上の＋で作ります' : 'ノートにキーワードを書くと、ここに並びます。右上の＋でも作れます'}</div>`);
+      if (out.length === 0) out.push(`<div class="none">${paperOnly ? '紙のキーワードはまだありません。右上の＋で作ります' : 'ノートにキーワードを書くと、ここに並びます。右上の＋でも作れます'}</div>`);
     }
   } else {
     const list = sortNotes((tab === 'u' ? notes.filter(n => n.noid) : notes.filter(n => n.s === tab && !n.noid)), tab);
